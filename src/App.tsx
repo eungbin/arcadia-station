@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { GameUI } from "./ui/GameUI";
 import { useGameStore } from "./store/gameStore";
 import { AudioDirector } from "./game/AudioDirector";
@@ -26,6 +26,12 @@ export default function App() {
   const layer = useGameStore((state) => state.layer);
   const graphicsQuality = useSettingsStore((state) => state.graphicsQuality);
   const reducedMotion = useSettingsStore((state) => state.reducedMotion);
+  const [sceneReady, setSceneReady] = useState(false);
+  const handleSceneReady = useCallback(() => setSceneReady(true), []);
+
+  useEffect(() => {
+    if (layer === "opening") setSceneReady(false);
+  }, [layer]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -149,7 +155,8 @@ export default function App() {
     <main className="game-shell">
       {layer !== "opening" && (
         <Suspense fallback={<SceneBootScreen />}>
-          <ArcadiaScene />
+          <ArcadiaScene onReady={handleSceneReady} />
+          {!sceneReady && <SceneBootScreen />}
         </Suspense>
       )}
       {layer !== "opening" && (

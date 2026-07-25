@@ -15,6 +15,7 @@ const velocityEpsilon = 0.0001;
 export function PlayerController() {
   const body = useRef<RapierRigidBody>(null);
   const pressedKeys = useRef(new Set<string>());
+  const lastDebugUpdate = useRef(-Infinity);
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
@@ -71,7 +72,11 @@ export function PlayerController() {
       position = body.current.translation();
     }
     camera.position.set(position.x, position.y + 0.68, position.z);
-    if (import.meta.env.DEV) {
+    if (
+      import.meta.env.DEV &&
+      performance.now() - lastDebugUpdate.current >= 100
+    ) {
+      lastDebugUpdate.current = performance.now();
       camera.getWorldDirection(forwardVector);
       gl.domElement.dataset.cameraPosition =
         `${camera.position.x.toFixed(2)},${camera.position.y.toFixed(2)},${camera.position.z.toFixed(2)}`;
@@ -99,18 +104,16 @@ export function PlayerController() {
     const xAxis = Number(right) - Number(left);
     const zAxis = Number(forward) - Number(backward);
 
-    camera.getWorldDirection(forwardVector);
-    forwardVector.y = 0;
-    forwardVector.normalize();
-    rightVector.crossVectors(forwardVector, upVector).normalize();
-
-    movementVector
-      .set(0, 0, 0)
-      .addScaledVector(forwardVector, zAxis)
-      .addScaledVector(rightVector, xAxis);
-
-    const hasMovement = movementVector.lengthSq() > 0;
+    const hasMovement = xAxis !== 0 || zAxis !== 0;
+    movementVector.set(0, 0, 0);
     if (hasMovement) {
+      camera.getWorldDirection(forwardVector);
+      forwardVector.y = 0;
+      forwardVector.normalize();
+      rightVector.crossVectors(forwardVector, upVector).normalize();
+      movementVector
+        .addScaledVector(forwardVector, zAxis)
+        .addScaledVector(rightVector, xAxis);
       movementVector.normalize().multiplyScalar(3.25);
       markMoved();
     }

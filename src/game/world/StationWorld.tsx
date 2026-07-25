@@ -1,7 +1,13 @@
 import { createInstances, RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
-import { useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type PropsWithChildren,
+} from "react";
 import {
   AdditiveBlending,
   CanvasTexture,
@@ -10,6 +16,8 @@ import {
   Group,
   LinearFilter,
   SRGBColorSpace,
+  type InstancedMesh,
+  type Object3D,
 } from "three";
 import { useGameStore } from "../../store/gameStore";
 
@@ -633,43 +641,42 @@ function InteractiveGroup({
   rotation?: Vector3Tuple;
   markerPosition?: Vector3Tuple;
 }>) {
-  const focused = useGameStore((state) => state.focusedId === id);
   const discovered = useGameStore((state) => state.discoveredIds.includes(id));
-  const scanUntil = useGameStore((state) => state.scanUntil);
-  const [scanVisible, setScanVisible] = useState(false);
-
-  useEffect(() => {
-    const remaining = scanUntil - performance.now();
-    if (remaining <= 0) return;
-    setScanVisible(true);
-    const timer = window.setTimeout(() => setScanVisible(false), remaining);
-    return () => window.clearTimeout(timer);
-  }, [scanUntil]);
 
   return (
     <group
       position={position}
       rotation={rotation}
-      userData={{ interactionId: id }}
+      userData={{ interactionId: id, interactionMarker: markerPosition }}
     >
       {children}
-      {focused && <pointLight position={markerPosition} color="#a8f6df" intensity={1.1} distance={3} />}
-      {scanVisible && (
-        <group position={markerPosition}>
-          <mesh rotation={[Math.PI / 4, Math.PI / 4, 0]}>
-            <octahedronGeometry args={[0.11, 0]} />
-            <meshBasicMaterial
-              color={discovered ? "#5c706a" : "#8ce0c8"}
-              wireframe
-            />
-          </mesh>
-          <pointLight
+      <pointLight
+        position={markerPosition}
+        color="#a8f6df"
+        intensity={1.1}
+        distance={3}
+        visible={false}
+        userData={{ interactionFocusLight: id }}
+      />
+      <group
+        position={markerPosition}
+        visible={false}
+        userData={{ interactionScanEffect: true }}
+      >
+        <mesh rotation={[Math.PI / 4, Math.PI / 4, 0]}>
+          <octahedronGeometry args={[0.11, 0]} />
+          <meshBasicMaterial
             color={discovered ? "#5c706a" : "#8ce0c8"}
-            intensity={0.55}
-            distance={1.8}
+            wireframe
           />
-        </group>
-      )}
+        </mesh>
+        <pointLight
+          color={discovered ? "#5c706a" : "#8ce0c8"}
+          intensity={0.55}
+          distance={1.8}
+          userData={{ interactionScanLight: true }}
+        />
+      </group>
     </group>
   );
 }
@@ -781,12 +788,12 @@ function AtmosphereParticles() {
 
   useFrame(({ clock }) => {
     if (!particles.current) return;
-    particles.current.position.y = Math.sin(clock.getElapsedTime() * 0.12) * 0.08;
-    particles.current.rotation.y = Math.sin(clock.getElapsedTime() * 0.04) * 0.015;
+    particles.current.position.y = Math.sin(clock.elapsedTime * 0.12) * 0.08;
+    particles.current.rotation.y = Math.sin(clock.elapsedTime * 0.04) * 0.015;
   });
 
   return (
-    <group ref={particles}>
+    <group ref={particles} userData={{ dynamicTransform: true }}>
       <points>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
@@ -810,12 +817,12 @@ function HubCoreEffects() {
 
   useFrame(({ clock }) => {
     if (!rings.current) return;
-    rings.current.rotation.y = clock.getElapsedTime() * 0.08;
+    rings.current.rotation.y = clock.elapsedTime * 0.08;
   });
 
   return (
     <group>
-      <group ref={rings}>
+      <group ref={rings} userData={{ dynamicTransform: true }}>
         {[0.9, 1.78, 2.68].map((height, index) => (
           <group key={height} rotation={[0, index * 0.56, index === 1 ? 0.09 : -0.05]}>
             <mesh position={[0, height, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -887,7 +894,7 @@ function CrewMember({
   const isCommand = id === "NPC_MAYA";
 
   useFrame(({ clock }) => {
-    const time = clock.getElapsedTime() + phase.current;
+    const time = clock.elapsedTime + phase.current;
     if (body.current) {
       body.current.position.y = Math.sin(time * 1.35) * 0.008;
       body.current.rotation.z = Math.sin(time * 0.42) * 0.006;
@@ -900,7 +907,7 @@ function CrewMember({
 
   return (
     <InteractiveGroup id={id} position={position} rotation={rotation} markerPosition={[0, 2.55, 0]}>
-      <group ref={body}>
+      <group ref={body} userData={{ dynamicTransform: true }}>
         <mesh position={[-0.18, 0.48, 0]} castShadow>
           <capsuleGeometry args={[0.14, 0.62, 7, 12]} />
           <meshStandardMaterial color="#252c2e" roughness={0.72} />
@@ -1037,7 +1044,11 @@ function CrewMember({
           </group>
         )}
 
-        <group ref={head} position={[0, 2.02, 0]}>
+        <group
+          ref={head}
+          position={[0, 2.02, 0]}
+          userData={{ dynamicTransform: true }}
+        >
           <mesh castShadow>
             <sphereGeometry args={[0.29, 20, 16]} />
             <meshStandardMaterial color={skin} roughness={0.78} />
@@ -1939,8 +1950,31 @@ function StationCollisionFloor() {
 }
 
 export function StationWorld() {
+  const world = useRef<InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    const root = world.current;
+    if (!root) return;
+
+    const originalAutoUpdates = new Map<Object3D, boolean>();
+    root.traverse((object) => {
+      object.updateMatrix();
+      if (object.userData.dynamicTransform !== true) {
+        originalAutoUpdates.set(object, object.matrixAutoUpdate);
+        object.matrixAutoUpdate = false;
+      }
+    });
+    root.updateWorldMatrix(true, true);
+
+    return () => {
+      originalAutoUpdates.forEach((matrixAutoUpdate, object) => {
+        object.matrixAutoUpdate = matrixAutoUpdate;
+      });
+    };
+  }, []);
+
   return (
-    <FloorBaseInstances limit={32} frames={1} receiveShadow>
+    <FloorBaseInstances ref={world} limit={32} frames={1} receiveShadow>
       <boxGeometry />
       <meshStandardMaterial color={palette.floor} roughness={0.82} metalness={0.55} />
       <FloorPanelInstances limit={32} frames={1} receiveShadow>

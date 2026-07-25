@@ -84,9 +84,14 @@ try {
   await page.locator(".hud-layer").waitFor({ state: "visible" });
   stage("waiting for the 3D station");
   await page.waitForFunction(
+    () => document.querySelectorAll(".scene-boot").length === 0,
+    undefined,
+    { timeout: 30_000 },
+  );
+  await page.waitForFunction(
     () => Boolean(document.querySelector("canvas")?.dataset.cameraPosition),
     undefined,
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   await page.waitForFunction(() => Boolean(window.__ARCADIA_QA__), undefined, {
     timeout: 5_000,
@@ -359,6 +364,12 @@ try {
   }
 } finally {
   clearTimeout(hardTimeout);
-  await browser?.close().catch(() => undefined);
+  if (browser) {
+    await Promise.race([
+      browser.close().catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, 5_000)),
+    ]);
+  }
   server?.kill();
+  server?.unref();
 }
