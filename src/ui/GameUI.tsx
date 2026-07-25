@@ -1,0 +1,1409 @@
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  INVESTIGATION_OBJECTS,
+  NPC_DIALOGUE,
+  SUSPECTS,
+  TIMELINE,
+  type TargetKind,
+} from "../data/investigation";
+import {
+  getRequiredProgress,
+  useGameStore,
+  type NotebookTab,
+} from "../store/gameStore";
+import { useSettingsStore } from "../store/settingsStore";
+import {
+  useCompleteDay,
+  useCreateSession,
+  useAskAssistant,
+  useInspectObject,
+  useInterrogationSession,
+  useSaveTheory,
+  useSendInterrogationMessage,
+  useSubmitVerdict,
+} from "../api/hooks";
+import { validateTheory } from "../domain/theoryValidation";
+
+const KIND_LABELS: Record<TargetKind, string> = {
+  PHYSICAL: "물리 단서",
+  DIGITAL: "디지털 기록",
+  MOTIVE: "동기 자료",
+  WORLD: "구조 정보",
+  PERSON: "용의자 심문",
+};
+
+function OpeningOverlay() {
+  const beginInvestigation = useGameStore((state) => state.beginInvestigation);
+  const createSession = useCreateSession();
+  const enterStation = () => {
+    createSession.mutate(undefined, {
+      onSuccess: (session) => beginInvestigation(session.sessionId, session.version),
+    });
+  };
+
+  return (
+    <section className="opening-overlay" aria-label="사건 브리핑">
+      <div className="opening-noise" />
+      <header className="opening-header">
+        <span>CORVIS CONSORTIUM // SECURITY CHANNEL 04</span>
+        <span className="status-live"><i /> LIVE</span>
+      </header>
+
+      <div className="opening-content">
+        <p className="opening-kicker">격리 프로토콜 발령 · D1 07:24</p>
+        <h1>
+          ARCADIA
+          <span>INCIDENT 72</span>
+        </h1>
+        <div className="opening-rule" />
+        <p className="opening-lead">
+          사령관 다니엘 로스가 사망했다.
+          <br />
+          구조선 도착까지 남은 시간은 72시간.
+        </p>
+
+        <dl className="brief-grid">
+          <div>
+            <dt>현장</dt>
+            <dd>사령관실 CO · 01</dd>
+          </div>
+          <div>
+            <dt>최초 발견자</dt>
+            <dd>마야 헨드릭스</dd>
+          </div>
+          <div>
+            <dt>잔류 인원</dt>
+            <dd>생존 6명</dd>
+          </div>
+          <div>
+            <dt>외부 통신</dt>
+            <dd className="danger-text">완전 두절</dd>
+          </div>
+        </dl>
+
+        <button
+          className="primary-action"
+          type="button"
+          disabled={createSession.isPending}
+          onClick={enterStation}
+        >
+          <span>{createSession.isPending ? "격리 채널 동기화 중" : "보안 권한으로 현장 진입"}</span>
+          <kbd>{createSession.isPending ? "..." : "ENTER"}</kbd>
+        </button>
+        {createSession.isError && (
+          <div className="opening-error" role="alert">
+            <span>CONNECTION REFUSED</span>
+            <p>{createSession.error.message}</p>
+            <button type="button" onClick={enterStation}>채널 재시도</button>
+          </div>
+        )}
+        <p className="opening-footnote">
+          사건 기록 ARK-D1-0724 · 모든 조사 행위가 로컬 보안 장치에 기록됩니다.
+        </p>
+      </div>
+
+      <aside className="opening-call">
+        <div className="call-avatar">MH</div>
+        <div>
+          <span>긴급 호출 수신</span>
+          <strong>마야 헨드릭스</strong>
+          <p>“보안담당관, 즉시 사령관실로 와주세요.”</p>
+        </div>
+      </aside>
+
+      <div className="opening-index">072</div>
+    </section>
+  );
+}
+
+function MissionHud() {
+  const openSettings = useSettingsStore((state) => state.setOpen);
+  const focusedId = useGameStore((state) => state.focusedId);
+  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const hasMoved = useGameStore((state) => state.hasMoved);
+  const interviewedIds = useGameStore((state) => state.interviewedIds);
+  const phase = useGameStore((state) => state.phase);
+  const activateScan = useGameStore((state) => state.activateScan);
+  const toggleNotebook = useGameStore((state) => state.toggleNotebook);
+  const openDayReview = useGameStore((state) => state.openDayReview);
+  const progress = getRequiredProgress(discoveredIds);
+  const readyForReview = progress.complete && interviewedIds.length >= 3;
+  const focused = focusedId ? INVESTIGATION_OBJECTS[focusedId] : null;
+
+  return (
+    <div className="hud-layer">
+      <div className="hud-topline">
+        <div className="hud-brand">
+          <i />
+          <div>
+            <span>ARK SECURITY</span>
+            <strong>INCIDENT // 072</strong>
+          </div>
+        </div>
+        <div className="hud-time">
+          <span>구조선 도착 예상</span>
+          <strong>71 : 42 : 18</strong>
+        </div>
+      </div>
+
+      <aside className="objective-panel">
+        <header>
+          <span>PRIMARY OBJECTIVE</span>
+          <em>{phase}</em>
+        </header>
+        <h2>
+          {phase === "DAY2"
+            ? "기록 교차 검증"
+            : readyForReview
+              ? "D1 조사 요건 충족"
+              : progress.complete
+                ? "용의자 1차 진술 확보"
+                : "사령관실 현장 보존"}
+        </h2>
+        <p>
+          {phase === "DAY2"
+            ? "현장 단서와 각 시스템 원본을 비교해 모순을 찾으십시오."
+            : readyForReview
+              ? "확보한 자료를 정리하고 심층 조사로 전환할 수 있습니다."
+              : progress.complete
+                ? `용의자 진술 ${interviewedIds.length} / 3 · 담당 구역에서 직접 심문하십시오.`
+                : "피해자와 현장 시스템에서 필수 기록을 확보하십시오."}
+        </p>
+        <div className="objective-progress">
+          <span style={{ width: `${(progress.found / progress.total) * 100}%` }} />
+        </div>
+        <small>
+          필수 기록 {String(progress.found).padStart(2, "0")} / {String(progress.total).padStart(2, "0")}
+        </small>
+        {phase === "DAY1" && readyForReview && (
+          <button className="day-review-action" type="button" onClick={openDayReview}>
+            D1 조사 정리
+          </button>
+        )}
+      </aside>
+
+      <div className={`crosshair ${focused ? "is-focused" : ""}`}>
+        <i />
+        <i />
+        <i />
+        <i />
+      </div>
+
+      {focused && (
+        <div className="interaction-prompt">
+          <kbd>E</kbd>
+          <div>
+            <span>{KIND_LABELS[focused.kind]}</span>
+            <strong>{focused.title}</strong>
+          </div>
+        </div>
+      )}
+
+      <div className="hud-controls">
+        {!hasMoved && <span><kbd>WASD</kbd> 이동</span>}
+        <button type="button" onClick={activateScan}><kbd>Q</kbd> 조사 스캔</button>
+        <button className="notebook-trigger" type="button" onClick={toggleNotebook}>
+          <kbd>TAB</kbd> 사건 수첩
+        </button>
+      </div>
+
+      <button
+        className="settings-trigger"
+        type="button"
+        aria-label="설정 열기"
+        onClick={() => openSettings(true)}
+      >
+        SYS <kbd>ESC</kbd>
+      </button>
+
+      <div className="signal-meter">
+        <span>EXTERNAL LINK</span>
+        <div><i /><i /><i /><i /><i /></div>
+        <strong>NO SIGNAL</strong>
+      </div>
+    </div>
+  );
+}
+
+function InspectionPanel() {
+  const sessionId = useGameStore((state) => state.sessionId);
+  const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
+  const selectedId = useGameStore((state) => state.selectedId);
+  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const closeOverlay = useGameStore((state) => state.closeOverlay);
+  const recordEvidence = useGameStore((state) => state.recordEvidence);
+  const inspectObject = useInspectObject(sessionId);
+  const item = selectedId ? INVESTIGATION_OBJECTS[selectedId] : null;
+
+  if (!item) return null;
+  const isRecorded = discoveredIds.includes(item.id);
+
+  return (
+    <section className="inspection-shell" aria-label={`${item.title} 조사`}>
+      <button className="overlay-scrim" aria-label="조사 화면 닫기" onClick={closeOverlay} />
+      <article className="inspection-card">
+        <header className="inspection-card__head">
+          <div>
+            <span>{item.eyebrow}</span>
+            <small>{item.zone} // {item.id}</small>
+          </div>
+          <button type="button" onClick={closeOverlay} aria-label="닫기">×</button>
+        </header>
+
+        <div className="inspection-visual">
+          <div className={`evidence-glyph evidence-glyph--${item.kind.toLowerCase()}`}>
+            <i />
+            <span>{item.id.slice(-2)}</span>
+          </div>
+          <div className="scan-lines" />
+          <span className="inspection-kind">{KIND_LABELS[item.kind]}</span>
+        </div>
+
+        <div className="inspection-copy">
+          <p className="inspection-index">OBSERVATION // {item.id}</p>
+          <h2>{item.title}</h2>
+          <p className="inspection-summary">{item.summary}</p>
+          <div className="inspection-detail">
+            <span>상세 관찰</span>
+            <p>{item.detail}</p>
+          </div>
+          <blockquote>{item.observation}</blockquote>
+        </div>
+
+        <footer>
+          <div>
+            <span>기록 항목</span>
+            <strong>{item.evidenceLabel}</strong>
+          </div>
+          <button
+            className={isRecorded ? "record-action is-recorded" : "record-action"}
+            type="button"
+            disabled={inspectObject.isPending}
+            onClick={() => {
+              if (isRecorded) return;
+              inspectObject.mutate(item.id, {
+                onSuccess: (result) => {
+                  updateSessionVersion(result.version);
+                  recordEvidence(item.id);
+                },
+              });
+            }}
+          >
+            {isRecorded
+              ? "수첩에 기록됨"
+              : inspectObject.isPending
+                ? "보안 기록 동기화 중"
+                : "증거로 기록"}
+          </button>
+          {inspectObject.isError && (
+            <small className="inline-error" role="alert">{inspectObject.error.message}</small>
+          )}
+        </footer>
+      </article>
+    </section>
+  );
+}
+
+const NOTEBOOK_TABS: Array<{ id: NotebookTab; label: string; index: string }> = [
+  { id: "evidence", label: "증거", index: "01" },
+  { id: "timeline", label: "타임라인", index: "02" },
+  { id: "suspects", label: "용의자", index: "03" },
+  { id: "assistant", label: "수사 보조", index: "04" },
+  { id: "theory", label: "사건 재구성", index: "05" },
+];
+
+function EvidenceTab({ discoveredIds }: { discoveredIds: string[] }) {
+  const evidence = discoveredIds
+    .map((id) => INVESTIGATION_OBJECTS[id])
+    .filter(Boolean);
+
+  if (evidence.length === 0) {
+    return (
+      <div className="notebook-empty">
+        <span>NO EVIDENCE LOGGED</span>
+        <h3>기록된 증거가 없습니다.</h3>
+        <p>현장에서 오브젝트를 조사한 뒤 증거로 기록하십시오.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="evidence-grid">
+      {evidence.map((item, index) => (
+        <article className="evidence-card" key={item.id}>
+          <header>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <em>{KIND_LABELS[item.kind]}</em>
+          </header>
+          <div className={`evidence-card__mark evidence-card__mark--${item.kind.toLowerCase()}`} />
+          <small>{item.zone} · {item.id}</small>
+          <h3>{item.title}</h3>
+          <p>{item.summary}</p>
+          <footer>{item.evidenceLabel}</footer>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function TimelineTab() {
+  return (
+    <div className="timeline-list">
+      {TIMELINE.map((event, index) => (
+        <article key={`${event.time}-${event.title}`}>
+          <div className="timeline-node">
+            <i className={index === TIMELINE.length - 1 ? "is-current" : ""} />
+          </div>
+          <time>{event.time}</time>
+          <div>
+            <h3>{event.title}</h3>
+            <p>{event.detail}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function SuspectsTab() {
+  const interviewedIds = useGameStore((state) => state.interviewedIds);
+  return (
+    <div className="suspect-list">
+      {SUSPECTS.map((suspect, index) => (
+        <article key={suspect.id}>
+          <div className="suspect-number" style={{ "--suspect": suspect.color } as React.CSSProperties}>
+            {String(index + 1).padStart(2, "0")}
+          </div>
+          <div>
+            <span>{suspect.role}</span>
+            <h3>{suspect.name}</h3>
+          </div>
+          <dl>
+            <div>
+              <dt>진술</dt>
+              <dd>{interviewedIds.includes(`NPC_${suspect.id}`) ? "1차 확보" : "미확보"}</dd>
+            </div>
+            <div><dt>알리바이</dt><dd>검증 전</dd></div>
+          </dl>
+          <button type="button" disabled>
+            {interviewedIds.includes(`NPC_${suspect.id}`) ? "진술 기록됨" : "심문 필요"}
+          </button>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+const ASSISTANT_QUERIES = [
+  "02시 전후의 환경 제어 기록을 시간순으로 비교해줘.",
+  "출입 기록과 각 구역 원본 사이의 모순을 찾아줘.",
+  "현재 증거만으로 확인할 수 없는 부분을 알려줘.",
+];
+
+function AssistantTab() {
+  const sessionId = useGameStore((state) => state.sessionId);
+  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const [query, setQuery] = useState(ASSISTANT_QUERIES[0]);
+  const assistant = useAskAssistant(sessionId);
+  const submit = (nextQuery = query) => {
+    const normalized = nextQuery.trim();
+    if (!normalized) return;
+    setQuery(normalized);
+    assistant.mutate({ query: normalized, discoveredEvidenceIds: discoveredIds });
+  };
+
+  return (
+    <div className="assistant-console">
+      <header>
+        <div>
+          <span>LOCAL EVIDENCE INDEX // READ ONLY</span>
+          <h3>아르카디아 수사 보조</h3>
+        </div>
+        <strong>{discoveredIds.length} RECORDS AVAILABLE</strong>
+      </header>
+
+      <div className="assistant-presets">
+        {ASSISTANT_QUERIES.map((preset) => (
+          <button type="button" key={preset} onClick={() => submit(preset)}>
+            {preset}
+          </button>
+        ))}
+      </div>
+
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <label htmlFor="assistant-query">발견한 기록에 질문</label>
+        <div>
+          <input
+            id="assistant-query"
+            value={query}
+            maxLength={160}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <button type="submit" disabled={!query.trim() || assistant.isPending}>
+            {assistant.isPending ? "검색 중" : "기록 비교"}
+          </button>
+        </div>
+      </form>
+
+      {assistant.isError && (
+        <article className="assistant-answer is-fallback" role="status">
+          <span>STATIC FALLBACK // AI OFFLINE</span>
+          <h4>자동 비교를 완료하지 못했습니다.</h4>
+          <p>
+            증거 탭에서 시간·구역·접근 주체를 직접 대조할 수 있습니다. 핵심 단서
+            획득과 재판 진행은 수사 보조 상태와 무관합니다.
+          </p>
+          <button type="button" onClick={() => submit()}>다시 검색</button>
+        </article>
+      )}
+
+      {assistant.data && (
+        <article className="assistant-answer" aria-live="polite">
+          <span>{assistant.data.fallback ? "STATIC FALLBACK" : "SUPPORTED FINDING"}</span>
+          <h4>{assistant.data.summary}</h4>
+          <p>{assistant.data.observation}</p>
+          <div>
+            {assistant.data.citations.map((id) => (
+              <button
+                type="button"
+                key={id}
+                onClick={() => useGameStore.getState().setNotebookTab("evidence")}
+              >
+                {id} · {INVESTIGATION_OBJECTS[id]?.title}
+              </button>
+            ))}
+          </div>
+          {assistant.data.suggestedQuery && (
+            <button type="button" onClick={() => submit(assistant.data!.suggestedQuery!)}>
+              후속 질문 · {assistant.data.suggestedQuery}
+            </button>
+          )}
+        </article>
+      )}
+    </div>
+  );
+}
+
+function TheoryTab() {
+  const sessionId = useGameStore((state) => state.sessionId);
+  const sessionVersion = useGameStore((state) => state.sessionVersion);
+  const phase = useGameStore((state) => state.phase);
+  const theory = useGameStore((state) => state.theory);
+  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
+  const setTheorySuspect = useGameStore((state) => state.setTheorySuspect);
+  const setTheoryEvidence = useGameStore((state) => state.setTheoryEvidence);
+  const setTheoryExclusion = useGameStore((state) => state.setTheoryExclusion);
+  const startTrial = useGameStore((state) => state.startTrial);
+  const saveTheory = useSaveTheory(sessionId);
+
+  const evidence = discoveredIds
+    .map((id) => INVESTIGATION_OBJECTS[id])
+    .filter((item) => item && item.kind !== "PERSON");
+  const otherSuspects = SUSPECTS.filter((suspect) => suspect.id !== theory.suspectId);
+  const validation = validateTheory(
+    theory,
+    discoveredIds,
+    SUSPECTS.map((suspect) => suspect.id),
+  );
+  const ready = phase === "DAY2" && validation.valid;
+  const submitTheory = () => {
+    if (!ready) return;
+    saveTheory.mutate(
+      { theory, version: sessionVersion },
+      {
+        onSuccess: ({ version }) => {
+          updateSessionVersion(version);
+          startTrial();
+        },
+      },
+    );
+  };
+
+  if (phase !== "DAY2") {
+    return (
+      <div className="theory-locked">
+        <span>RECONSTRUCTION LOCKED</span>
+        <i />
+        <h3>D2 심층 조사 이후 개방됩니다.</h3>
+        <p>첫날 현장 기록과 용의자 진술을 먼저 확보하십시오.</p>
+      </div>
+    );
+  }
+
+  const evidenceOptions = (value: string | null, onChange: (id: string) => void) => (
+    <select value={value ?? ""} onChange={(event) => onChange(event.target.value)}>
+      <option value="" disabled>증거 선택</option>
+      {evidence.map((item) => (
+        <option key={item.id} value={item.id}>
+          [{item.zone}] {item.title}
+        </option>
+      ))}
+    </select>
+  );
+
+  return (
+    <div className="theory-builder">
+      <section className="theory-accused">
+        <header>
+          <span>01 // ACCUSED</span>
+          <h3>범인 지목</h3>
+          <p>범행 조건을 모두 만족하는 한 명을 선택합니다.</p>
+        </header>
+        <div>
+          {SUSPECTS.map((suspect) => (
+            <button
+              key={suspect.id}
+              type="button"
+              className={theory.suspectId === suspect.id ? "is-selected" : ""}
+              style={{ "--suspect": suspect.color } as React.CSSProperties}
+              onClick={() => setTheorySuspect(suspect.id)}
+            >
+              <i>{suspect.name.slice(0, 1)}</i>
+              <span>{suspect.role}</span>
+              <strong>{suspect.name}</strong>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="theory-core">
+        <header>
+          <span>02 // CORE PROOF</span>
+          <h3>핵심 입증</h3>
+          <p>수단·동기·현장 연결을 서로 다른 기록으로 구성합니다.</p>
+        </header>
+        <div>
+          <label>
+            <span>METHOD</span>
+            <strong>범행 수단</strong>
+            {evidenceOptions(theory.method, (id) => setTheoryEvidence("method", id))}
+          </label>
+          <label>
+            <span>MOTIVE</span>
+            <strong>범행 동기</strong>
+            {evidenceOptions(theory.motive, (id) => setTheoryEvidence("motive", id))}
+          </label>
+          <label>
+            <span>TRACE</span>
+            <strong>기회와 흔적</strong>
+            {evidenceOptions(theory.trace, (id) => setTheoryEvidence("trace", id))}
+          </label>
+        </div>
+      </section>
+
+      <section className="theory-exclusions">
+        <header>
+          <span>03 // EXCLUSION</span>
+          <h3>다른 용의자 배제</h3>
+          <p>권한 부재가 아닌 알리바이·전문성·물리 흔적으로 배제합니다.</p>
+        </header>
+        {!theory.suspectId ? (
+          <div className="theory-placeholder">범인을 먼저 지목하십시오.</div>
+        ) : (
+          <div>
+            {otherSuspects.map((suspect) => (
+              <label key={suspect.id}>
+                <i style={{ "--suspect": suspect.color } as React.CSSProperties}>
+                  {suspect.name.slice(0, 1)}
+                </i>
+                <span>{suspect.name}</span>
+                {evidenceOptions(
+                  theory.exclusions[suspect.id] ?? null,
+                  (id) => setTheoryExclusion(suspect.id, id),
+                )}
+              </label>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <footer className="theory-submit">
+        <div>
+          <span>TRIAL READINESS</span>
+          <strong>{ready ? "재판 준비 완료" : validation.message}</strong>
+        </div>
+        {saveTheory.isError && (
+          <p className="inline-api-error" role="alert">{saveTheory.error.message}</p>
+        )}
+        <button
+          type="button"
+          disabled={!ready || saveTheory.isPending}
+          onClick={submitTheory}
+        >
+          {saveTheory.isPending ? "사건 재구성 봉인 중" : "D3 생존자 재판 시작"} <i>→</i>
+        </button>
+      </footer>
+    </div>
+  );
+}
+
+function InterrogationPanel() {
+  const subtitles = useSettingsStore((state) => state.subtitles);
+  const sessionId = useGameStore((state) => state.sessionId);
+  const selectedId = useGameStore((state) => state.selectedId);
+  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const closeOverlay = useGameStore((state) => state.closeOverlay);
+  const markInterviewed = useGameStore((state) => state.markInterviewed);
+  const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
+  const [response, setResponse] = useState<string | null>(null);
+  const [activeChoice, setActiveChoice] = useState<string | null>(null);
+  const [showEvidence, setShowEvidence] = useState(false);
+  const [freeQuestion, setFreeQuestion] = useState("");
+  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
+
+  const target = selectedId ? INVESTIGATION_OBJECTS[selectedId] : null;
+  const dialogue = selectedId ? NPC_DIALOGUE[selectedId] : null;
+  const interrogation = useInterrogationSession(sessionId, selectedId);
+  const sendMessage = useSendInterrogationMessage(
+    interrogation.data?.interrogationId ?? null,
+  );
+  const evidence = discoveredIds
+    .map((id) => INVESTIGATION_OBJECTS[id])
+    .filter((item) => item && item.kind !== "PERSON");
+
+  useEffect(() => {
+    setResponse(null);
+    setActiveChoice(null);
+    setShowEvidence(false);
+    setFreeQuestion("");
+    setLastQuestion(null);
+  }, [selectedId]);
+
+  if (!target || !dialogue || !selectedId) return null;
+
+  const ask = (choiceId: string) => {
+    if (!selectedId) return;
+    setActiveChoice(choiceId);
+    setShowEvidence(false);
+    const selectedChoice = dialogue.choices.find(
+      (choice) => choice.id === choiceId,
+    );
+    setLastQuestion(selectedChoice?.label ?? null);
+    const fallbackResponse = selectedChoice?.response;
+    if (interrogation.isError) {
+      setResponse(fallbackResponse ?? "지금은 답변할 수 없습니다.");
+      markInterviewed(selectedId);
+      return;
+    }
+    sendMessage.mutate(
+      { npcId: selectedId, choiceId },
+      {
+        onSuccess: (message) => {
+          setResponse(message.response);
+          updateSessionVersion(message.version);
+          markInterviewed(selectedId);
+        },
+        onError: () => {
+          setResponse(fallbackResponse ?? "지금은 답변할 수 없습니다.");
+          markInterviewed(selectedId);
+        },
+      },
+    );
+  };
+
+  const presentEvidence = (evidenceId: string) => {
+    if (!selectedId) return;
+    setActiveChoice(`evidence-${evidenceId}`);
+    setLastQuestion(
+      `증거 제시 · ${INVESTIGATION_OBJECTS[evidenceId]?.title ?? evidenceId}`,
+    );
+    const fallbackResponse =
+      "해당 기록은 확인하겠습니다. 다만 그 자료만으로 제 행동과 사망을 직접 연결할 수는 없습니다.";
+    if (interrogation.isError) {
+      setResponse(fallbackResponse);
+      setShowEvidence(false);
+      markInterviewed(selectedId);
+      return;
+    }
+    sendMessage.mutate(
+      { npcId: selectedId, evidenceId },
+      {
+        onSuccess: (message) => {
+          setResponse(message.response);
+          updateSessionVersion(message.version);
+          markInterviewed(selectedId);
+        },
+        onError: () => {
+          setResponse(fallbackResponse);
+          markInterviewed(selectedId);
+        },
+      },
+    );
+    setShowEvidence(false);
+  };
+
+  const askFreeQuestion = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = freeQuestion.trim();
+    if (!selectedId || !query) return;
+
+    setActiveChoice("free-question");
+    setShowEvidence(false);
+    setLastQuestion(query);
+    const fallbackResponse =
+      `“${query}”에 대해선 당시 보안 기록과 제 동선으로 판단해 주십시오. 추측으로 답하지 않겠습니다.`;
+
+    if (interrogation.isError) {
+      setResponse(fallbackResponse);
+      setFreeQuestion("");
+      markInterviewed(selectedId);
+      return;
+    }
+
+    sendMessage.mutate(
+      { npcId: selectedId, query },
+      {
+        onSuccess: (message) => {
+          setResponse(message.response);
+          setFreeQuestion("");
+          updateSessionVersion(message.version);
+          markInterviewed(selectedId);
+        },
+        onError: () => {
+          setResponse(fallbackResponse);
+          setFreeQuestion("");
+          markInterviewed(selectedId);
+        },
+      },
+    );
+  };
+
+  return (
+    <section className="interrogation-shell" aria-label={`${target.title} 심문`}>
+      <div className="interrogation-backdrop" />
+      <header className="interrogation-topbar">
+        <div>
+          <span>INTERROGATION CHANNEL // D1</span>
+          <strong>{dialogue.callSign}</strong>
+        </div>
+        <div className="interrogation-state">
+          <i />
+          <span>로컬 보안 기록 중</span>
+        </div>
+        <button type="button" onClick={closeOverlay}>심문 종료 <kbd>ESC</kbd></button>
+      </header>
+
+      <div className="interrogation-layout">
+        <aside className="suspect-portrait">
+          <div className="portrait-grid" />
+          <div className="portrait-silhouette">
+            <i />
+            <i />
+          </div>
+          <div className="portrait-id">{target.title.slice(0, 1)}</div>
+          <footer>
+            <span>{target.eyebrow}</span>
+            <strong>{target.title}</strong>
+            <small>{dialogue.posture}</small>
+          </footer>
+        </aside>
+
+        <main className="interrogation-main">
+          <div className="dialogue-transcript">
+            <div className="speaker-line">
+              <span>{dialogue.callSign}</span>
+              <time>LIVE · 00:0{response ? "2" : "1"}</time>
+            </div>
+            {lastQuestion && (
+              <div className="interrogator-query">
+                <span>INVESTIGATOR // QUERY</span>
+                <p>{lastQuestion}</p>
+              </div>
+            )}
+            <blockquote className={subtitles ? "is-subtitled" : ""} aria-live="polite">
+              {interrogation.isPending
+                ? "보안 음성 채널을 동기화하고 있습니다…"
+                : response ?? interrogation.data?.opening ?? dialogue.opening}
+            </blockquote>
+            {(interrogation.isError || sendMessage.isError) && (
+              <div className="inline-api-error" role="alert">
+                <span>
+                  {interrogation.error?.message ?? sendMessage.error?.message}
+                </span>
+                {interrogation.isError && (
+                  <button type="button" onClick={() => interrogation.refetch()}>
+                    채널 재연결
+                  </button>
+                )}
+              </div>
+            )}
+            {response && (
+              <button
+                className="reset-question"
+                type="button"
+                onClick={() => {
+                  setResponse(null);
+                  setActiveChoice(null);
+                  setLastQuestion(null);
+                }}
+              >
+                다른 질문 선택
+              </button>
+            )}
+          </div>
+
+          {!response && !showEvidence && (
+            <div className="question-list">
+              <span className="question-label">질문 선택</span>
+              {dialogue.choices.map((choice, index) => (
+                <button
+                  key={choice.id}
+                  type="button"
+                  className={activeChoice === choice.id ? "is-active" : ""}
+                  disabled={interrogation.isPending || sendMessage.isPending}
+                  onClick={() => ask(choice.id)}
+                >
+                  <em>{String(index + 1).padStart(2, "0")}</em>
+                  <span>{choice.label}</span>
+                  <i>→</i>
+                </button>
+              ))}
+              <form className="free-question-form" onSubmit={askFreeQuestion}>
+                <label htmlFor="free-interrogation-question">
+                  <span>FREE QUESTION</span>
+                  직접 질문
+                </label>
+                <div>
+                  <input
+                    id="free-interrogation-question"
+                    type="text"
+                    value={freeQuestion}
+                    maxLength={240}
+                    placeholder="용의자에게 직접 질문을 입력하십시오."
+                    disabled={interrogation.isPending || sendMessage.isPending}
+                    onChange={(event) => setFreeQuestion(event.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    disabled={
+                      !freeQuestion.trim() ||
+                      interrogation.isPending ||
+                      sendMessage.isPending
+                    }
+                  >
+                    {sendMessage.isPending && activeChoice === "free-question"
+                      ? "전송 중"
+                      : "질문 전송"}
+                    <i>→</i>
+                  </button>
+                </div>
+                <small>{freeQuestion.length} / 240</small>
+              </form>
+              <button
+                className="present-evidence"
+                type="button"
+                onClick={() => setShowEvidence(true)}
+                disabled={
+                  evidence.length === 0 ||
+                  interrogation.isPending ||
+                  sendMessage.isPending
+                }
+              >
+                <em>EV</em>
+                <span>{evidence.length > 0 ? "발견한 증거 제시" : "제시할 증거 없음"}</span>
+                <i>+</i>
+              </button>
+            </div>
+          )}
+
+          {showEvidence && (
+            <div className="interrogation-evidence">
+              <header>
+                <div>
+                  <span>EVIDENCE PRESENTATION</span>
+                  <h3>제시할 증거 선택</h3>
+                </div>
+                <button type="button" onClick={() => setShowEvidence(false)}>돌아가기</button>
+              </header>
+              <div>
+                {evidence.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={sendMessage.isPending}
+                    onClick={() => presentEvidence(item.id)}
+                  >
+                    <small>{item.zone} · {item.id}</small>
+                    <strong>{item.title}</strong>
+                    <span>{KIND_LABELS[item.kind]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </section>
+  );
+}
+
+function Notebook() {
+  const closeOverlay = useGameStore((state) => state.closeOverlay);
+  const tab = useGameStore((state) => state.notebookTab);
+  const setTab = useGameStore((state) => state.setNotebookTab);
+  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const progress = getRequiredProgress(discoveredIds);
+
+  return (
+    <section className="notebook-shell" aria-label="사건 수첩">
+      <div className="notebook-topbar">
+        <div className="notebook-brand">
+          <span>ARK / SECURITY ARCHIVE</span>
+          <strong>사건 기록 장치</strong>
+        </div>
+        <div className="notebook-meta">
+          <span>CASE</span>
+          <strong>ARK-D1-0724</strong>
+          <span>SYNC</span>
+          <strong className="danger-text">OFFLINE</strong>
+        </div>
+        <button type="button" onClick={closeOverlay}>수첩 닫기 <kbd>TAB</kbd></button>
+      </div>
+
+      <div className="notebook-body">
+        <nav>
+          {NOTEBOOK_TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={tab === item.id ? "is-active" : ""}
+              onClick={() => setTab(item.id)}
+            >
+              <span>{item.index}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <main>
+          <header className="notebook-title">
+            <div>
+              <p>INVESTIGATION DATABASE</p>
+              <h2>{NOTEBOOK_TABS.find((item) => item.id === tab)?.label}</h2>
+            </div>
+            <div className="notebook-progress">
+              <span>D1 필수 기록</span>
+              <strong>{progress.found} / {progress.total}</strong>
+              <i><b style={{ width: `${(progress.found / progress.total) * 100}%` }} /></i>
+            </div>
+          </header>
+
+          <div className="notebook-content">
+            {tab === "evidence" && <EvidenceTab discoveredIds={discoveredIds} />}
+            {tab === "timeline" && <TimelineTab />}
+            {tab === "suspects" && <SuspectsTab />}
+            {tab === "assistant" && <AssistantTab />}
+            {tab === "theory" && <TheoryTab />}
+          </div>
+        </main>
+      </div>
+    </section>
+  );
+}
+
+function ScanEffect() {
+  const scanUntil = useGameStore((state) => state.scanUntil);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const remaining = scanUntil - performance.now();
+    if (remaining <= 0) return;
+    setVisible(true);
+    const timer = window.setTimeout(() => setVisible(false), remaining);
+    return () => window.clearTimeout(timer);
+  }, [scanUntil]);
+
+  return visible ? <div className="scan-sweep" /> : null;
+}
+
+function DayReview() {
+  const sessionId = useGameStore((state) => state.sessionId);
+  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const interviewedIds = useGameStore((state) => state.interviewedIds);
+  const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
+  const beginDayTwo = useGameStore((state) => state.beginDayTwo);
+  const completeDay = useCompleteDay(sessionId);
+  const progress = getRequiredProgress(discoveredIds);
+  const continueToDayTwo = () => {
+    completeDay.mutate(1, {
+      onSuccess: ({ version }) => {
+        updateSessionVersion(version);
+        beginDayTwo();
+      },
+    });
+  };
+
+  return (
+    <section className="day-review-shell" aria-label="D1 조사 정리">
+      <div className="day-review-atmosphere" />
+      <header>
+        <span>INVESTIGATION CYCLE COMPLETE</span>
+        <strong>DAY 01</strong>
+        <small>아르카디아 표준시 · 22:40</small>
+      </header>
+
+      <main>
+        <div className="day-review-title">
+          <p>현장 보존 및 1차 진술</p>
+          <h2>첫날의 기록이<br />동기보다 기회를 가리킨다.</h2>
+          <span>
+            모든 용의자는 숨기는 것이 있다. 하지만 거짓말의 존재만으로 살인을 증명할 수는 없다.
+          </span>
+        </div>
+
+        <div className="day-review-results">
+          <article>
+            <span>01</span>
+            <div>
+              <small>SCENE RECORDS</small>
+              <strong>{progress.found} / {progress.total}</strong>
+              <p>사령관실 필수 기록 확보</p>
+            </div>
+          </article>
+          <article>
+            <span>02</span>
+            <div>
+              <small>TESTIMONIES</small>
+              <strong>{interviewedIds.length} / 5</strong>
+              <p>용의자 1차 진술 확보</p>
+            </div>
+          </article>
+          <article>
+            <span>03</span>
+            <div>
+              <small>LOG INTEGRITY</small>
+              <strong>UNVERIFIED</strong>
+              <p>중앙 기록과 로컬 원본 비교 필요</p>
+            </div>
+          </article>
+        </div>
+
+        <div className="day-review-next">
+          <div>
+            <span>NEXT // DAY 02</span>
+            <h3>심층 조사 개방</h3>
+            <p>의료 원시 데이터, 정비 기록, 통신 원본과 화물 로그를 교차 검증합니다.</p>
+          </div>
+          <button
+            type="button"
+            disabled={completeDay.isPending}
+            onClick={continueToDayTwo}
+          >
+            <span>{completeDay.isPending ? "D1 기록 봉인 중" : "D2 조사 시작"}</span>
+            <i>→</i>
+          </button>
+        </div>
+        {completeDay.isError && (
+          <p className="inline-api-error" role="alert">{completeDay.error.message}</p>
+        )}
+      </main>
+
+      <footer>
+        <span>구조선 도착 예상</span>
+        <strong>47 : 20 : 00</strong>
+      </footer>
+    </section>
+  );
+}
+
+function TrialScreen() {
+  const sessionId = useGameStore((state) => state.sessionId);
+  const theory = useGameStore((state) => state.theory);
+  const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
+  const completeTrial = useGameStore((state) => state.completeTrial);
+  const submitVerdict = useSubmitVerdict(sessionId);
+  const [step, setStep] = useState(0);
+  const accused = SUSPECTS.find((suspect) => suspect.id === theory.suspectId);
+
+  if (!accused || !theory.method || !theory.motive || !theory.trace) return null;
+
+  const stages = [
+    {
+      code: "ACCUSATION",
+      title: `${accused.name}을 살인 혐의로 지목합니다.`,
+      line: "당신의 추론에는 빈틈이 있습니다. 접근할 수 있었다는 사실과 실제로 죽였다는 사실은 다릅니다.",
+      evidenceId: null,
+      action: "기소 내용 확정",
+    },
+    {
+      code: "METHOD",
+      title: "범행 수단을 입증하십시오.",
+      line: "그 장치와 기록은 제 담당 업무만 보여줄 뿐입니다. 사망 시점의 실행까지 연결할 수 있습니까?",
+      evidenceId: theory.method,
+      action: "수단 증거 제시",
+    },
+    {
+      code: "MOTIVE",
+      title: "살인의 직접 동기를 입증하십시오.",
+      line: "감사 대상은 저뿐만이 아니었습니다. 비밀을 숨겼다는 이유로 모두를 살인자로 만들 수는 없습니다.",
+      evidenceId: theory.motive,
+      action: "동기 증거 제시",
+    },
+    {
+      code: "EXCLUSION",
+      title: "다른 네 명을 배제하십시오.",
+      line: "다른 사람도 같은 시간과 장소에 접근할 수 있었습니다. 왜 반드시 저여야 합니까?",
+      evidenceId: theory.trace,
+      action: "배제 논리 제출",
+    },
+    {
+      code: "VOTE",
+      title: "생존자 투표를 요청합니다.",
+      line: "이 결정은 되돌릴 수 없습니다. 당신이 제시한 기록만으로 한 사람을 진공에 내보내려는 겁니까?",
+      evidenceId: null,
+      action: "최종 투표 진행",
+    },
+  ];
+  const stage = stages[step];
+  const evidence = stage.evidenceId
+    ? INVESTIGATION_OBJECTS[stage.evidenceId]
+    : null;
+  const exclusions = SUSPECTS.filter((suspect) => suspect.id !== theory.suspectId).map(
+    (suspect) => ({
+      suspect,
+      evidence: INVESTIGATION_OBJECTS[theory.exclusions[suspect.id]],
+    }),
+  );
+
+  const proceed = () => {
+    if (step < stages.length - 1) {
+      setStep((current) => current + 1);
+      return;
+    }
+    submitVerdict.mutate(theory, {
+      onSuccess: ({ version, ...result }) => {
+        updateSessionVersion(version);
+        completeTrial(result);
+      },
+    });
+  };
+
+  return (
+    <section className="trial-shell" aria-label="D3 생존자 재판">
+      <div className="trial-atmosphere" />
+      <header className="trial-topbar">
+        <div>
+          <span>EMERGENCY TRIBUNAL // DAY 03</span>
+          <strong>생존 승무원 과반 의결 규정</strong>
+        </div>
+        <div className="trial-steps">
+          {stages.map((item, index) => (
+            <i key={item.code} className={index <= step ? "is-active" : ""}>
+              {String(index + 1).padStart(2, "0")}
+            </i>
+          ))}
+        </div>
+        <div className="trial-clock">
+          <span>구조선 도착 예상</span>
+          <strong>00 : 38 : 12</strong>
+        </div>
+      </header>
+
+      <div className="trial-jury">
+        {SUSPECTS.map((suspect) => (
+          <div
+            key={suspect.id}
+            className={suspect.id === accused.id ? "is-accused" : ""}
+            style={{ "--suspect": suspect.color } as React.CSSProperties}
+          >
+            <i>{suspect.name.slice(0, 1)}</i>
+            <span>{suspect.role}</span>
+            <strong>{suspect.name}</strong>
+          </div>
+        ))}
+      </div>
+
+      <main className="trial-main">
+        <div className="trial-stage-copy">
+          <p>{String(step + 1).padStart(2, "0")} // {stage.code}</p>
+          <h2>{stage.title}</h2>
+          <blockquote>
+            <span>{accused.name}</span>
+            {stage.line}
+          </blockquote>
+        </div>
+
+        <div className="trial-proof">
+          {evidence && (
+            <article>
+              <header>
+                <span>{KIND_LABELS[evidence.kind]}</span>
+                <small>{evidence.zone} · {evidence.id}</small>
+              </header>
+              <div className={`trial-proof-mark trial-proof-mark--${evidence.kind.toLowerCase()}`} />
+              <h3>{evidence.title}</h3>
+              <p>{evidence.summary}</p>
+            </article>
+          )}
+
+          {step === 3 && (
+            <div className="trial-exclusions">
+              {exclusions.map(({ suspect, evidence: exclusionEvidence }) => (
+                <article key={suspect.id}>
+                  <i style={{ "--suspect": suspect.color } as React.CSSProperties}>
+                    {suspect.name.slice(0, 1)}
+                  </i>
+                  <div>
+                    <span>{suspect.name}</span>
+                    <strong>{exclusionEvidence?.title}</strong>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          {step === 0 && (
+            <div className="accusation-seal">
+              <span>ACCUSED</span>
+              <strong>{accused.name}</strong>
+              <small>{accused.role}</small>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="vote-warning">
+              <span>IRREVERSIBLE ACTION</span>
+              <h3>추방에는 생존자 6명 중 4표가 필요합니다.</h3>
+              <p>오답으로 확정된 추방 역시 취소하거나 되돌릴 수 없습니다.</p>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <footer className="trial-actions">
+        <div>
+          <span>PLAYER VOTE</span>
+          <strong>추방 찬성 · 1표</strong>
+          {submitVerdict.isError && (
+            <small className="inline-api-error" role="alert">
+              {submitVerdict.error.message}
+            </small>
+          )}
+        </div>
+        <button type="button" disabled={submitVerdict.isPending} onClick={proceed}>
+          {submitVerdict.isPending ? "투표 집계 중" : stage.action} <i>→</i>
+        </button>
+      </footer>
+    </section>
+  );
+}
+
+const ENDING_COPY = {
+  CULPRIT_EXPELLED: {
+    eyebrow: "CASE CLOSED",
+    title: "진범은 에어록 너머로 사라졌다.",
+    text: "제시된 수단·동기·흔적이 하나의 실행자를 가리켰다. 구조선은 진실이 확정된 정거장에 도착한다.",
+    accent: "#8ce0c8",
+  },
+  CULPRIT_SURVIVED: {
+    eyebrow: "INSUFFICIENT PROOF",
+    title: "진범을 알았지만 입증하지 못했다.",
+    text: "과반의 동의를 얻지 못했다. 피고는 생존한 채 구조선을 기다리고, 사건은 미완의 기록으로 남는다.",
+    accent: "#e2a164",
+  },
+  INNOCENT_EXPELLED: {
+    eyebrow: "FALSE CONVICTION",
+    title: "무고한 사람이 진공으로 방출됐다.",
+    text: "표는 충분했지만 결론은 틀렸다. 진범은 남은 생존자 사이에서 조용히 구조선을 기다린다.",
+    accent: "#de6952",
+  },
+  TRIAL_DEADLOCK: {
+    eyebrow: "TRIAL DEADLOCK",
+    title: "재판은 결론 없이 끝났다.",
+    text: "증거는 누구도 설득하지 못했다. 추방은 집행되지 않았고 살인자는 정거장에 남아 있다.",
+    accent: "#9aa29f",
+  },
+};
+
+function ResultScreen() {
+  const result = useGameStore((state) => state.trialResult);
+  const toggleNotebook = useGameStore((state) => state.toggleNotebook);
+  const resetSession = useGameStore((state) => state.resetSession);
+  if (!result) return null;
+
+  const accused = SUSPECTS.find((suspect) => suspect.id === result.accusedId);
+  const copy = ENDING_COPY[result.ending];
+
+  return (
+    <section
+      className="result-shell"
+      aria-label="재판 결과"
+      style={{ "--ending-accent": copy.accent } as React.CSSProperties}
+    >
+      <div className="result-airlock">
+        <div className="airlock-ring"><i /><i /><i /></div>
+        <div className="airlock-person" />
+        <div className="airlock-haze" />
+      </div>
+      <div className="result-content">
+        <span>{copy.eyebrow}</span>
+        <h1>{copy.title}</h1>
+        <p>{copy.text}</p>
+
+        <div className="result-verdict">
+          <div>
+            <span>지목 인물</span>
+            <strong>{accused?.name}</strong>
+          </div>
+          <div>
+            <span>추방 찬성</span>
+            <strong>{result.votesFor} / 6</strong>
+          </div>
+          <div>
+            <span>판정</span>
+            <strong>{result.correctAccusation ? "정답" : "오답"}</strong>
+          </div>
+        </div>
+
+        <div className="vote-dots">
+          {Array.from({ length: 6 }, (_, index) => (
+            <i key={index} className={index < result.votesFor ? "is-for" : ""} />
+          ))}
+        </div>
+
+        <div className="result-actions">
+          <button type="button" onClick={toggleNotebook}>사건 기록 검토</button>
+          <button type="button" onClick={resetSession}>새 사건 시작</button>
+        </div>
+      </div>
+      <footer>
+        <span>ARCADIA STATION // INCIDENT 72</span>
+        <strong>구조선 도킹까지 00 : 12 : 40</strong>
+      </footer>
+    </section>
+  );
+}
+
+export function GameUI() {
+  const layer = useGameStore((state) => state.layer);
+  const selectedId = useGameStore((state) => state.selectedId);
+  const title = useMemo(
+    () => (selectedId ? INVESTIGATION_OBJECTS[selectedId]?.title : null),
+    [selectedId],
+  );
+
+  useEffect(() => {
+    document.title = title ? `${title} // ARCADIA` : "ARCADIA // INCIDENT 72";
+  }, [title]);
+
+  if (layer === "opening") return <OpeningOverlay />;
+
+  return (
+    <>
+      <MissionHud />
+      <ScanEffect />
+      {layer === "inspection" && <InspectionPanel />}
+      {layer === "interrogation" && <InterrogationPanel />}
+      {layer === "notebook" && <Notebook />}
+      {layer === "dayReview" && <DayReview />}
+      {layer === "trial" && <TrialScreen />}
+      {layer === "result" && <ResultScreen />}
+    </>
+  );
+}

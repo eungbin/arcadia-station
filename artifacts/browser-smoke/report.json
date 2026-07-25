@@ -1,0 +1,79 @@
+{
+  "url": "http://127.0.0.1:4178/?mockError=theory",
+  "title": "마야 헨드릭스 // ARCADIA",
+  "canvas": {
+    "x": 0,
+    "y": 0,
+    "width": 1440,
+    "height": 900
+  },
+  "stacking": {
+    "canvas": {
+      "position": "static",
+      "zIndex": "auto",
+      "transform": "none",
+      "cameraPosition": "0.00,1.51,6.00",
+      "cameraDirection": "0.00,-0.27,-0.96",
+      "renderStats": "{\"calls\":777,\"triangles\":59546,\"sceneChildren\":8}"
+    },
+    "children": [
+      {
+        "tag": "DIV",
+        "className": "scene-canvas",
+        "position": "absolute",
+        "zIndex": "0"
+      },
+      {
+        "tag": "DIV",
+        "className": "scene-grade scene-grade--high ",
+        "position": "absolute",
+        "zIndex": "1"
+      },
+      {
+        "tag": "DIV",
+        "className": "hud-layer",
+        "position": "absolute",
+        "zIndex": "5"
+      },
+      {
+        "tag": "SECTION",
+        "className": "notebook-shell",
+        "position": "absolute",
+        "zIndex": "15"
+      }
+    ]
+  },
+  "hud": {
+    "display": "block",
+    "visibility": "visible",
+    "opacity": "1",
+    "color": "rgb(230, 229, 223)",
+    "zIndex": "5",
+    "width": 1440,
+    "height": 900,
+    "text": "ARK SECURITYINCIDENT // 072구조선 도착 예상71 : 42 : 18PRIMARY OBJECTIVEDAY2기록 교차 검증현장 단서와 각 시스템 원본을 비교해 모순을 찾으십시오.필수 기록 04 / 04Q 조사 스캔TAB 사건 수첩SYS ESCEXTERNAL LINKNO SIGNAL"
+  },
+  "webglRenderer": "three.js r185",
+  "movement": {
+    "before": "-0.00,1.51,6.00",
+    "after": "-0.00,1.51,3.80",
+    "distance": 2.2
+  },
+  "interrogation": {
+    "suggestedQuestionCount": 4,
+    "freeQuestionResponse": "“사망 추정 시각에 어디에 있었습니까?”에 대한 제 답은 같습니다. 추측이 아니라 당시 보안 기록과 제 동선으로 판단해 주십시오."
+  },
+  "stableCameraPosition": "-2.79,1.51,-4.88",
+  "consoleErrors": [],
+  "pageErrors": [],
+  "persistedResultRecovered": true,
+  "sessionErrorText": "CONNECTION REFUSED\n\n격리 서버와 보안 채널을 열지 못했습니다.\n\n채널 재시도",
+  "mobile": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "controlsVisible": true,
+    "horizontalOverflow": false
+  }
+}
