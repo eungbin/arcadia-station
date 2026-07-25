@@ -1,4 +1,4 @@
-import { RoundedBox } from "@react-three/drei";
+import { createInstances, RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
 import { useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
@@ -30,6 +30,17 @@ const palette = {
 
 let wallPanelTexture: CanvasTexture | null = null;
 let floorPanelTexture: CanvasTexture | null = null;
+const [CeilingHousingInstances, CeilingHousingInstance] = createInstances();
+const [CeilingBracketInstances, CeilingBracketInstance] = createInstances();
+const [DoorStructureInstances, DoorStructureInstance] = createInstances();
+const [DoorBadgeInstances, DoorBadgeInstance] = createInstances();
+const [FloorBaseInstances, FloorBaseInstance] = createInstances();
+const [FloorPanelInstances, FloorPanelInstance] = createInstances();
+const [ScreenFrameInstances, ScreenFrameInstance] = createInstances();
+const [ScreenLineInstances, ScreenLineInstance] = createInstances();
+const [ScreenIndicatorInstances, ScreenIndicatorInstance] = createInstances();
+const [WallInstances, WallInstance] = createInstances();
+const [WallPanelInstances, WallPanelInstance] = createInstances();
 
 function getWallPanelTexture() {
   if (wallPanelTexture) return wallPanelTexture;
@@ -146,49 +157,32 @@ function getFloorPanelTexture() {
 function StaticBox({
   position,
   scale,
-  color = palette.structure,
 }: {
   position: Vector3Tuple;
   scale: Vector3Tuple;
-  color?: string;
 }) {
   const thinX = scale[0] <= 0.5 && scale[2] > 0.8;
   const thinZ = scale[2] <= 0.5 && scale[0] > 0.8;
-  const panelTexture = useMemo(() => getWallPanelTexture(), []);
 
   return (
-    <RigidBody type="fixed" colliders="cuboid" position={position}>
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={scale} />
-        <meshStandardMaterial color={color} roughness={0.72} metalness={0.62} />
-      </mesh>
+    <RigidBody type="fixed" colliders={false} position={position}>
+      <CuboidCollider args={[scale[0] / 2, scale[1] / 2, scale[2] / 2]} />
+      <WallInstance scale={scale} />
       {thinZ &&
         [-1, 1].map((side) => (
-          <group key={side} position={[0, 0, side * (scale[2] / 2 + 0.018)]}>
-            <mesh receiveShadow>
-              <boxGeometry args={[Math.max(0.16, scale[0] - 0.18), scale[1] - 0.24, 0.026]} />
-              <meshStandardMaterial
-                color="#c7cfce"
-                map={panelTexture}
-                metalness={0.56}
-                roughness={0.52}
-              />
-            </mesh>
-          </group>
+          <WallPanelInstance
+            key={side}
+            position={[0, 0, side * (scale[2] / 2 + 0.018)]}
+            scale={[Math.max(0.16, scale[0] - 0.18), scale[1] - 0.24, 0.026]}
+          />
         ))}
       {thinX &&
         [-1, 1].map((side) => (
-          <group key={side} position={[side * (scale[0] / 2 + 0.018), 0, 0]}>
-            <mesh receiveShadow>
-              <boxGeometry args={[0.026, scale[1] - 0.24, Math.max(0.16, scale[2] - 0.18)]} />
-              <meshStandardMaterial
-                color="#c7cfce"
-                map={panelTexture}
-                metalness={0.56}
-                roughness={0.52}
-              />
-            </mesh>
-          </group>
+          <WallPanelInstance
+            key={side}
+            position={[side * (scale[0] / 2 + 0.018), 0, 0]}
+            scale={[0.026, scale[1] - 0.24, Math.max(0.16, scale[2] - 0.18)]}
+          />
         ))}
     </RigidBody>
   );
@@ -204,22 +198,14 @@ function FloorPlate({
   accent: string;
 }) {
   const [width, depth] = size;
-  const panelTexture = useMemo(() => getFloorPanelTexture(), []);
   return (
     <group position={position}>
-      <mesh receiveShadow>
-        <boxGeometry args={[width, 0.14, depth]} />
-        <meshStandardMaterial color={palette.floor} roughness={0.82} metalness={0.55} />
-      </mesh>
-      <mesh position={[0, 0.081, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[width - 0.4, depth - 0.4]} />
-        <meshStandardMaterial
-          color="#d6dddc"
-          map={panelTexture}
-          roughness={0.74}
-          metalness={0.42}
-        />
-      </mesh>
+      <FloorBaseInstance scale={[width, 0.14, depth]} />
+      <FloorPanelInstance
+        position={[0, 0.081, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        scale={[width - 0.4, depth - 0.4, 1]}
+      />
       <mesh position={[0, 0.09, -depth / 2 + 0.23]}>
         <boxGeometry args={[width - 0.55, 0.024, 0.08]} />
         <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={1.25} />
@@ -243,19 +229,20 @@ function CeilingStrip({
 }) {
   return (
     <group position={position} rotation={rotation}>
-      <mesh position={[0, 0.045, 0]} castShadow>
-        <boxGeometry args={[length + 0.26, 0.16, 0.3]} />
-        <meshStandardMaterial color="#232c2e" metalness={0.82} roughness={0.34} />
-      </mesh>
+      <CeilingHousingInstance
+        position={[0, 0.045, 0]}
+        scale={[length + 0.26, 0.16, 0.3]}
+      />
       <mesh position={[0, -0.035, 0.02]}>
         <boxGeometry args={[length, 0.065, 0.14]} />
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={3} />
       </mesh>
       {[-0.43, 0.43].map((factor) => (
-        <mesh key={factor} position={[length * factor, 0.16, 0]} castShadow>
-          <boxGeometry args={[0.12, 0.28, 0.38]} />
-          <meshStandardMaterial color="#303a3c" metalness={0.86} roughness={0.3} />
-        </mesh>
+        <CeilingBracketInstance
+          key={factor}
+          position={[length * factor, 0.16, 0]}
+          scale={[0.12, 0.28, 0.38]}
+        />
       ))}
       <pointLight
         color={color}
@@ -578,18 +565,18 @@ function DoorFrame({
 }) {
   return (
     <group position={position} rotation={rotation}>
-      <mesh position={[-width / 2, 1.6, 0]} castShadow>
-        <boxGeometry args={[0.28, 3.2, 0.42]} />
-        <meshStandardMaterial color={palette.structureLight} metalness={0.76} roughness={0.42} />
-      </mesh>
-      <mesh position={[width / 2, 1.6, 0]} castShadow>
-        <boxGeometry args={[0.28, 3.2, 0.42]} />
-        <meshStandardMaterial color={palette.structureLight} metalness={0.76} roughness={0.42} />
-      </mesh>
-      <mesh position={[0, 3.16, 0]} castShadow>
-        <boxGeometry args={[width + 0.28, 0.28, 0.42]} />
-        <meshStandardMaterial color={palette.structureLight} metalness={0.76} roughness={0.42} />
-      </mesh>
+      <DoorStructureInstance
+        position={[-width / 2, 1.6, 0]}
+        scale={[0.28, 3.2, 0.42]}
+      />
+      <DoorStructureInstance
+        position={[width / 2, 1.6, 0]}
+        scale={[0.28, 3.2, 0.42]}
+      />
+      <DoorStructureInstance
+        position={[0, 3.16, 0]}
+        scale={[width + 0.28, 0.28, 0.42]}
+      />
       <mesh position={[0, 3.03, 0.23]}>
         <boxGeometry args={[width - 0.25, 0.055, 0.06]} />
         <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={2.3} />
@@ -601,10 +588,11 @@ function DoorFrame({
             <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={1.35} />
           </mesh>
           {[0.35, 2.8].map((height) => (
-            <mesh key={height} position={[side * (width / 2 - 0.17), height, 0.285]}>
-              <boxGeometry args={[0.18, 0.1, 0.09]} />
-              <meshStandardMaterial color="#566164" metalness={0.88} roughness={0.26} />
-            </mesh>
+            <DoorBadgeInstance
+              key={height}
+              position={[side * (width / 2 - 0.17), height, 0.285]}
+              scale={[0.18, 0.1, 0.09]}
+            />
           ))}
         </group>
       ))}
@@ -699,10 +687,10 @@ function Screen({
 }) {
   return (
     <group position={position} rotation={rotation}>
-      <mesh position={[0, 0, -0.045]} castShadow>
-        <boxGeometry args={[size[0] + 0.18, size[1] + 0.18, 0.12]} />
-        <meshStandardMaterial color="#111819" metalness={0.82} roughness={0.3} />
-      </mesh>
+      <ScreenFrameInstance
+        position={[0, 0, -0.045]}
+        scale={[size[0] + 0.18, size[1] + 0.18, 0.12]}
+      />
       <mesh>
         <boxGeometry args={[size[0], size[1], 0.055]} />
         <meshStandardMaterial
@@ -714,18 +702,16 @@ function Screen({
         />
       </mesh>
       {[-0.34, -0.18, 0.08, 0.26].map((factor, index) => (
-        <mesh
+        <ScreenLineInstance
           key={factor}
           position={[-size[0] * 0.29, size[1] * factor, 0.036]}
-        >
-          <boxGeometry args={[size[0] * (0.38 + index * 0.07), 0.012, 0.012]} />
-          <meshBasicMaterial color={index === 3 ? "#d7eee8" : color} />
-        </mesh>
+          scale={[size[0] * (0.38 + index * 0.07), 0.012, 0.012]}
+          color={index === 3 ? "#d7eee8" : color}
+        />
       ))}
-      <mesh position={[size[0] * 0.4, -size[1] * 0.4, 0.045]}>
-        <circleGeometry args={[0.025, 10]} />
-        <meshBasicMaterial color="#d9aa62" />
-      </mesh>
+      <ScreenIndicatorInstance
+        position={[size[0] * 0.4, -size[1] * 0.4, 0.045]}
+      />
     </group>
   );
 }
@@ -1954,20 +1940,82 @@ function StationCollisionFloor() {
 
 export function StationWorld() {
   return (
-    <group>
-      <StationCollisionFloor />
-      <AtmosphereParticles />
-      <HubArchitecture />
-      <CommandCorridor />
-      <CommandRoom />
-      <ExecutiveCorridor />
-      <ExecutiveOffice />
-      <MedicalBay />
-      <EngineeringBay />
-      <CommunicationsRoom />
-      <CargoDock />
-      <CommonModule />
-      <CrewQuarters />
-    </group>
+    <FloorBaseInstances limit={32} frames={1} receiveShadow>
+      <boxGeometry />
+      <meshStandardMaterial color={palette.floor} roughness={0.82} metalness={0.55} />
+      <FloorPanelInstances limit={32} frames={1} receiveShadow>
+        <planeGeometry />
+        <meshStandardMaterial
+          color="#d6dddc"
+          map={getFloorPanelTexture()}
+          roughness={0.74}
+          metalness={0.42}
+        />
+        <CeilingHousingInstances limit={32} frames={1} castShadow>
+          <boxGeometry />
+          <meshStandardMaterial color="#232c2e" metalness={0.82} roughness={0.34} />
+          <CeilingBracketInstances limit={64} frames={1} castShadow>
+            <boxGeometry />
+            <meshStandardMaterial color="#303a3c" metalness={0.86} roughness={0.3} />
+            <DoorStructureInstances limit={96} frames={1} castShadow>
+              <boxGeometry />
+              <meshStandardMaterial
+                color={palette.structureLight}
+                metalness={0.76}
+                roughness={0.42}
+              />
+              <DoorBadgeInstances limit={128} frames={1}>
+                <boxGeometry />
+                <meshStandardMaterial color="#566164" metalness={0.88} roughness={0.26} />
+                <ScreenFrameInstances limit={32} frames={1} castShadow>
+                  <boxGeometry />
+                  <meshStandardMaterial color="#111819" metalness={0.82} roughness={0.3} />
+                  <ScreenLineInstances limit={96} frames={1}>
+                    <boxGeometry />
+                    <meshBasicMaterial color="#ffffff" vertexColors />
+                    <ScreenIndicatorInstances limit={32} frames={1}>
+                      <circleGeometry args={[0.025, 10]} />
+                      <meshBasicMaterial color="#d9aa62" />
+                      <WallInstances limit={64} frames={1} castShadow receiveShadow>
+                        <boxGeometry />
+                        <meshStandardMaterial
+                          color={palette.structure}
+                          roughness={0.72}
+                          metalness={0.62}
+                        />
+                        <WallPanelInstances limit={128} frames={1} receiveShadow>
+                          <boxGeometry />
+                          <meshStandardMaterial
+                            color="#c7cfce"
+                            map={getWallPanelTexture()}
+                            metalness={0.56}
+                            roughness={0.52}
+                          />
+                          <group>
+                            <StationCollisionFloor />
+                            <AtmosphereParticles />
+                            <HubArchitecture />
+                            <CommandCorridor />
+                            <CommandRoom />
+                            <ExecutiveCorridor />
+                            <ExecutiveOffice />
+                            <MedicalBay />
+                            <EngineeringBay />
+                            <CommunicationsRoom />
+                            <CargoDock />
+                            <CommonModule />
+                            <CrewQuarters />
+                          </group>
+                        </WallPanelInstances>
+                      </WallInstances>
+                    </ScreenIndicatorInstances>
+                  </ScreenLineInstances>
+                </ScreenFrameInstances>
+              </DoorBadgeInstances>
+            </DoorStructureInstances>
+          </CeilingBracketInstances>
+        </CeilingHousingInstances>
+      </FloorPanelInstances>
+    </FloorBaseInstances>
   );
 }

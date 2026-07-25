@@ -10,6 +10,7 @@ const forwardVector = new Vector3();
 const rightVector = new Vector3();
 const movementVector = new Vector3();
 const upVector = new Vector3(0, 1, 0);
+const velocityEpsilon = 0.0001;
 
 export function PlayerController() {
   const body = useRef<RapierRigidBody>(null);
@@ -85,7 +86,9 @@ export function PlayerController() {
 
     if (layer !== "playing") {
       const velocity = body.current.linvel();
-      body.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
+      if (Math.abs(velocity.x) > velocityEpsilon || Math.abs(velocity.z) > velocityEpsilon) {
+        body.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
+      }
       return;
     }
 
@@ -106,16 +109,23 @@ export function PlayerController() {
       .addScaledVector(forwardVector, zAxis)
       .addScaledVector(rightVector, xAxis);
 
-    if (movementVector.lengthSq() > 0) {
+    const hasMovement = movementVector.lengthSq() > 0;
+    if (hasMovement) {
       movementVector.normalize().multiplyScalar(3.25);
       markMoved();
     }
 
     const velocity = body.current.linvel();
-    body.current.setLinvel(
-      { x: movementVector.x, y: velocity.y, z: movementVector.z },
-      true,
-    );
+    if (
+      hasMovement ||
+      Math.abs(velocity.x) > velocityEpsilon ||
+      Math.abs(velocity.z) > velocityEpsilon
+    ) {
+      body.current.setLinvel(
+        { x: movementVector.x, y: velocity.y, z: movementVector.z },
+        true,
+      );
+    }
   });
 
   return (
@@ -127,7 +137,6 @@ export function PlayerController() {
         position={[0, 1.05, 6]}
         friction={0}
         linearDamping={8}
-        canSleep={false}
         ccd
       >
         <CapsuleCollider args={[0.52, 0.34]} />
