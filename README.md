@@ -16,6 +16,18 @@ npm run dev
 
 기본 개발 주소는 `http://127.0.0.1:5173`입니다.
 
+로컬 게임 백엔드와 연결할 때는 `.env.example`을 `.env.local`로 복사하고 다음 값을
+사용합니다.
+
+```dotenv
+VITE_API_MODE=http
+VITE_API_BASE_URL=/api
+VITE_API_PROXY_TARGET=http://127.0.0.1:8080
+```
+
+Vite가 `/api` 요청을 게임 백엔드로 프록시하며 브라우저가 AI 서버나 AI 내부 키에
+직접 접근하지 않습니다.
+
 검증:
 
 ```bash
@@ -74,6 +86,8 @@ npm run test:browser
 
 프런트엔드는 운영 환경에서 범인 ID나 비공개 `CaseBible`을 받지 않습니다.
 구체적인 요청·응답과 오류 규약은 [`API_INTEGRATION.md`](./docs/API_INTEGRATION.md)에 정리되어 있습니다.
+게임 백엔드는 `tyoonkk/GAME_AI`의 사건 생성 계약과 공유 ID 변환표를 통해 AI 서버를
+연결합니다.
 
 개발용 오류 화면은 URL의 `mockError`로 재현할 수 있습니다.
 
