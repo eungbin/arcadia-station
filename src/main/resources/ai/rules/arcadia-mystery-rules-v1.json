@@ -1,0 +1,50 @@
+{
+  "templateId": "ARCADIA_MYSTERY_RULES",
+  "version": "1.0.0",
+  "culpritPolicy": {
+    "type": "FIXED",
+    "culpritId": "SOPHIA"
+  },
+  "requiredEvidenceRoles": ["SETUP", "TRIGGER", "OPPORTUNITY", "MOTIVE"],
+  "optionalEvidenceRoles": ["VICTIM_CONDITION"],
+  "clueRules": {
+    "coreClueCount": {
+      "min": 4,
+      "max": 6
+    },
+    "redHerringCount": {
+      "min": 1,
+      "max": 3
+    },
+    "minimumByType": {
+      "PHYSICAL": 1,
+      "DIGITAL": 1,
+      "MOTIVE": 1,
+      "OPPORTUNITY": 1
+    },
+    "allowedAcquisitionTypes": ["EXPLORE", "INTERROGATE", "RAG_QUERY", "CONNECT", "AUTO"],
+    "maxPrerequisiteDepth": 3,
+    "mandatoryFactsRequireDeterministicPath": true
+  },
+  "solutionRules": {
+    "requireUniqueCulprit": true,
+    "requireExplicitExclusionForEveryNonCulprit": true,
+    "rejectUnregisteredWorldIds": true,
+    "rejectForbiddenCapabilities": true,
+    "requireChronologicalConsistency": true,
+    "requireEvidenceForEveryRequiredRole": true
+  },
+  "finalReportRules": {
+    "requireCulprit": true,
+    "requiredRoles": ["SETUP", "TRIGGER", "OPPORTUNITY", "MOTIVE"],
+    "allowRetry": true,
+    "maxWrongSubmissions": 3
+  },
+  "generationSafety": {
+    "fictionalNonActionableMethodOnly": true,
+    "forbidExecutableCode": true,
+    "forbidNewCharacters": true,
+    "forbidNewLocations": true,
+    "forbidNewSystems": true
+  }
+}

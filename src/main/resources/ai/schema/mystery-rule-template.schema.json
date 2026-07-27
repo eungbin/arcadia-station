@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "templateId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "culpritPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["FIXED", "RANDOM_FROM_ELIGIBLE"]
+        },
+        "culpritId": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "culpritId"]
+    },
+    "requiredEvidenceRoles": {
+      "$ref": "#/$defs/evidenceRoles"
+    },
+    "optionalEvidenceRoles": {
+      "$ref": "#/$defs/evidenceRoles"
+    },
+    "clueRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "coreClueCount": {
+          "$ref": "#/$defs/range"
+        },
+        "redHerringCount": {
+          "$ref": "#/$defs/range"
+        },
+        "minimumByType": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "PHYSICAL": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "DIGITAL": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "MOTIVE": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "OPPORTUNITY": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": ["PHYSICAL", "DIGITAL", "MOTIVE", "OPPORTUNITY"]
+        },
+        "allowedAcquisitionTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["EXPLORE", "INTERROGATE", "RAG_QUERY", "CONNECT", "AUTO"]
+          }
+        },
+        "maxPrerequisiteDepth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mandatoryFactsRequireDeterministicPath": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "coreClueCount",
+        "redHerringCount",
+        "minimumByType",
+        "allowedAcquisitionTypes",
+        "maxPrerequisiteDepth",
+        "mandatoryFactsRequireDeterministicPath"
+      ]
+    },
+    "solutionRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requireUniqueCulprit": {
+          "type": "boolean"
+        },
+        "requireExplicitExclusionForEveryNonCulprit": {
+          "type": "boolean"
+        },
+        "rejectUnregisteredWorldIds": {
+          "type": "boolean"
+        },
+        "rejectForbiddenCapabilities": {
+          "type": "boolean"
+        },
+        "requireChronologicalConsistency": {
+          "type": "boolean"
+        },
+        "requireEvidenceForEveryRequiredRole": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "requireUniqueCulprit",
+        "requireExplicitExclusionForEveryNonCulprit",
+        "rejectUnregisteredWorldIds",
+        "rejectForbiddenCapabilities",
+        "requireChronologicalConsistency",
+        "requireEvidenceForEveryRequiredRole"
+      ]
+    },
+    "finalReportRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requireCulprit": {
+          "type": "boolean"
+        },
+        "requiredRoles": {
+          "$ref": "#/$defs/evidenceRoles"
+        },
+        "allowRetry": {
+          "type": "boolean"
+        },
+        "maxWrongSubmissions": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["requireCulprit", "requiredRoles", "allowRetry", "maxWrongSubmissions"]
+    },
+    "generationSafety": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fictionalNonActionableMethodOnly": {
+          "type": "boolean"
+        },
+        "forbidExecutableCode": {
+          "type": "boolean"
+        },
+        "forbidNewCharacters": {
+          "type": "boolean"
+        },
+        "forbidNewLocations": {
+          "type": "boolean"
+        },
+        "forbidNewSystems": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "fictionalNonActionableMethodOnly",
+        "forbidExecutableCode",
+        "forbidNewCharacters",
+        "forbidNewLocations",
+        "forbidNewSystems"
+      ]
+    }
+  },
+  "required": [
+    "templateId",
+    "version",
+    "culpritPolicy",
+    "requiredEvidenceRoles",
+    "optionalEvidenceRoles",
+    "clueRules",
+    "solutionRules",
+    "finalReportRules",
+    "generationSafety"
+  ],
+  "$defs": {
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["min", "max"]
+    },
+    "evidenceRoles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["SETUP", "TRIGGER", "OPPORTUNITY", "MOTIVE", "VICTIM_CONDITION"]
+      }
+    }
+  }
+}

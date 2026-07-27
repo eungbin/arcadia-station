@@ -1,0 +1,482 @@
+{
+  "blueprintId": "CASE-FALLBACK-SOPHIA-001",
+  "seed": "fallback-seed",
+  "worldTemplate": {
+    "id": "ARCADIA_WORLD",
+    "version": "1.0.0"
+  },
+  "ruleTemplate": {
+    "id": "ARCADIA_MYSTERY_RULES",
+    "version": "1.0.0"
+  },
+  "culpritId": "SOPHIA",
+  "title": "엇갈린 안전 점검",
+  "briefing": "생명 유지 제어실에서 사령관이 숨진 채 발견됐다. 출입과 점검 기록을 연결해 사건의 준비와 촉발 과정을 밝혀야 한다.",
+  "truthSummary": "소피아는 자신의 의료 안전 점검 권한 안에서 두 개의 허구적 안전 연동 작업을 시간차로 조합해 사건을 준비하고 촉발했다. 모든 작업은 감사 기록과 물리 흔적을 남겼다.",
+  "method": {
+    "fictionalSummary": "허구적인 환경 안전 연동의 점검 상태가 뒤이은 진단과 충돌하도록 준비했다. 현실에서 재현 가능한 절차나 수치는 포함하지 않는다.",
+    "setupAction": {
+      "actorId": "SOPHIA",
+      "locationId": "LIFE_SUPPORT_CONTROL",
+      "systemId": "LIFE_SUPPORT",
+      "operation": "SCHEDULE_HEALTH_SAFETY_CHECK",
+      "requiredCapabilityIds": ["SAFETY_INSPECTION"]
+    },
+    "triggerAction": {
+      "actorId": "SOPHIA",
+      "locationId": "LIFE_SUPPORT_CONTROL",
+      "systemId": "LIFE_SUPPORT",
+      "operation": "RUN_SAFETY_DIAGNOSTIC",
+      "requiredCapabilityIds": ["MEDICAL_DIAGNOSIS", "SAFETY_INSPECTION"]
+    },
+    "victimCondition": "피해자가 평소와 달리 새벽에 제어실에서 혼자 감사 자료를 검토하고 있었다."
+  },
+  "timeline": [
+    {
+      "eventId": "EVT-001",
+      "time": "01:40",
+      "actorIds": ["SOPHIA"],
+      "locationId": "LIFE_SUPPORT_CONTROL",
+      "actionType": "SYSTEM_ACTION",
+      "summary": "의료 환경 점검 명목의 예약 작업이 등록됐다.",
+      "factIds": ["FACT-SETUP", "FACT-OPPORTUNITY"]
+    },
+    {
+      "eventId": "EVT-002",
+      "time": "02:05",
+      "actorIds": ["SOPHIA"],
+      "locationId": "LIFE_SUPPORT_CONTROL",
+      "actionType": "SYSTEM_ACTION",
+      "summary": "예약 작업과 충돌하는 안전 진단이 실행되어 사건이 촉발됐다.",
+      "factIds": ["FACT-TRIGGER"]
+    },
+    {
+      "eventId": "EVT-003",
+      "time": "02:08",
+      "actorIds": ["VICTIM"],
+      "locationId": "LIFE_SUPPORT_CONTROL",
+      "actionType": "BACKGROUND",
+      "summary": "피해자가 비정상적인 시각에 제어실에 머물렀다.",
+      "factIds": ["FACT-VICTIM-CONDITION"]
+    },
+    {
+      "eventId": "EVT-004",
+      "time": "06:00",
+      "actorIds": ["SOPHIA"],
+      "locationId": "LIFE_SUPPORT_CONTROL",
+      "actionType": "DISCOVERY",
+      "summary": "소피아가 정기 순찰 중 피해자를 발견해 보고했다.",
+      "factIds": ["FACT-SOPHIA-CLAIM"]
+    }
+  ],
+  "facts": [
+    {
+      "factId": "FACT-SETUP",
+      "kind": "ACTION",
+      "statement": "사건 전 소피아의 인증으로 의료 안전 점검 예약이 등록됐다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["SOPHIA"]
+    },
+    {
+      "factId": "FACT-TRIGGER",
+      "kind": "ACTION",
+      "statement": "소피아의 인증으로 후속 안전 진단이 실행됐다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["SOPHIA"]
+    },
+    {
+      "factId": "FACT-OPPORTUNITY",
+      "kind": "ALIBI",
+      "statement": "소피아는 준비와 촉발 시각 모두 제어실 출입 및 작업 권한을 갖고 있었다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["SOPHIA"]
+    },
+    {
+      "factId": "FACT-MOTIVE",
+      "kind": "MOTIVE",
+      "statement": "피해자가 소피아의 미승인 연구 기록에 대한 정식 면담을 예고했다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["SOPHIA", "VICTIM"]
+    },
+    {
+      "factId": "FACT-VICTIM-CONDITION",
+      "kind": "CONDITION",
+      "statement": "피해자는 예정보다 이른 시각에 홀로 제어실에 있었다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["VICTIM"]
+    },
+    {
+      "factId": "FACT-MAYA-EXCLUSION",
+      "kind": "EXCLUSION",
+      "statement": "마야는 지휘 갑판 감사 기록으로 준비 시각의 위치가 확인되고 의료 안전 점검 권한도 없다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["MAYA"]
+    },
+    {
+      "factId": "FACT-BAEK-EXCLUSION",
+      "kind": "EXCLUSION",
+      "statement": "백준호의 정비 진단 권한은 의료 안전 진단 작업을 실행할 수 없다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["BAEK"]
+    },
+    {
+      "factId": "FACT-KASIM-EXCLUSION",
+      "kind": "EXCLUSION",
+      "statement": "카심은 생명 유지 제어실과 해당 시스템 작업 권한이 없다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["KASIM"]
+    },
+    {
+      "factId": "FACT-YUNA-EXCLUSION",
+      "kind": "EXCLUSION",
+      "statement": "유나는 생명 유지 제어실과 해당 시스템 작업 권한이 없다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["YUNA"]
+    },
+    {
+      "factId": "FACT-SOPHIA-CLAIM",
+      "kind": "CLAIM",
+      "statement": "소피아는 새벽에 의무실 문서만 검토했다고 주장했다.",
+      "truthValue": false,
+      "subjectCharacterIds": ["SOPHIA"]
+    }
+  ],
+  "alibis": [
+    {
+      "characterId": "MAYA",
+      "initialClaim": "지휘 갑판에서 감사 기록을 검토했다.",
+      "actualWhereabouts": "지휘 갑판",
+      "supportingFactIds": ["FACT-MAYA-EXCLUSION"],
+      "contradictingFactIds": []
+    },
+    {
+      "characterId": "BAEK",
+      "initialClaim": "공학 작업실에서 발전기 정비 자료를 정리했다.",
+      "actualWhereabouts": "공학 작업실",
+      "supportingFactIds": ["FACT-BAEK-EXCLUSION"],
+      "contradictingFactIds": []
+    },
+    {
+      "characterId": "SOPHIA",
+      "initialClaim": "의무실에서 문서를 검토했다.",
+      "actualWhereabouts": "생명 유지 제어실",
+      "supportingFactIds": [],
+      "contradictingFactIds": ["FACT-SETUP", "FACT-TRIGGER", "FACT-OPPORTUNITY"]
+    },
+    {
+      "characterId": "KASIM",
+      "initialClaim": "통신 센터에서 태양풍 상태를 감시했다.",
+      "actualWhereabouts": "통신 센터",
+      "supportingFactIds": ["FACT-KASIM-EXCLUSION"],
+      "contradictingFactIds": []
+    },
+    {
+      "characterId": "YUNA",
+      "initialClaim": "화물창고에서 재고를 확인했다.",
+      "actualWhereabouts": "중앙 연결 통로와 화물창고",
+      "supportingFactIds": ["FACT-YUNA-EXCLUSION"],
+      "contradictingFactIds": []
+    }
+  ],
+  "clues": [
+    {
+      "clueId": "CLUE-SETUP-PANEL",
+      "title": "안전 점검 패널의 이중 봉인 자국",
+      "clueType": "PHYSICAL",
+      "isCore": true,
+      "solutionRoles": ["SETUP"],
+      "source": {
+        "sourceType": "PHYSICAL_OBJECT",
+        "sourceId": "OBJECT-SAFETY-PANEL"
+      },
+      "acquisition": {
+        "type": "EXPLORE",
+        "locationId": "LIFE_SUPPORT_CONTROL",
+        "characterId": null,
+        "requiredClueIds": [],
+        "queryTopics": []
+      },
+      "revealsFactIds": ["FACT-SETUP", "FACT-KASIM-EXCLUSION", "FACT-YUNA-EXCLUSION"],
+      "playerText": "패널 봉인이 정상 점검과 다른 순서로 두 번 열렸다 닫힌 흔적이 있다. 의료 안전 점검 인증이 필요한 구역이다.",
+      "suspectEffects": [
+        {
+          "characterId": "SOPHIA",
+          "effect": "SUPPORTS"
+        },
+        {
+          "characterId": "MAYA",
+          "effect": "EXCLUDES"
+        },
+        {
+          "characterId": "KASIM",
+          "effect": "EXCLUDES"
+        },
+        {
+          "characterId": "YUNA",
+          "effect": "EXCLUDES"
+        }
+      ]
+    },
+    {
+      "clueId": "CLUE-TRIGGER-LOG",
+      "title": "02:05 안전 진단 감사 로그",
+      "clueType": "DIGITAL",
+      "isCore": true,
+      "solutionRoles": ["TRIGGER"],
+      "source": {
+        "sourceType": "COMMAND_LOG",
+        "sourceId": "RECORD-TRIGGER"
+      },
+      "acquisition": {
+        "type": "RAG_QUERY",
+        "locationId": null,
+        "characterId": null,
+        "requiredClueIds": [],
+        "queryTopics": ["02:05", "안전 진단", "소피아"]
+      },
+      "revealsFactIds": ["FACT-TRIGGER", "FACT-BAEK-EXCLUSION"],
+      "playerText": "02:05에 소피아의 인증으로 의료 안전 진단 작업이 실행됐다. 백준호의 정비 권한으로는 이 작업을 실행할 수 없다.",
+      "suspectEffects": [
+        {
+          "characterId": "SOPHIA",
+          "effect": "SUPPORTS"
+        },
+        {
+          "characterId": "BAEK",
+          "effect": "EXCLUDES"
+        }
+      ]
+    },
+    {
+      "clueId": "CLUE-ACCESS-HISTORY",
+      "title": "제어실 출입·작업 권한 대조표",
+      "clueType": "OPPORTUNITY",
+      "isCore": true,
+      "solutionRoles": ["OPPORTUNITY"],
+      "source": {
+        "sourceType": "ACCESS_LOG",
+        "sourceId": "RECORD-ACCESS"
+      },
+      "acquisition": {
+        "type": "RAG_QUERY",
+        "locationId": null,
+        "characterId": null,
+        "requiredClueIds": [],
+        "queryTopics": ["제어실", "출입", "권한"]
+      },
+      "revealsFactIds": ["FACT-OPPORTUNITY", "FACT-MAYA-EXCLUSION"],
+      "playerText": "준비와 촉발 시각 모두 제어실 출입과 의료 안전 작업 권한을 함께 가진 사람은 소피아뿐이다.",
+      "suspectEffects": [
+        {
+          "characterId": "SOPHIA",
+          "effect": "SUPPORTS"
+        }
+      ]
+    },
+    {
+      "clueId": "CLUE-MOTIVE-AUDIT",
+      "title": "의료 연구 감사 면담 통보",
+      "clueType": "MOTIVE",
+      "isCore": true,
+      "solutionRoles": ["MOTIVE"],
+      "source": {
+        "sourceType": "MESSAGE",
+        "sourceId": "RECORD-MOTIVE"
+      },
+      "acquisition": {
+        "type": "RAG_QUERY",
+        "locationId": null,
+        "characterId": null,
+        "requiredClueIds": [],
+        "queryTopics": ["의료 연구", "감사", "면담"]
+      },
+      "revealsFactIds": ["FACT-MOTIVE"],
+      "playerText": "피해자는 사건 당일 아침 소피아의 미승인 연구 기록을 두고 정식 면담을 진행할 예정이었다.",
+      "suspectEffects": [
+        {
+          "characterId": "SOPHIA",
+          "effect": "SUPPORTS"
+        }
+      ]
+    },
+    {
+      "clueId": "CLUE-MAYA-LATE-AUDIT",
+      "title": "마야의 심야 감사 열람",
+      "clueType": "DIGITAL",
+      "isCore": false,
+      "solutionRoles": [],
+      "source": {
+        "sourceType": "COMMAND_LOG",
+        "sourceId": "RECORD-MAYA-RED"
+      },
+      "acquisition": {
+        "type": "RAG_QUERY",
+        "locationId": null,
+        "characterId": null,
+        "requiredClueIds": [],
+        "queryTopics": ["마야", "심야", "감사"]
+      },
+      "revealsFactIds": ["FACT-MAYA-EXCLUSION"],
+      "playerText": "마야가 사건 전 심야에 감사 자료를 열람했다. 그러나 기록 위치와 권한 범위는 범행 준비와 맞지 않는다.",
+      "suspectEffects": [
+        {
+          "characterId": "MAYA",
+          "effect": "NEUTRAL"
+        }
+      ]
+    }
+  ],
+  "evidenceRecords": [
+    {
+      "recordId": "RECORD-TRIGGER",
+      "recordType": "COMMAND_LOG",
+      "timestamp": "02:05",
+      "title": "의료 안전 진단 실행 기록",
+      "body": "02:05 생명 유지 시스템에서 의료 안전 진단이 실행됐다. 인증 주체는 소피아이며 작업 종류는 RUN_SAFETY_DIAGNOSTIC이다.",
+      "metadata": {
+        "actorId": "SOPHIA",
+        "systemId": "LIFE_SUPPORT",
+        "operation": "RUN_SAFETY_DIAGNOSTIC",
+        "locationId": "LIFE_SUPPORT_CONTROL",
+        "result": "COMPLETED",
+        "characterId": "",
+        "messageType": ""
+      },
+      "revealsClueIds": ["CLUE-TRIGGER-LOG"],
+      "searchTerms": ["02:05", "소피아", "안전 진단", "생명 유지", "실행 기록"],
+      "visibility": "SEARCHABLE"
+    },
+    {
+      "recordId": "RECORD-ACCESS",
+      "recordType": "ACCESS_LOG",
+      "timestamp": "01:37",
+      "title": "생명 유지 제어실 출입 기록",
+      "body": "소피아의 의료 안전 점검 인증으로 제어실 출입이 승인됐다. 같은 시각 마야는 지휘 갑판 감사 단말을 사용했다.",
+      "metadata": {
+        "actorId": "SOPHIA",
+        "systemId": "SECURITY_SYSTEM",
+        "operation": "READ_ACCESS_LOG",
+        "locationId": "LIFE_SUPPORT_CONTROL",
+        "result": "GRANTED",
+        "characterId": "MAYA",
+        "messageType": ""
+      },
+      "revealsClueIds": ["CLUE-ACCESS-HISTORY"],
+      "searchTerms": ["소피아", "제어실", "출입", "권한", "마야", "01:37"],
+      "visibility": "SEARCHABLE"
+    },
+    {
+      "recordId": "RECORD-MOTIVE",
+      "recordType": "MESSAGE",
+      "timestamp": "21:10",
+      "title": "의료 연구 감사 면담 통보",
+      "body": "피해자가 소피아에게 의료 연구 원자료와 윤리 승인 기록을 준비해 다음 날 아침 면담에 참석하라고 통보했다.",
+      "metadata": {
+        "actorId": "VICTIM",
+        "systemId": "COMMAND_SYSTEM",
+        "operation": "REVIEW_STATION_AUDIT",
+        "locationId": "COMMAND_DECK",
+        "result": "DELIVERY_FAILED_EXTERNAL_COPY_SAVED",
+        "characterId": "SOPHIA",
+        "messageType": "AUDIT_NOTICE"
+      },
+      "revealsClueIds": ["CLUE-MOTIVE-AUDIT"],
+      "searchTerms": ["소피아", "의료 연구", "감사", "면담", "윤리 승인"],
+      "visibility": "SEARCHABLE"
+    },
+    {
+      "recordId": "RECORD-MAYA-RED",
+      "recordType": "COMMAND_LOG",
+      "timestamp": "01:35",
+      "title": "마야의 심야 감사 열람",
+      "body": "마야가 지휘 갑판에서 자원 배분 감사 기록을 열람했다. 생명 유지 시스템 작업은 실행하지 않았다.",
+      "metadata": {
+        "actorId": "MAYA",
+        "systemId": "COMMAND_SYSTEM",
+        "operation": "REVIEW_STATION_AUDIT",
+        "locationId": "COMMAND_DECK",
+        "result": "READ_ONLY",
+        "characterId": "",
+        "messageType": ""
+      },
+      "revealsClueIds": ["CLUE-MAYA-LATE-AUDIT"],
+      "searchTerms": ["마야", "심야", "감사", "지휘 갑판", "자원 배분"],
+      "visibility": "SEARCHABLE"
+    }
+  ],
+  "npcKnowledge": [
+    {
+      "characterId": "SOPHIA",
+      "knownFactIds": ["FACT-SETUP", "FACT-TRIGGER", "FACT-OPPORTUNITY", "FACT-MOTIVE", "FACT-SOPHIA-CLAIM"],
+      "initialClaimFactIds": ["FACT-SOPHIA-CLAIM"],
+      "concealedFactIds": ["FACT-SETUP", "FACT-TRIGGER", "FACT-MOTIVE"],
+      "revealPolicies": [
+        {
+          "factId": "FACT-SETUP",
+          "requiredPresentedClueIds": ["CLUE-SETUP-PANEL"],
+          "responseMode": "PARTIAL_ADMISSION"
+        },
+        {
+          "factId": "FACT-TRIGGER",
+          "requiredPresentedClueIds": ["CLUE-TRIGGER-LOG"],
+          "responseMode": "PARTIAL_ADMISSION"
+        },
+        {
+          "factId": "FACT-MOTIVE",
+          "requiredPresentedClueIds": ["CLUE-MOTIVE-AUDIT"],
+          "responseMode": "EVASION"
+        }
+      ],
+      "allowedLieFactIds": ["FACT-SOPHIA-CLAIM"],
+      "recommendedQuestionTopics": ["안전 점검 예약의 목적", "02:05 진단 실행 시각", "의료 연구 감사 면담"]
+    }
+  ],
+  "redHerrings": [
+    {
+      "redHerringId": "RED-MAYA-AUDIT",
+      "suspectId": "MAYA",
+      "presentation": "마야가 사건 직전 심야에 감사 기록을 열람했다.",
+      "resolutionFactIds": ["FACT-MAYA-EXCLUSION"],
+      "mustBeResolvable": true
+    }
+  ],
+  "solution": {
+    "culpritId": "SOPHIA",
+    "requiredEvidenceByRole": {
+      "SETUP": ["CLUE-SETUP-PANEL"],
+      "TRIGGER": ["CLUE-TRIGGER-LOG"],
+      "OPPORTUNITY": ["CLUE-ACCESS-HISTORY"],
+      "MOTIVE": ["CLUE-MOTIVE-AUDIT"],
+      "VICTIM_CONDITION": []
+    },
+    "acceptedAlternativesByRole": {
+      "SETUP": [],
+      "TRIGGER": [],
+      "OPPORTUNITY": [],
+      "MOTIVE": [],
+      "VICTIM_CONDITION": []
+    },
+    "nonCulpritExclusions": [
+      {
+        "characterId": "MAYA",
+        "excludedByClueIds": ["CLUE-SETUP-PANEL"],
+        "reason": "준비 시각 지휘 갑판에 있었고 의료 안전 점검 권한도 없다."
+      },
+      {
+        "characterId": "BAEK",
+        "excludedByClueIds": ["CLUE-TRIGGER-LOG"],
+        "reason": "정비 진단 권한은 있으나 사건을 촉발한 의료 안전 진단 권한은 없다."
+      },
+      {
+        "characterId": "KASIM",
+        "excludedByClueIds": ["CLUE-SETUP-PANEL"],
+        "reason": "생명 유지 제어실 출입과 작업 권한이 없다."
+      },
+      {
+        "characterId": "YUNA",
+        "excludedByClueIds": ["CLUE-SETUP-PANEL"],
+        "reason": "생명 유지 제어실 출입과 작업 권한이 없다."
+      }
+    ]
+  }
+}

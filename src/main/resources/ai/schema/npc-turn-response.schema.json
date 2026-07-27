@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "dialogue": {
+      "type": "string"
+    },
+    "emotion": {
+      "type": "string",
+      "enum": ["CALM", "DEFENSIVE", "ANXIOUS", "ANGRY", "EVASIVE"]
+    },
+    "revealedFactIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendedQuestions": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "topicId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": ["topicId", "label"]
+      }
+    }
+  },
+  "required": ["dialogue", "emotion", "revealedFactIds", "recommendedQuestions"]
+}

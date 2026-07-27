@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: arcadia-station-ai
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+arcadia:
+  internal-api-key: ${AI_INTERNAL_API_KEY:}
+  ai:
+    enabled: ${AI_ENABLED:true}
+    offline-mode: ${AI_OFFLINE_MODE:true}
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_TEXT_MODEL:gpt-5.6-terra}
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    case-generation:
+      timeout: 20s
+      max-retries: 2
+      prompt-version: case-generator-v1
+    npc:
+      timeout: 8s
+      max-history-turns: 8
+    rag:
+      top-k: 5
+      minimum-score: 0.05

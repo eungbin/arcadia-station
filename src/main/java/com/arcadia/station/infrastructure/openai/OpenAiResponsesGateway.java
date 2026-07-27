@@ -1,0 +1,188 @@
+package com.arcadia.station.infrastructure.openai;
+
+import com.arcadia.station.ai.common.AiPurpose;
+import com.arcadia.station.ai.common.AiUsageRecorder;
+import com.arcadia.station.ai.common.ArcadiaAiProperties;
+import com.arcadia.station.ai.common.JsonSchema;
+import com.arcadia.station.ai.common.JsonSchemaContractValidator;
+import com.arcadia.station.ai.common.OpenAiGateway;
+import com.arcadia.station.ai.common.StructuredPrompt;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.Map;
+import java.time.Duration;
+import java.time.Instant;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+
+public class OpenAiResponsesGateway implements OpenAiGateway {
+
+    private final ObjectMapper objectMapper;
+    private final ArcadiaAiProperties properties;
+    private final JsonSchemaContractValidator schemaValidator;
+    private final AiUsageRecorder usageRecorder;
+    private final RestClient client;
+
+    public OpenAiResponsesGateway(
+            ObjectMapper objectMapper,
+            ArcadiaAiProperties properties,
+            RestClient.Builder builder,
+            JsonSchemaContractValidator schemaValidator,
+            AiUsageRecorder usageRecorder
+    ) {
+        this.objectMapper = objectMapper;
+        this.properties = properties;
+        this.schemaValidator = schemaValidator;
+        this.usageRecorder = usageRecorder;
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(properties.caseGeneration().timeout());
+        requestFactory.setReadTimeout(properties.caseGeneration().timeout());
+        this.client = builder
+                .baseUrl("https://api.openai.com/v1")
+                .defaultHeader("Authorization", "Bearer " + properties.apiKey())
+                .requestFactory(requestFactory)
+                .build();
+    }
+
+    @Override
+    public <T> T generateStructured(
+            AiPurpose purpose,
+            String promptVersion,
+            Object promptContext,
+            JsonSchema schema,
+            Class<T> responseType
+    ) {
+        StructuredPrompt prompt = promptContext instanceof StructuredPrompt structured
+                ? structured
+                : new StructuredPrompt(
+                        "Return only data that follows the supplied schema.",
+                        write(promptContext)
+                );
+        Map<String, Object> request = Map.of(
+                "model", properties.model(),
+                "store", false,
+                "input", List.of(
+                        Map.of("role", "system", "content", prompt.system()),
+                        Map.of("role", "user", "content", prompt.user())
+                ),
+                "text", Map.of(
+                        "format", Map.of(
+                                "type", "json_schema",
+                                "name", schema.name(),
+                                "strict", true,
+                                "schema", schema.schema()
+                        )
+                )
+        );
+        Instant startedAt = Instant.now();
+        try {
+            JsonNode response = client.post()
+                    .uri("/responses")
+                    .body(request)
+                    .retrieve()
+                    .body(JsonNode.class);
+            String output = extractOutputText(response);
+            schemaValidator.validateOrThrow(output, schema);
+            T result = objectMapper.readValue(output, responseType);
+            usageRecorder.recordCall(
+                    purpose,
+                    Duration.between(startedAt, Instant.now()),
+                    true,
+                    response.path("usage").path("input_tokens").asLong(),
+                    response.path("usage").path("output_tokens").asLong()
+            );
+            return result;
+        } catch (Exception exception) {
+            usageRecorder.recordCall(
+                    purpose,
+                    Duration.between(startedAt, Instant.now()),
+                    false,
+                    0,
+                    0
+            );
+            throw new IllegalStateException("OpenAI structured output could not be decoded", exception);
+        }
+    }
+
+    @Override
+    public float[] createEmbedding(String input) {
+        Map<String, Object> request = Map.of(
+                "model", properties.embeddingModel(),
+                "input", input,
+                "encoding_format", "float"
+        );
+        Instant startedAt = Instant.now();
+        try {
+            JsonNode response = client.post()
+                    .uri("/embeddings")
+                    .body(request)
+                    .retrieve()
+                    .body(JsonNode.class);
+            JsonNode values = response.path("data").path(0).path("embedding");
+            if (!values.isArray() || values.isEmpty()) {
+                throw new IllegalStateException("OpenAI embedding response was empty");
+            }
+            float[] vector = new float[values.size()];
+            for (int index = 0; index < values.size(); index++) {
+                vector[index] = (float) values.get(index).asDouble();
+            }
+            usageRecorder.recordCall(
+                    AiPurpose.EMBEDDING,
+                    Duration.between(startedAt, Instant.now()),
+                    true,
+                    response.path("usage").path("prompt_tokens").asLong(
+                            response.path("usage").path("total_tokens").asLong()
+                    ),
+                    0
+            );
+            return vector;
+        } catch (RuntimeException exception) {
+            usageRecorder.recordCall(
+                    AiPurpose.EMBEDDING,
+                    Duration.between(startedAt, Instant.now()),
+                    false,
+                    0,
+                    0
+            );
+            throw exception;
+        }
+    }
+
+    private String extractOutputText(JsonNode response) {
+        if (response == null) {
+            throw new IllegalStateException("OpenAI response was empty");
+        }
+        if ("incomplete".equals(response.path("status").asText())) {
+            throw new IllegalStateException(
+                    "OpenAI response incomplete: "
+                            + response.path("incomplete_details").path("reason").asText()
+            );
+        }
+        for (JsonNode output : response.path("output")) {
+            if (!"message".equals(output.path("type").asText())) {
+                continue;
+            }
+            for (JsonNode content : output.path("content")) {
+                if ("refusal".equals(content.path("type").asText())) {
+                    throw new IllegalStateException(
+                            "OpenAI refused structured generation: "
+                                    + content.path("refusal").asText()
+                    );
+                }
+                if ("output_text".equals(content.path("type").asText())) {
+                    return content.path("text").asText();
+                }
+            }
+        }
+        throw new IllegalStateException("OpenAI response contained no output_text");
+    }
+
+    private String write(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Cannot serialize prompt context", exception);
+        }
+    }
+}
