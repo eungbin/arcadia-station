@@ -33,6 +33,14 @@ public class GameSession {
     @Column(nullable = false)
     private int caseRequestAttemptCount;
 
+    // 4.1절: 재현 가능한 리플레이를 위해 원본 seed를 보관해뒀다가 재시도 시에도 그대로 넘긴다.
+    private String seed;
+
+    // 4.4/4.5절: 현재 aiCaseRequestId로 몇 시부터 폴링을 시작했는지, 마지막으로 언제 폴링했는지.
+    // 재시도로 aiCaseRequestId가 바뀌면 currentAttemptStartedAt도 초기화된다.
+    private Instant currentAttemptStartedAt;
+    private Instant lastPolledAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SessionState state;
@@ -71,5 +79,6 @@ public class GameSession {
         this.caseRequestAttemptCount = 1;
         this.state = SessionState.CREATING;
         this.createdAt = createdAt;
+        this.currentAttemptStartedAt = createdAt;
     }
 }

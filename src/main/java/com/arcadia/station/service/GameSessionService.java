@@ -3,7 +3,6 @@ package com.arcadia.station.service;
 import com.arcadia.station.client.CaseGenerationClient;
 import com.arcadia.station.client.dto.CaseGenerationAck;
 import com.arcadia.station.client.dto.CaseGenerationStatus;
-import com.arcadia.station.client.dto.GenerationResult;
 import com.arcadia.station.domain.EvidenceInventory;
 import com.arcadia.station.domain.GameSession;
 import com.arcadia.station.domain.SessionState;
@@ -48,6 +47,7 @@ public class GameSessionService {
         String aiCaseRequestId = "req_" + UUID.randomUUID().toString().replace("-", "");
 
         GameSession session = new GameSession(sessionId, aiCaseRequestId, Instant.now());
+        session.setSeed(seed);
         gameSessionRepository.save(session);
         evidenceInventoryRepository.save(new EvidenceInventory(sessionId));
 
@@ -55,8 +55,9 @@ public class GameSessionService {
         session.setState(SessionState.VALIDATING);
 
         CaseGenerationStatus status = caseGenerationClient.pollStatus(ack.aiCaseRequestId());
+        session.setLastPolledAt(Instant.now());
         if ("READY".equals(status.status())) {
-            applyReady(session, status.generation());
+            GenerationResultApplier.apply(session, status.generation());
         }
 
         gameSessionRepository.save(session);
@@ -86,24 +87,6 @@ public class GameSessionService {
                 .toList();
 
         return new PlayerCaseView(sessionId, session.getState().name(), blueprint.title(), blueprint.briefing(), discoveredClues);
-    }
-
-    private void applyReady(GameSession session, GenerationResult generation) {
-        CaseBlueprint blueprint = generation.caseBlueprint();
-        session.setBlueprintId(blueprint.blueprintId());
-        session.setWorldTemplateId(blueprint.worldTemplate().id());
-        session.setWorldTemplateVersion(blueprint.worldTemplate().version());
-        session.setRuleTemplateId(blueprint.ruleTemplate().id());
-        session.setRuleTemplateVersion(blueprint.ruleTemplate().version());
-        session.setBlueprintSha256(generation.blueprintSha256());
-        session.setGenerationSource(generation.generationSource());
-        session.setGenerationAttemptCount(generation.generationAttemptCount());
-        session.setModel(generation.model());
-        session.setPromptVersion(generation.promptVersion());
-        session.setCaseBlueprintJson(generation.rawCaseBlueprintJson());
-        session.setFrozenAt(generation.frozenAt());
-        // 7.1절: CaseBlueprint 저장(동결) 직후 BRIEFING으로 전환
-        session.setState(SessionState.BRIEFING);
     }
 
     private GameSession findSessionOrThrow(String sessionId) {

@@ -9,6 +9,7 @@ import com.arcadia.station.repository.GameSessionRepository;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -17,6 +18,7 @@ import tools.jackson.databind.ObjectMapper;
  * searchTerms/title에 부분 일치하면 해당 기록을 인용하고 revealsClueIds를 후보로 제시한다.
  */
 @Component
+@Profile("!real-ai")
 public class FakeAssistantClient implements AssistantClient {
 
     private static final List<String> SUGGESTED_QUERIES = List.of(

@@ -9,6 +9,7 @@ import com.arcadia.station.domain.caseblueprint.RevealPolicy;
 import com.arcadia.station.repository.GameSessionRepository;
 import java.util.List;
 import java.util.Set;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -18,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
  * 백엔드의 화이트리스트 재검증 로직(InterrogationProxyService)은 이 Fake의 선의와 무관하게 항상 동작해야 한다.
  */
 @Component
+@Profile("!real-ai")
 public class FakeInterrogationClient implements InterrogationClient {
 
     private final GameSessionRepository gameSessionRepository;
