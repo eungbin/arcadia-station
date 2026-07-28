@@ -14,7 +14,7 @@ class CaseBlueprintDeserializationTest {
     @Test
     void AI_서버_응답_스키마를_CaseBlueprint로_역직렬화한다() throws Exception {
         CaseBlueprint blueprint;
-        try (InputStream in = getClass().getResourceAsStream("/fixtures/sample-case-blueprint.json")) {
+        try (InputStream in = getClass().getResourceAsStream("/fixtures/schema-sample-case-blueprint.json")) {
             blueprint = objectMapper.readValue(in, CaseBlueprint.class);
         }
 

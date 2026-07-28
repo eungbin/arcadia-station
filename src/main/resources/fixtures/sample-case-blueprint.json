@@ -164,6 +164,24 @@
       "suspectEffects": [
         { "characterId": "SOPHIA", "effect": "SUPPORTS" }
       ]
+    },
+    {
+      "clueId": "CLUE-FULL-PICTURE",
+      "title": "사건의 전체 그림",
+      "clueType": "PHYSICAL",
+      "isCore": false,
+      "solutionRoles": [],
+      "source": { "sourceType": "DEDUCTION_INSIGHT", "sourceId": "PLAYER" },
+      "acquisition": {
+        "type": "CONNECT",
+        "locationId": null,
+        "characterId": null,
+        "requiredClueIds": ["CLUE-SETUP-LOG", "CLUE-ACCESS-HISTORY"],
+        "queryTopics": []
+      },
+      "revealsFactIds": [],
+      "playerText": "설치와 접근 기록을 종합하니 사건의 전체 그림이 보이기 시작한다.",
+      "suspectEffects": []
     }
   ],
   "evidenceRecords": [
