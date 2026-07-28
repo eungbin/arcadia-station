@@ -12,6 +12,8 @@ import com.arcadia.station.repository.EvidenceInventoryRepository;
 import com.arcadia.station.repository.GameSessionRepository;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -22,6 +24,8 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 @Transactional
 public class ClueUnlockServiceImpl implements ClueUnlockService {
+
+    private static final Logger log = LoggerFactory.getLogger(ClueUnlockServiceImpl.class);
 
     private final GameSessionRepository gameSessionRepository;
     private final EvidenceInventoryRepository evidenceInventoryRepository;
@@ -57,6 +61,31 @@ public class ClueUnlockServiceImpl implements ClueUnlockService {
         newlyUnlocked.addAll(resolveConnectClues(blueprint, inventory));
 
         gameSessionRepository.save(session);
+        evidenceInventoryRepository.save(inventory);
+        return newlyUnlocked;
+    }
+
+    @Override
+    public List<Clue> unlockRagClues(String sessionId, List<String> candidateClueIds) {
+        GameSession session = findSessionOrThrow(sessionId);
+        EvidenceInventory inventory = findInventoryOrThrow(sessionId);
+        CaseBlueprint blueprint = readBlueprint(session);
+
+        List<Clue> newlyUnlocked = new ArrayList<>();
+        for (String clueId : candidateClueIds) {
+            Clue clue = findClueById(blueprint, clueId);
+            if (clue == null || clue.acquisition().type() != AcquisitionType.RAG_QUERY) {
+                log.warn("RAG 응답이 등록되지 않았거나 RAG_QUERY 타입이 아닌 clueId를 제안함: session={}, clueId={}", sessionId, clueId);
+                continue;
+            }
+            if (isUnlockable(clue, inventory)) {
+                unlock(clue, inventory);
+                newlyUnlocked.add(clue);
+            }
+        }
+
+        newlyUnlocked.addAll(resolveConnectClues(blueprint, inventory));
+
         evidenceInventoryRepository.save(inventory);
         return newlyUnlocked;
     }
@@ -107,6 +136,13 @@ public class ClueUnlockServiceImpl implements ClueUnlockService {
         } else if (session.getState() != SessionState.INVESTIGATION) {
             throw new BusinessException(ErrorCode.INVALID_SESSION_STATE);
         }
+    }
+
+    private Clue findClueById(CaseBlueprint blueprint, String clueId) {
+        return blueprint.clues().stream()
+                .filter(clue -> clue.clueId().equals(clueId))
+                .findFirst()
+                .orElse(null);
     }
 
     private CaseBlueprint readBlueprint(GameSession session) {

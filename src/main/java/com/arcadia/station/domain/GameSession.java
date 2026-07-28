@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import lombok.AccessLevel;
@@ -52,13 +51,19 @@ public class GameSession {
     private String promptVersion;
 
     // 4.4절: "완료 응답 원문(JSON)과 blueprintSha256을 함께 저장한다" — CaseBlueprint 원문 보관용.
-    @Lob
+    // @Lob은 PostgreSQL에서 text가 아니라 oid(대용량 객체)로 매핑되므로 명시적으로 text 컬럼을 쓴다.
+    @Column(columnDefinition = "text")
     private String caseBlueprintJson;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
     private Instant frozenAt;
+
+    // 13장: AI 서버가 세션 메모리를 잃어 404 SESSION_NOT_FOUND를 반환한 적이 있는 세션을 운영 로그/추적용으로 표시.
+    // 기존 행이 있는 테이블에 ddl-auto=update로 NOT NULL 컬럼을 추가할 때 DEFAULT가 없으면 실패하므로 명시한다.
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private boolean aiSessionLost;
 
     public GameSession(String sessionId, String aiCaseRequestId, Instant createdAt) {
         this.sessionId = sessionId;
