@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: arcadia
+      POSTGRES_USER: arcadia
+      POSTGRES_PASSWORD: arcadia
+    ports:
+      - "5432:5432"
+    volumes:
+      - arcadia-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  arcadia-postgres-data:

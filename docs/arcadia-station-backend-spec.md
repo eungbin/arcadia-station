@@ -2,7 +2,7 @@
 
 > 대상 프로젝트: NAN 2026 출품작 「아르카디아 스테이션 사건」
 > 이 문서가 다루는 범위: **백엔드 서버(Spring Boot)** — 게임 세션 관리, AI 서버 연동, 프론트엔드(React) 대상 API
-> 기술 전제: Spring Boot 3 / Java 21
+> 기술 전제: Spring Boot 4 / Java 21 (2026-07-28: start.spring.io가 Boot 3 스캐폴딩 지원을 중단해 Boot 4로 전환. 아래 본문의 나머지 설명은 Boot 3 기준으로 작성된 원안이며, 계층 구조·API 계약·도메인 모델 등 버전에 의존하지 않는 내용은 그대로 유효함)
 > 최종 갱신: 2026-07-28 — AI 서버팀 Q&A(baseline commit d069d7b) 반영
 
 ---

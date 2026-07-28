@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: arcadia-station-backend
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:arcadia}
+    username: ${DB_USERNAME:arcadia}
+    password: ${DB_PASSWORD:arcadia}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+server:
+  port: ${PORT:8080}
+
+arcadia:
+  ai-server:
+    base-url: ${AI_SERVER_BASE_URL:http://127.0.0.1:8081}
+    internal-api-key: ${AI_INTERNAL_API_KEY:}
+    case-generation:
+      connect-timeout: 10s
+      per-attempt-timeout: 60s
+      poll-total-budget: 210s
+      max-auto-retry: 2
+    interrogation:
+      timeout: 65s
+    assistant:
+      timeout: 65s
+  game:
+    deduction:
+      max-wrong-submissions: 3
+  keep-alive:
+    enabled: ${KEEP_ALIVE_ENABLED:false}
+    target-url: ${RENDER_EXTERNAL_URL:http://localhost:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
