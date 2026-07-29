@@ -168,3 +168,25 @@ Content-Type: application/json
 추가 수정 없이 그대로 유효한 항목: `errorCode`는 `FAILED` 상태일 때만 `CASE_GENERATION_FAILED`(그 외 `null`), `redHerrings`는 저장만, `INTERROGATE`/`AUTO` 타입은 staging에서 생성 자체를 배제하기로 함(백엔드 쪽 추가 구현 불필요), `suggestedQueries`/`recommendedQuestions` 배열 길이는 원래부터 유연하게 처리 중.
 
 여전히 AI 서버팀 쪽 P0로 남아있어 백엔드가 기다리는 항목: Render 배포/URL 확정, 3개 엔드포인트 내부 인증 통일, AI 세션·RAG 인덱스 영속화, staging 생성 타입을 `EXPLORE`/`RAG_QUERY`/`CONNECT`로 제한.
+
+---
+
+## 8. 로컬 real-ai 통합 테스트 결과 (2026-07-30) — 신규 발견 1건
+
+AI 서버팀이 공유한 [`AI_SERVER_LOCAL_TEST.md`](https://github.com/tyoonkk/GAME_AI/blob/main/docs/AI_SERVER_LOCAL_TEST.md) 가이드대로 AI 서버를 오프라인 모드로 로컬 실행(`http://127.0.0.1:8081`)하고, 백엔드를 `real-ai` 프로파일로 붙여서 세션 생성 → 탐사 → RAG → 심문 → 최종 판정 → 결과 공개까지 전체 플로우를 실제로 실행했습니다.
+
+**정상 동작 확인:** 세션 생성(aiCaseRequestId 계약 포함), 폴링, 탐사, RAG 검색(단서 3개 동시 해금 포함), 최종 판정(`CORRECT`), 결과 공개까지 전부 기대한 그대로 동작했습니다.
+
+**신규 발견 — NPC 심문 중 EXPLORE로 해금한 단서를 제시하면 AI 서버가 400을 반환합니다.**
+
+재현 절차:
+1. `POST /explore {"locationId":"LIFE_SUPPORT_CONTROL"}` → `CLUE-SETUP-PANEL` 해금 (EXPLORE, 백엔드 단독 처리 — AI 서버에는 전달되지 않음)
+2. `POST /assistant/queries` → `CLUE-TRIGGER-LOG` 등 RAG 단서 해금 (AI 서버가 직접 공개)
+3. `POST /interrogations/SOPHIA/turns`에 `presentedClueIds: ["CLUE-TRIGGER-LOG", "CLUE-SETUP-PANEL"]`을 함께 보내면 AI 서버가 `400 {"code":"INVALID_REQUEST","message":"Presented clues must already be discovered"}`을 반환합니다.
+4. `CLUE-TRIGGER-LOG`만 보내면(EXPLORE로 얻은 단서 제외) 정상적으로 `FACT-TRIGGER`가 공개됩니다.
+
+즉 AI 서버가 세션별로 자체적으로 들고 있는 "이미 발견된 단서" 상태에는 AI 서버가 RAG로 직접 공개한 단서만 들어가고, 백엔드가 8장(탐사) 로직만으로 단독 해금한 EXPLORE 단서는 반영되지 않는 것으로 보입니다. 스펙 5.1절은 "백엔드가 `EvidenceInventory.discoveredClueIds` 기준으로 사전 확인하므로 미발견 단서를 보내면 AI 서버가 400을 준다"는 것을 안전망 정도로 상정한 것으로 보이는데, EXPLORE 단서는 백엔드 기준으로는 정당하게 발견된 것이라 이 400이 정상 플레이 경로에서 항상 발생하게 됩니다.
+
+**여쭤보고 싶은 것:** AI 서버가 `presentedClueIds`를 자체 상태와 대조 검증하는 걸 없애고 백엔드가 보낸 값을 그대로 신뢰해주실 수 있을지(백엔드가 이미 `discoveredClueIds` 기준으로 사전 검증합니다), 아니면 다른 방식을 생각하고 계신지 궁금합니다.
+
+**백엔드 쪽 임시 방어 조치:** 근본 원인과 별개로, AI 서버가 이 요청을 거부해도(404 외의 4xx/5xx/타임아웃 포함) 게임이 500으로 죽지 않고 안전 응답으로 대체되도록 방어 처리를 일반화해뒀습니다(13장 "NPC/RAG 호출이 실패(404 포함)하면 게임 진행 자체를 막지 않는다" 원칙을 404 전용에서 전체로 확장).
