@@ -71,22 +71,23 @@ public class InterrogationProxyService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REQUEST));
 
+        // AI 서버는 NPC 턴 이력을 자체적으로 누적하지 않으므로(AI 서버 회신 3.2절), 이번 턴에 새로
+        // 제시한 단서뿐 아니라 이 세션·이 NPC에게 지금까지 제시했던 단서 전체를 합쳐서 보낸다.
+        Set<String> cumulativePresentedClueIds = new HashSet<>(inventory.getPresentedClueIds(characterId));
+        cumulativePresentedClueIds.addAll(presentedClueIds);
+
         NpcTurnResult result;
         try {
-            result = interrogationClient.ask(sessionId, characterId, question, presentedClueIds);
+            result = interrogationClient.ask(
+                    session.getAiCaseRequestId(), characterId, question, List.copyOf(cumulativePresentedClueIds));
         } catch (AiSessionLostException e) {
             return handleAiSessionLost(session, knowledge);
         }
 
-        // 이번 턴에 새로 제시한 단서뿐 아니라, 이 세션에서 지금까지 누적으로 제시했던 단서까지 합쳐서
-        // 화이트리스트를 계산한다. 그렇지 않으면 이전 턴에 이미 제시한 단서를 이번 턴에 다시 제시하지
-        // 않았다는 이유만으로 정당한 revealPolicy가 매번 거부되는 버그가 생긴다.
-        Set<String> cumulativePresentedClueIds = new HashSet<>(inventory.getPresentedClueIdsByCharacter());
-        cumulativePresentedClueIds.addAll(presentedClueIds);
         List<String> safeRevealedFacts =
                 whitelistRevealedFacts(knowledge, cumulativePresentedClueIds, result.revealedFactIds());
 
-        inventory.getPresentedClueIdsByCharacter().addAll(presentedClueIds);
+        inventory.recordPresentedClues(characterId, presentedClueIds);
         inventory.getRevealedFactIds().addAll(safeRevealedFacts);
         evidenceInventoryRepository.save(inventory);
 

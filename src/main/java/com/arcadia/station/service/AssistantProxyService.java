@@ -60,7 +60,7 @@ public class AssistantProxyService {
         CaseBlueprint blueprint = objectMapper.readValue(session.getCaseBlueprintJson(), CaseBlueprint.class);
         AssistantQueryResult result;
         try {
-            result = assistantClient.query(sessionId, question);
+            result = assistantClient.query(session.getAiCaseRequestId(), question);
         } catch (AiSessionLostException e) {
             return handleAiSessionLost(session);
         }

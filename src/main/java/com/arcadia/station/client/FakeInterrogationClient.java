@@ -31,8 +31,8 @@ public class FakeInterrogationClient implements InterrogationClient {
     }
 
     @Override
-    public NpcTurnResult ask(String sessionId, String characterId, String question, List<String> presentedClueIds) {
-        CaseBlueprint blueprint = readBlueprint(sessionId);
+    public NpcTurnResult ask(String aiCaseRequestId, String characterId, String question, List<String> presentedClueIds) {
+        CaseBlueprint blueprint = readBlueprint(aiCaseRequestId);
         Set<String> presented = Set.copyOf(presentedClueIds);
 
         NpcKnowledge knowledge = blueprint.npcKnowledge().stream()
@@ -62,9 +62,9 @@ public class FakeInterrogationClient implements InterrogationClient {
         return new NpcTurnResult(dialogue, emotion, revealed, recommended);
     }
 
-    private CaseBlueprint readBlueprint(String sessionId) {
-        GameSession session = gameSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalStateException("Unknown session: " + sessionId));
+    private CaseBlueprint readBlueprint(String aiCaseRequestId) {
+        GameSession session = gameSessionRepository.findByAiCaseRequestId(aiCaseRequestId)
+                .orElseThrow(() -> new IllegalStateException("Unknown session: " + aiCaseRequestId));
         return objectMapper.readValue(session.getCaseBlueprintJson(), CaseBlueprint.class);
     }
 }

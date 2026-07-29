@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -79,6 +80,20 @@ class AssistantProxyServiceTest {
         assertThat(response.newlyDiscoveredClues()).isEmpty();
         assertThat(evidenceInventoryRepository.findById(sessionId).orElseThrow().getDiscoveredClueIds())
                 .doesNotContain("CLUE-SETUP-LOG");
+    }
+
+    @Test
+    void AI_클라이언트에는_플레이어_sessionId가_아니라_aiCaseRequestId를_전달한다() throws IOException {
+        String sessionId = seedSession();
+        AtomicReference<String> capturedId = new AtomicReference<>();
+        AssistantClient client = (sid, question) -> {
+            capturedId.set(sid);
+            return new AssistantQueryResult("x", List.of(), List.of(), List.of());
+        };
+
+        newService(client).query(sessionId, "질문");
+
+        assertThat(capturedId.get()).isEqualTo("req_test_assistant").isNotEqualTo(sessionId);
     }
 
     @Test

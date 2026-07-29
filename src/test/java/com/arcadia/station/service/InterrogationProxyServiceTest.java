@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -86,6 +87,35 @@ class InterrogationProxyServiceTest {
         NpcTurnResponse response = service.ask(sessionId, "SOPHIA", "질문2", List.of());
 
         assertThat(response.revealedFactIds()).containsExactly("FACT-TRIGGER");
+    }
+
+    @Test
+    void AI_클라이언트에는_플레이어_sessionId가_아니라_aiCaseRequestId를_전달한다() throws IOException {
+        String sessionId = seedSession(List.of("CLUE-TRIGGER-LOG"));
+        AtomicReference<String> capturedId = new AtomicReference<>();
+        InterrogationProxyService service = newService((sid, characterId, question, presentedClueIds) -> {
+            capturedId.set(sid);
+            return new NpcTurnResult("x", "CALM", List.of(), List.of());
+        });
+
+        service.ask(sessionId, "SOPHIA", "질문", List.of("CLUE-TRIGGER-LOG"));
+
+        assertThat(capturedId.get()).isEqualTo("req_test_interrogation").isNotEqualTo(sessionId);
+    }
+
+    @Test
+    void AI_클라이언트에는_이번_턴과_이전_턴을_합친_누적_제시목록을_전달한다() throws IOException {
+        String sessionId = seedSession(List.of("CLUE-TRIGGER-LOG", "CLUE-MOTIVE-MESSAGE"));
+        AtomicReference<List<String>> capturedPresented = new AtomicReference<>();
+        InterrogationProxyService service = newService((sid, characterId, question, presentedClueIds) -> {
+            capturedPresented.set(presentedClueIds);
+            return new NpcTurnResult("x", "CALM", List.of(), List.of());
+        });
+
+        service.ask(sessionId, "SOPHIA", "질문1", List.of("CLUE-TRIGGER-LOG"));
+        service.ask(sessionId, "SOPHIA", "질문2", List.of("CLUE-MOTIVE-MESSAGE"));
+
+        assertThat(capturedPresented.get()).containsExactlyInAnyOrder("CLUE-TRIGGER-LOG", "CLUE-MOTIVE-MESSAGE");
     }
 
     @Test

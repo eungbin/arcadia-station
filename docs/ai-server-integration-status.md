@@ -2,7 +2,6 @@
 
 > 작성일: 2026-07-29
 > 대상: AI 서버팀 공유용
-> 레포: https://github.com/kimyeongeuk/arcadia-station-backend
 
 ## 1. 한 줄 요약
 

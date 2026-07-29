@@ -3,6 +3,7 @@ package com.arcadia.station.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.arcadia.station.domain.EvidenceInventory;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +22,7 @@ class EvidenceInventoryRepositoryTest {
         EvidenceInventory inventory = new EvidenceInventory("game_test_101");
         inventory.getDiscoveredClueIds().add("CLUE-TRIGGER-LOG");
         inventory.getRevealedFactIds().add("FACT-TRIGGER");
-        inventory.getPresentedClueIdsByCharacter().add("CLUE-SETUP-PANEL");
+        inventory.recordPresentedClues("SOPHIA", List.of("CLUE-SETUP-PANEL"));
         inventory.setWrongDeductionAttempts(1);
 
         evidenceInventoryRepository.saveAndFlush(inventory);
@@ -29,7 +30,7 @@ class EvidenceInventoryRepositoryTest {
         EvidenceInventory found = evidenceInventoryRepository.findById("game_test_101").orElseThrow();
         assertThat(found.getDiscoveredClueIds()).isEqualTo(Set.of("CLUE-TRIGGER-LOG"));
         assertThat(found.getRevealedFactIds()).isEqualTo(Set.of("FACT-TRIGGER"));
-        assertThat(found.getPresentedClueIdsByCharacter()).isEqualTo(Set.of("CLUE-SETUP-PANEL"));
+        assertThat(found.getPresentedClueIds("SOPHIA")).isEqualTo(Set.of("CLUE-SETUP-PANEL"));
         assertThat(found.getWrongDeductionAttempts()).isEqualTo(1);
     }
 }

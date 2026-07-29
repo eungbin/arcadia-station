@@ -33,8 +33,8 @@ public class FakeAssistantClient implements AssistantClient {
     }
 
     @Override
-    public AssistantQueryResult query(String sessionId, String question) {
-        CaseBlueprint blueprint = readBlueprint(sessionId);
+    public AssistantQueryResult query(String aiCaseRequestId, String question) {
+        CaseBlueprint blueprint = readBlueprint(aiCaseRequestId);
         String normalizedQuestion = question.toLowerCase();
 
         List<EvidenceRecord> matched = blueprint.evidenceRecords().stream()
@@ -61,9 +61,9 @@ public class FakeAssistantClient implements AssistantClient {
                 .anyMatch(normalizedQuestion::contains);
     }
 
-    private CaseBlueprint readBlueprint(String sessionId) {
-        GameSession session = gameSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalStateException("Unknown session: " + sessionId));
+    private CaseBlueprint readBlueprint(String aiCaseRequestId) {
+        GameSession session = gameSessionRepository.findByAiCaseRequestId(aiCaseRequestId)
+                .orElseThrow(() -> new IllegalStateException("Unknown session: " + aiCaseRequestId));
         return objectMapper.readValue(session.getCaseBlueprintJson(), CaseBlueprint.class);
     }
 }
