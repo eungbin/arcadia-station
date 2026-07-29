@@ -59,6 +59,39 @@ X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
 }
 ```
 
+### 축약 없는 실제 `READY` 응답
+
+백엔드 DTO 작성에 사용할 전체 샘플은 다음 파일입니다.
+
+[`examples/internal-case-ready.response.json`](./examples/internal-case-ready.response.json)
+
+이 파일은 문서용으로 손으로 조립한 JSON이 아니라 오프라인 모드에서 다음 요청을
+보낸 뒤 실제 `InternalCaseController`의 HTTP 응답을 UTF-8로 캡처한 결과입니다.
+
+```json
+{
+  "sessionId": "backend_contract_001",
+  "seed": "backend-seed"
+}
+```
+
+샘플에는 다음 항목이 축약 없이 들어 있습니다.
+
+- 생성 메타데이터와 SHA-256
+- 전체 범행 수법의 준비·촉발 액션
+- 타임라인 4건
+- 사실 10건과 용의자 5명의 알리바이
+- 단서 5건과 획득 조건·선행 단서·용의자 효과
+- RAG 확정 기록 4건과 metadata
+- NPC 지식·은폐·증거 제시 해금 정책
+- 미끼 단서와 해소 사실
+- 네 필수 추리 역할의 정답 단서 및 비범인 배제 근거
+
+샘플의 `createdAt`과 `frozenAt` 값은 캡처 시각이므로 실행할 때마다 달라집니다.
+`generationSource`가 `FALLBACK`이고 `generationAttemptCount`가 `0`인 것은 API 키 없는
+오프라인 실행 결과이기 때문입니다. 온라인 생성 성공 시에는 각각 `AI`, `1`~`3`이
+됩니다. 나머지 구조는 동일합니다.
+
 완료:
 
 ```json
@@ -115,6 +148,7 @@ X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
 
 위 `caseBlueprint` 내부의 빈 객체·배열은 필드 종류를 보여주기 위한 축약 표기입니다.
 실제 `READY` 응답은 `case-blueprint.schema.json`을 만족하는 전체 사건 데이터로 채워집니다.
+백엔드 구현에는 위의 축약 없는 실제 응답 파일을 기준으로 사용하세요.
 
 `caseBlueprint`에는 다음이 모두 들어갑니다.
 
@@ -125,6 +159,27 @@ X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
 - NPC별 지식·은폐·증거 제시 해금 규칙
 - 범인과 `SETUP`/`TRIGGER`/`OPPORTUNITY`/`MOTIVE` 정답 단서 ID
 - 비범인별 배제 근거
+
+주요 중첩 필드:
+
+| 경로 | 타입 | 설명 |
+|---|---|---|
+| `generation.worldTemplate` | `{id, version}` | 사용한 세계관 템플릿 |
+| `generation.ruleTemplate` | `{id, version}` | 사용한 추리 규칙 템플릿 |
+| `generation.generationSource` | `AI \| FALLBACK` | 사건 생성 출처 |
+| `generation.caseBlueprint.method` | object | 허구적 수법과 준비·촉발 액션 |
+| `caseBlueprint.timeline[]` | array | 시각·행위자·장소·연결 사실 |
+| `caseBlueprint.facts[]` | array | 서버가 확정한 참·거짓 사실 |
+| `caseBlueprint.alibis[]` | array | 최초 주장과 실제 동선 |
+| `caseBlueprint.clues[]` | array | 단서 유형·역할·출처·획득 조건 |
+| `caseBlueprint.evidenceRecords[]` | array | RAG 검색용 확정 기록 |
+| `caseBlueprint.npcKnowledge[]` | array | NPC 지식·은폐·해금 정책 |
+| `caseBlueprint.redHerrings[]` | array | 미끼 단서와 해소 근거 |
+| `caseBlueprint.solution` | object | 범인·역할별 정답 단서·비범인 배제 |
+
+`generation`은 `READY`일 때 object이고 생성 중이나 실패 상태에서는 `null`입니다.
+`errorCode`는 정상 상태에서 `null`, `FAILED`에서 string입니다. 배열 필드는 항목이
+없어도 `null`이 아니라 빈 배열 `[]`로 응답합니다.
 
 `generationSource`가 `FALLBACK`이어도 사건은 모든 검증을 통과한 상태이며 `status`는
 `FAILED`가 아니라 `READY`입니다. 따라서 백엔드는 정상 게임을 시작하면 됩니다.
