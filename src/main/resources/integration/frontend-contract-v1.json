@@ -1,0 +1,98 @@
+{
+  "version": "1.0.0",
+  "frontendRepository": "eungbin/arcadia-station",
+  "npcCharacterIds": {
+    "NPC_MAYA": "MAYA",
+    "NPC_JUNHO": "JUNHO",
+    "NPC_SOPHIA": "SOPHIA",
+    "NPC_KASIM": "KASIM",
+    "NPC_YUNA": "YUNA"
+  },
+  "investigationObjects": {
+    "CO_BODY": {
+      "mode": "EXPLORE",
+      "locationId": "COMMAND_DECK",
+      "query": null
+    },
+    "CO_DOOR_LOG": {
+      "mode": "RAG",
+      "locationId": "SECURITY_HUB",
+      "query": "사령관실 출입 버퍼와 중앙 보안 로그의 타임스탬프를 비교해 줘"
+    },
+    "CO_XO_PASSAGE": {
+      "mode": "EXPLORE",
+      "locationId": "COMMAND_CORRIDOR",
+      "query": null
+    },
+    "CO_ENV_PANEL": {
+      "mode": "RAG",
+      "locationId": "LIFE_SUPPORT_CONTROL",
+      "query": "사령관실 환경 센서의 산소와 압력 변화 기록을 보여 줘"
+    },
+    "CO_TERMINAL": {
+      "mode": "RAG",
+      "locationId": "COMMAND_DECK",
+      "query": "피해자의 감사 보고서와 면담 통보 기록을 보여 줘"
+    },
+    "CO_SCANNER": {
+      "mode": "EXPLORE",
+      "locationId": "COMMAND_DECK",
+      "query": null
+    },
+    "HB_MAINTENANCE": {
+      "mode": "EXPLORE",
+      "locationId": "MAINTENANCE_CORRIDOR",
+      "query": null
+    },
+    "XO_RESOURCE_BOARD": {
+      "mode": "RAG",
+      "locationId": "COMMAND_DECK",
+      "query": "자원 할당 변경과 감사 대상 기록을 보여 줘"
+    },
+    "MD_MEDICAL_TERMINAL": {
+      "mode": "RAG",
+      "locationId": "MEDICAL_BAY",
+      "query": "검시 해석과 현장 스캔 원시 기록의 차이를 보여 줘"
+    },
+    "MD_MEDICAL_STORAGE": {
+      "mode": "EXPLORE",
+      "locationId": "MEDICAL_BAY",
+      "query": null
+    },
+    "EN_LIFE_SUPPORT": {
+      "mode": "RAG",
+      "locationId": "LIFE_SUPPORT_CONTROL",
+      "query": "생명유지 안전 점검과 진단 실행 기록을 보여 줘"
+    },
+    "CM_SECURITY_ARCHIVE": {
+      "mode": "RAG",
+      "locationId": "SECURITY_HUB",
+      "query": "수정 전 보안 로그와 출입 기록을 보여 줘"
+    },
+    "CG_AIRLOCK_LOG": {
+      "mode": "RAG",
+      "locationId": "DOCKING_CONTROL",
+      "query": "에어록 압력과 도킹 안전 이벤트 기록을 보여 줘"
+    },
+    "CG_CARGO_MANIFEST": {
+      "mode": "EXPLORE",
+      "locationId": "CARGO_BAY",
+      "query": null
+    },
+    "CMN_FOOD_STATION": {
+      "mode": "EXPLORE",
+      "locationId": "COMMAND_CORRIDOR",
+      "query": null
+    },
+    "QT_ACCESS_BUFFER": {
+      "mode": "RAG",
+      "locationId": "SECURITY_HUB",
+      "query": "승무원 숙소의 야간 출입과 알리바이 기록을 보여 줘"
+    }
+  },
+  "theoryFields": {
+    "method": ["SETUP", "TRIGGER"],
+    "trace": ["OPPORTUNITY"],
+    "motive": ["MOTIVE"]
+  }
+}

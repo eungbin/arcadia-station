@@ -113,11 +113,11 @@
       "subjectCharacterIds": ["MAYA"]
     },
     {
-      "factId": "FACT-BAEK-EXCLUSION",
+      "factId": "FACT-JUNHO-EXCLUSION",
       "kind": "EXCLUSION",
       "statement": "백준호의 정비 진단 권한은 의료 안전 진단 작업을 실행할 수 없다.",
       "truthValue": true,
-      "subjectCharacterIds": ["BAEK"]
+      "subjectCharacterIds": ["JUNHO"]
     },
     {
       "factId": "FACT-KASIM-EXCLUSION",
@@ -150,10 +150,10 @@
       "contradictingFactIds": []
     },
     {
-      "characterId": "BAEK",
+      "characterId": "JUNHO",
       "initialClaim": "공학 작업실에서 발전기 정비 자료를 정리했다.",
       "actualWhereabouts": "공학 작업실",
-      "supportingFactIds": ["FACT-BAEK-EXCLUSION"],
+      "supportingFactIds": ["FACT-JUNHO-EXCLUSION"],
       "contradictingFactIds": []
     },
     {
@@ -234,7 +234,7 @@
         "requiredClueIds": [],
         "queryTopics": ["02:05", "안전 진단", "소피아"]
       },
-      "revealsFactIds": ["FACT-TRIGGER", "FACT-BAEK-EXCLUSION"],
+      "revealsFactIds": ["FACT-TRIGGER", "FACT-JUNHO-EXCLUSION"],
       "playerText": "02:05에 소피아의 인증으로 의료 안전 진단 작업이 실행됐다. 백준호의 정비 권한으로는 이 작업을 실행할 수 없다.",
       "suspectEffects": [
         {
@@ -242,7 +242,7 @@
           "effect": "SUPPORTS"
         },
         {
-          "characterId": "BAEK",
+          "characterId": "JUNHO",
           "effect": "EXCLUDES"
         }
       ]
@@ -463,7 +463,7 @@
         "reason": "준비 시각 지휘 갑판에 있었고 의료 안전 점검 권한도 없다."
       },
       {
-        "characterId": "BAEK",
+        "characterId": "JUNHO",
         "excludedByClueIds": ["CLUE-TRIGGER-LOG"],
         "reason": "정비 진단 권한은 있으나 사건을 촉발한 의료 안전 진단 권한은 없다."
       },

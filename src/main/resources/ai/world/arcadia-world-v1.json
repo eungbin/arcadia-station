@@ -59,7 +59,7 @@
           "privatePossibilities": ["피해자의 대역 신분 유지 조력", "감사 방향을 둘러싼 갈등"]
         },
         {
-          "characterId": "BAEK",
+          "characterId": "JUNHO",
           "publicRelation": "설비 예산을 두고 자주 협의했다.",
           "privatePossibilities": ["예산 문제 묵인", "업무상 부채 관계"]
         }
@@ -68,7 +68,7 @@
       "forbiddenCapabilities": ["MEDICAL_ADMIN", "LIFE_SUPPORT_WRITE", "UNLOGGED_OVERRIDE"]
     },
     {
-      "id": "BAEK",
+      "id": "JUNHO",
       "displayName": "백준호",
       "occupation": "수석 엔지니어",
       "suspect": true,
@@ -126,7 +126,7 @@
           "privatePossibilities": ["감사 면담 통보", "연구 기록 노출 우려"]
         },
         {
-          "characterId": "BAEK",
+          "characterId": "JUNHO",
           "publicRelation": "환경 안전 점검에서 협업했다.",
           "privatePossibilities": ["상대의 비밀을 일부 눈치챔"]
         }
@@ -335,7 +335,7 @@
       "id": "LIFE_SUPPORT",
       "displayName": "생명 유지 시스템",
       "responsibleRoles": ["수석 엔지니어", "의무관"],
-      "accessibleCharacterIds": ["BAEK", "SOPHIA", "VICTIM"],
+      "accessibleCharacterIds": ["JUNHO", "SOPHIA", "VICTIM"],
       "allowedOperations": ["READ_STATUS", "RUN_MAINTENANCE_DIAGNOSTIC", "SCHEDULE_HEALTH_SAFETY_CHECK", "RUN_SAFETY_DIAGNOSTIC"],
       "dependentSystemIds": ["MAINTENANCE_SYSTEM"],
       "auditSourceTypes": ["COMMAND_LOG", "MAINTENANCE_LOG"],
@@ -369,7 +369,7 @@
       "id": "MAINTENANCE_SYSTEM",
       "displayName": "정비 작업 시스템",
       "responsibleRoles": ["수석 엔지니어"],
-      "accessibleCharacterIds": ["BAEK"],
+      "accessibleCharacterIds": ["JUNHO"],
       "allowedOperations": ["READ_WORK_ORDER", "CLOSE_WORK_ORDER"],
       "dependentSystemIds": [],
       "auditSourceTypes": ["MAINTENANCE_LOG"],
