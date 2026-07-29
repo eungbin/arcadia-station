@@ -1,6 +1,7 @@
 package com.arcadia.station.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.arcadia.station.client.AiSessionLostException;
 import com.arcadia.station.client.AssistantClient;
@@ -11,6 +12,8 @@ import com.arcadia.station.domain.GameSession;
 import com.arcadia.station.domain.SessionState;
 import com.arcadia.station.dto.response.AssistantQueryResponse;
 import com.arcadia.station.dto.response.PlayerClueView;
+import com.arcadia.station.exception.BusinessException;
+import com.arcadia.station.exception.ErrorCode;
 import com.arcadia.station.repository.EvidenceInventoryRepository;
 import com.arcadia.station.repository.GameSessionRepository;
 import java.io.IOException;
@@ -76,6 +79,17 @@ class AssistantProxyServiceTest {
         assertThat(response.newlyDiscoveredClues()).isEmpty();
         assertThat(evidenceInventoryRepository.findById(sessionId).orElseThrow().getDiscoveredClueIds())
                 .doesNotContain("CLUE-SETUP-LOG");
+    }
+
+    @Test
+    void 빈_질문은_INVALID_REQUEST다() throws IOException {
+        String sessionId = seedSession();
+        AssistantClient client = (sid, question) -> new AssistantQueryResult("x", List.of(), List.of(), List.of());
+
+        assertThatThrownBy(() -> newService(client).query(sessionId, ""))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REQUEST);
     }
 
     @Test

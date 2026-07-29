@@ -49,6 +49,11 @@ public class AssistantProxyService {
     }
 
     public AssistantQueryResponse query(String sessionId, String question) {
+        if (question == null || question.isBlank()) {
+            // 6.3절: 5.4절과 동일한 오류 체계 공유 — 질문은 공백 불가
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
         GameSession session = findSessionOrThrow(sessionId);
         requireReady(session);
 

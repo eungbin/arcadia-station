@@ -50,6 +50,11 @@ public class InterrogationProxyService {
     }
 
     public NpcTurnResponse ask(String sessionId, String characterId, String question, List<String> presentedClueIds) {
+        if (question == null || question.isBlank()) {
+            // 5.2/5.4절: 질문은 공백 불가
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
         GameSession session = findSessionOrThrow(sessionId);
         requireReady(session);
 

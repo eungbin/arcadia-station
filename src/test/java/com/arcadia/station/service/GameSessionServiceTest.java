@@ -3,14 +3,20 @@ package com.arcadia.station.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.arcadia.station.client.CaseGenerationClient;
+import com.arcadia.station.client.dto.CaseGenerationAck;
+import com.arcadia.station.client.dto.CaseGenerationStatus;
+import com.arcadia.station.domain.GameSession;
 import com.arcadia.station.domain.SessionState;
 import com.arcadia.station.dto.response.SessionCreateResponse;
 import com.arcadia.station.exception.BusinessException;
 import com.arcadia.station.exception.ErrorCode;
+import com.arcadia.station.repository.EvidenceInventoryRepository;
 import com.arcadia.station.repository.GameSessionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 3.2절 상태 전이 규칙: 세션 생성 시 Fake 클라이언트가 즉시 READY를 반환하므로
@@ -24,6 +30,36 @@ class GameSessionServiceTest {
 
     @Autowired
     private GameSessionRepository gameSessionRepository;
+
+    @Autowired
+    private EvidenceInventoryRepository evidenceInventoryRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Test
+    void 최초_시도가_AI_서버와_통신에_실패해도_세션_행은_그대로_저장되어_폴링_워커가_재시도할_수_있다() {
+        CaseGenerationClient failingClient = new CaseGenerationClient() {
+            @Override
+            public CaseGenerationAck requestCase(String aiCaseRequestId, String seed) {
+                throw new RuntimeException("연결 실패");
+            }
+
+            @Override
+            public CaseGenerationStatus pollStatus(String aiCaseRequestId) {
+                throw new RuntimeException("연결 실패");
+            }
+        };
+        GameSessionService service = new GameSessionService(
+                gameSessionRepository, evidenceInventoryRepository, failingClient, objectMapper);
+
+        SessionCreateResponse response = service.createSession(null);
+
+        assertThat(response.status()).isEqualTo("CREATING");
+        GameSession session = gameSessionRepository.findById(response.sessionId()).orElseThrow();
+        assertThat(session.getState()).isEqualTo(SessionState.CREATING);
+        assertThat(evidenceInventoryRepository.findById(response.sessionId())).isPresent();
+    }
 
     @Test
     void 세션_생성_직후_Fake_클라이언트가_즉시_READY를_반환해_BRIEFING까지_전환된다() {

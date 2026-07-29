@@ -18,6 +18,8 @@ import com.arcadia.station.repository.GameSessionRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -25,6 +27,8 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 @Transactional
 public class GameSessionService {
+
+    private static final Logger log = LoggerFactory.getLogger(GameSessionService.class);
 
     private final GameSessionRepository gameSessionRepository;
     private final EvidenceInventoryRepository evidenceInventoryRepository;
@@ -51,16 +55,22 @@ public class GameSessionService {
         gameSessionRepository.save(session);
         evidenceInventoryRepository.save(new EvidenceInventory(sessionId));
 
-        CaseGenerationAck ack = caseGenerationClient.requestCase(aiCaseRequestId, seed);
-        session.setState(SessionState.VALIDATING);
+        // 최초 시도가 AI 서버와 통신 자체에 실패해도(4.3/4.5절) 이미 저장한 세션 행을 롤백시키지 않는다.
+        // CREATING 상태로 남겨두면 CaseGenerationPollingWorker가 이어서 재시도 정책을 적용한다.
+        try {
+            CaseGenerationAck ack = caseGenerationClient.requestCase(aiCaseRequestId, seed);
+            session.setState(SessionState.VALIDATING);
 
-        CaseGenerationStatus status = caseGenerationClient.pollStatus(ack.aiCaseRequestId());
-        session.setLastPolledAt(Instant.now());
-        if ("READY".equals(status.status())) {
-            GenerationResultApplier.apply(session, status.generation());
+            CaseGenerationStatus status = caseGenerationClient.pollStatus(ack.aiCaseRequestId());
+            session.setLastPolledAt(Instant.now());
+            if ("READY".equals(status.status())) {
+                GenerationResultApplier.apply(session, status.generation());
+            }
+            gameSessionRepository.save(session);
+        } catch (Exception e) {
+            log.warn("사건 생성 최초 시도가 AI 서버와 통신에 실패함, 폴링 워커가 재시도를 이어감: session={}", sessionId, e);
         }
 
-        gameSessionRepository.save(session);
         return new SessionCreateResponse(sessionId, session.getState().name());
     }
 
