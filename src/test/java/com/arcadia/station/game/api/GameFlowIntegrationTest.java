@@ -11,6 +11,10 @@ import com.arcadia.station.game.domain.SessionState;
 import com.arcadia.station.infrastructure.persistence.InMemoryGameSessionRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -42,7 +46,7 @@ class GameFlowIntegrationTest {
                 .andExpect(jsonPath("$.status").value("CREATING"))
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
+                .getContentAsString(StandardCharsets.UTF_8);
         String sessionId = objectMapper.readTree(createBody).path("sessionId").asText();
         awaitState(sessionId, SessionState.READY);
 
@@ -143,13 +147,36 @@ class GameFlowIntegrationTest {
         String sessionId = objectMapper.readTree(accepted).path("sessionId").asText();
         awaitState(sessionId, SessionState.READY);
 
-        mockMvc.perform(get("/internal/v1/cases/{id}", sessionId))
+        String readyResponse = mockMvc.perform(get("/internal/v1/cases/{id}", sessionId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("READY"))
                 .andExpect(jsonPath("$.generation.blueprintSha256").isString())
                 .andExpect(jsonPath("$.generation.generationSource").value("FALLBACK"))
                 .andExpect(jsonPath("$.generation.caseBlueprint.culpritId").value("SOPHIA"))
-                .andExpect(jsonPath("$.generation.caseBlueprint.solution").isMap());
+                .andExpect(jsonPath("$.generation.caseBlueprint.solution").isMap())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        JsonNode actualResponse = objectMapper.readTree(readyResponse);
+        JsonNode documentedResponse = objectMapper.readTree(
+                Files.readString(
+                        Path.of(
+                                "docs",
+                                "examples",
+                                "internal-case-ready.response.json"
+                        ),
+                        StandardCharsets.UTF_8
+                )
+        );
+        removeDynamicTimestamps(actualResponse);
+        removeDynamicTimestamps(documentedResponse);
+        assertThat(actualResponse).isEqualTo(documentedResponse);
+    }
+
+    private void removeDynamicTimestamps(JsonNode response) {
+        ObjectNode generation = (ObjectNode) response.path("generation");
+        generation.remove("createdAt");
+        generation.remove("frozenAt");
     }
 
     private void awaitState(String sessionId, SessionState expected) throws Exception {

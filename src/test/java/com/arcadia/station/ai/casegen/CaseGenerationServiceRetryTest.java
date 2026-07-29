@@ -5,6 +5,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.arcadia.station.ai.common.AiQuotaExceededException;
 import com.arcadia.station.ai.validation.CaseBlueprintValidator;
 import com.arcadia.station.ai.validation.CaseValidationResult;
 import com.arcadia.station.ai.validation.ValidationIssue;
@@ -19,7 +20,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 @SpringBootTest(properties = {
         "arcadia.ai.enabled=true",
         "arcadia.ai.offline-mode=false",
-        "arcadia.ai.api-key=test-only-key"
+        "arcadia.ai.provider=openai",
+        "arcadia.ai.openai.api-key=test-only-key"
 })
 class CaseGenerationServiceRetryTest {
 
@@ -67,5 +69,24 @@ class CaseGenerationServiceRetryTest {
         assertThat(result.generationSource()).isEqualTo(GenerationSource.FALLBACK);
         assertThat(result.generationAttemptCount()).isEqualTo(3);
         verify(generator, times(3)).generate(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void quotaFailureUsesFallbackWithoutRetryingProvider() {
+        when(generator.generate(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new AiQuotaExceededException("quota exhausted"));
+        when(validator.validate(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.argThat(
+                        blueprint -> "quota-seed".equals(blueprint.seed())
+                )
+        )).thenReturn(new CaseValidationResult(List.of()));
+
+        FrozenCaseBlueprint result = service.createCase("quota-test", "quota-seed");
+
+        assertThat(result.generationSource()).isEqualTo(GenerationSource.FALLBACK);
+        assertThat(result.generationAttemptCount()).isEqualTo(1);
+        verify(generator, times(1)).generate(org.mockito.ArgumentMatchers.any());
     }
 }
