@@ -190,3 +190,21 @@ AI 서버팀이 공유한 [`AI_SERVER_LOCAL_TEST.md`](https://github.com/tyoonkk
 **여쭤보고 싶은 것:** AI 서버가 `presentedClueIds`를 자체 상태와 대조 검증하는 걸 없애고 백엔드가 보낸 값을 그대로 신뢰해주실 수 있을지(백엔드가 이미 `discoveredClueIds` 기준으로 사전 검증합니다), 아니면 다른 방식을 생각하고 계신지 궁금합니다.
 
 **백엔드 쪽 임시 방어 조치:** 근본 원인과 별개로, AI 서버가 이 요청을 거부해도(404 외의 4xx/5xx/타임아웃 포함) 게임이 500으로 죽지 않고 안전 응답으로 대체되도록 방어 처리를 일반화해뒀습니다(13장 "NPC/RAG 호출이 실패(404 포함)하면 게임 진행 자체를 막지 않는다" 원칙을 404 전용에서 전체로 확장).
+
+---
+
+## 9. AI 서버팀 확인 및 수정 방향 (2026-07-30 후속 회신)
+
+AI 서버팀이 동일 조건(“CLUE-TRIGGER-LOG만 제시하면 200, CLUE-SETUP-PANEL을 함께 제시하면 400”)으로 직접 재현했고, **AI 서버 쪽 계약 버그로 판단**했습니다. 기존 AI 단독 통합 테스트는 AI 서버의 `/explore` 엔드포인트까지 직접 호출하는 구성이라 이 서비스 경계 차이를 발견하지 못했다고 합니다.
+
+**확정된 수정 방향:**
+1. 발견 단서 상태는 백엔드 `EvidenceInventory`를 기준 데이터로 삼는다.
+2. NPC 심문의 `presentedClueIds`는 백엔드의 사전 검증 결과를 신뢰한다 — AI 서버는 그 `clueId`가 현재 `CaseBlueprint`에 실제로 존재하는지만 검증하고, AI 서버 자체 `discoveredClueIds`와의 대조는 제거한다.
+3. 요청 형식(`{question, presentedClueIds}`)은 그대로 유지 — 별도 단서 동기화 API는 상태가 다시 어긋날 여지가 있어 추가하지 않기로 함.
+4. 백엔드를 신뢰하는 구조로 바뀌는 만큼, **NPC/RAG 엔드포인트에도 사건 생성과 동일한 `X-Internal-AI-Key` 검증을 적용**하기로 함(16.2절 P0 "NPC/RAG 내부 인증 통일" 항목).
+
+**백엔드 쪽 확인:** 저희 `RealInterrogationClient`/`RealAssistantClient`/`RealCaseGenerationClient`는 애초에 세 엔드포인트 전부에 `X-Internal-AI-Key`를 항상 보내도록 구현해뒀기 때문에(8번 작업 때 이 상황을 미리 대비함), AI 서버가 NPC/RAG에 인증 검사를 붙여도 **백엔드 쪽 코드 변경은 필요 없습니다.**
+
+**남은 후속 논의:** 선행 EXPLORE 단서를 필요로 하는 `RAG_QUERY` 단서(예: `acquisition.requiredClueIds`에 EXPLORE 단서가 걸려있는 경우)도 같은 종류의 상태 불일치가 RAG 엔드포인트에서 발생할 수 있어, RAG 요청에도 백엔드의 누적 `discoveredClueIds`를 함께 전달하는 방향으로 계약을 확장할지 AI 서버팀이 별도로 검토해서 공유하기로 함.
+
+AI 서버팀은 아직 수정 커밋을 반영하지 않은 상태이며, 수정 후 EXPLORE 단서 포함 회귀 테스트 결과와 커밋을 공유하기로 했습니다. 저희가 추가한 "AI 호출 실패 시 안전 응답으로 대체" 방어 처리는 근본 수정 이후에도 네트워크 장애·AI 서버 재시작 대비용으로 유지하는 것으로 상호 합의됨.
