@@ -1,5 +1,7 @@
 # Arcadia Station AI
 
+Gemini API로 테스트하려면 [Gemini API 테스트 설정](docs/GEMINI_SETUP.md)을 따르세요.
+
 아르카디아 스테이션의 세션별 추리 사건을 생성하고, 서버 규칙으로 검증·동결한 뒤
 탐색/RAG/심문/최종 추리 API를 제공하는 Spring Boot 서비스입니다.
 
@@ -21,6 +23,8 @@
 ## 로컬 실행
 
 기본값은 API 키 없이 완주 가능한 오프라인 모드입니다.
+게임 백엔드와 함께 실행하는 전체 절차는
+[AI 서버 로컬 연동 테스트](docs/AI_SERVER_LOCAL_TEST.md)를 따르세요.
 
 ```powershell
 mvn test
@@ -30,7 +34,7 @@ mvn spring-boot:run
 헬스 체크:
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/actuator/health
+Invoke-RestMethod http://localhost:8081/actuator/health
 ```
 
 온라인 사건 생성을 사용할 때만 다음 환경 변수를 설정합니다.
@@ -43,6 +47,10 @@ $env:OPENAI_TEXT_MODEL = 'gpt-5.6-terra'
 $env:OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small'
 mvn spring-boot:run
 ```
+
+환경변수 전체 목록과 Gemini/오프라인 실행 예시는 [`.env.example`](.env.example)에
+정리되어 있습니다. Spring Boot가 `.env` 파일을 자동으로 읽는 구성은 아니므로,
+실제 실행 시에는 문서 예시처럼 현재 셸이나 배포 환경의 환경변수로 주입해야 합니다.
 
 `OPENAI_API_KEY`와 원본 프롬프트는 응답이나 일반 로그에 기록하지 않습니다. 모델명은
 환경 변수로 교체할 수 있으며 코드에 고정하지 않습니다.
@@ -65,6 +73,16 @@ mvn spring-boot:run
 `/internal/v1/cases` API를 사용하세요. `AI_INTERNAL_API_KEY`가 설정된 환경에서는
 `X-Internal-AI-Key` 헤더가 필수입니다. 운영 환경에서는 이 경로를 사설 네트워크에만
 노출해야 합니다.
+백엔드 DTO 작성용 축약 없는 실제 `READY` 응답은
+[`docs/examples/internal-case-ready.response.json`](docs/examples/internal-case-ready.response.json)에
+있으며 통합 테스트가 현재 HTTP 응답과의 일치 여부를 검사합니다.
+
+`eungbin/arcadia-station` 프론트와 게임 백엔드까지 연결할 때는
+[프론트-백엔드-AI 브리지 계약](docs/FRONTEND_BACKEND_AI_BRIDGE.md)을 사용하세요.
+공유 NPC·오브젝트·추리 필드 변환표는
+`GET /api/v1/integration/frontend-contract`에서 버전이 지정된 JSON으로 조회할 수
+있습니다. 브라우저가 AI 서버의 내부 사건 생성 API를 직접 호출하는 구조는 지원하지
+않습니다.
 
 ## 주요 리소스
 
@@ -72,6 +90,7 @@ mvn spring-boot:run
 - `src/main/resources/ai/rules/arcadia-mystery-rules-v1.json`
 - `src/main/resources/ai/fallback/sophia-safe-v1.json`
 - `src/main/resources/ai/schema/`
+- `src/main/resources/integration/frontend-contract-v1.json`
 
 ## 현재 저장 방식
 
