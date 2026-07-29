@@ -27,7 +27,10 @@ public class RealCaseGenerationClient implements CaseGenerationClient {
 
     private record CaseCreateResponse(String sessionId, String status, String statusUrl) {}
 
-    private record GenerationWire(
+    // 패키지 전용(private 아님): AI 서버 회신 3.3절 — 실제 generation 객체에는 이 필드들 외에도
+    // blueprintId/seed/worldTemplate/ruleTemplate이 더 있지만, Jackson 기본 동작(알 수 없는 속성 무시)
+    // 덕분에 여기 선언하지 않은 필드는 그냥 무시된다. 테스트에서 이 관용성을 직접 검증한다.
+    record GenerationWire(
         CaseBlueprint caseBlueprint,
         String blueprintSha256,
         Integer generationAttemptCount,
@@ -37,7 +40,7 @@ public class RealCaseGenerationClient implements CaseGenerationClient {
         Instant createdAt,
         Instant frozenAt) {}
 
-    private record CaseStatusResponse(String sessionId, String status, GenerationWire generation, String errorCode) {}
+    record CaseStatusResponse(String sessionId, String status, GenerationWire generation, String errorCode) {}
 
     private final RestClient restClient;
     private final String internalApiKey;
@@ -73,6 +76,10 @@ public class RealCaseGenerationClient implements CaseGenerationClient {
             throw new AiSessionLostException("Case generation session not found: " + aiCaseRequestId);
         }
 
+        return parseStatus(rawBody);
+    }
+
+    CaseGenerationStatus parseStatus(String rawBody) {
         JsonNode tree = objectMapper.readTree(rawBody);
         CaseStatusResponse response = objectMapper.treeToValue(tree, CaseStatusResponse.class);
 
