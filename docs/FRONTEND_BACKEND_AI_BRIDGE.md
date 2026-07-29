@@ -140,6 +140,12 @@ NPC 심문:
 | `dialogue` | `response` |
 | 새로 공개되어 세션에 기록된 단서 | `revealedEvidenceIds` |
 
+NPC 심문의 발견 단서 기준 데이터는 게임 백엔드의 `EvidenceInventory`입니다.
+백엔드는 해당 NPC에게 지금까지 제시한 발견 단서 전체를 `presentedClueIds`로 보내고,
+AI 서버는 각 ID가 동결된 CaseBlueprint에 속하는지만 다시 검사합니다. 따라서 백엔드가
+단독으로 처리한 `EXPLORE`/`CONNECT` 단서도 별도 AI 상태 동기화 없이 제시할 수 있습니다.
+CaseBlueprint에 없는 ID는 `400 INVALID_REQUEST`로 거절됩니다.
+
 AI가 반환한 기록 ID를 그대로 프론트 `citations`에 넣으면 안 됩니다. 백엔드는 현재
 세션에서 공개된 프론트 오브젝트 또는 단서 ID로 변환한 값만 반환합니다.
 
@@ -158,5 +164,6 @@ AI 서버 오류를 프론트 계약에 맞춰 다음 형태로 정규화합니�
 - 프론트의 `version`은 게임 백엔드가 관리합니다.
 - 오래된 `version`을 사용한 저장은 `409 SESSION_VERSION_CONFLICT`로 거절합니다.
 - 동일 오브젝트 조사와 심문 메시지 재전송에는 멱등 키를 적용합니다.
+- 사건 생성·조회, NPC, RAG 요청에는 모두 동일한 `X-Internal-AI-Key`를 보냅니다.
 - `AI_INTERNAL_API_KEY`는 게임 백엔드에만 두고 Vite 환경 변수로 만들지 않습니다.
 - 운영에서는 AI 내부 API를 사설 네트워크에만 노출합니다.

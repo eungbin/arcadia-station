@@ -150,10 +150,13 @@ API quota 초과, timeout, JSON 변환 실패 또는 게임 규칙 검증 실패
 
 ## 6. 현재 로컬 테스트 범위와 제약
 
-- NPC/RAG는 현재 내부 키 헤더를 받지만 AI 서버에서 아직 검사하지 않습니다.
+- 사건 생성·조회, NPC, RAG는 동일한 `X-Internal-AI-Key`를 검사합니다.
 - AI 세션과 RAG 인덱스는 메모리 기반이라 AI 서버 재시작 시 사라집니다.
 - 사건 생성 때 사용한 `aiCaseRequestId`를 이후 NPC/RAG에도 동일하게 사용해야 합니다.
 - NPC의 `presentedClueIds`는 해당 NPC에게 지금까지 제시한 누적 단서 전체를 보냅니다.
+- 백엔드가 EXPLORE/CONNECT로 발견한 단서도 `presentedClueIds`로 제시할 수 있습니다.
+  AI 서버는 동결된 CaseBlueprint에 존재하는 ID인지 확인하고, 발견 여부는 백엔드의
+  `EvidenceInventory` 검증을 신뢰합니다.
 - staging 생성에서는 `INTERROGATE`와 `AUTO` 획득 타입을 배제하는 AI 수정이 남아 있습니다.
 
 위 제약은 로컬 단일 프로세스 연동 확인에는 영향을 주지 않지만, staging/production

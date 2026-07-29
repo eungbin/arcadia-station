@@ -228,7 +228,53 @@ React에는 `caseBlueprint` 전체를 전달하면 안 됩니다. 게임 시작 
 - `npcKnowledge.concealedFactIds`
 - `redHerrings.resolutionFactIds`
 
-## 4. 오류 처리
+## 4. NPC/RAG 내부 호출 계약
+
+사건 생성 요청에 사용한 `sessionId`를 NPC와 RAG에도 동일하게 사용합니다. 두 요청에도
+사건 생성·조회와 같은 내부 키를 보냅니다.
+
+```http
+POST /api/v1/sessions/{sessionId}/interrogations/{characterId}/turns
+X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
+Content-Type: application/json
+
+{
+  "question": "제시한 두 기록을 설명해 주세요.",
+  "presentedClueIds": ["CLUE-TRIGGER-LOG", "CLUE-SETUP-PANEL"]
+}
+```
+
+`presentedClueIds`의 발견 여부에 대한 기준 데이터는 백엔드의 `EvidenceInventory`입니다.
+백엔드는 미발견 단서를 제거하고, 해당 NPC에게 지금까지 제시한 발견 단서의 누적 목록을
+보냅니다. AI 서버는 각 ID가 동결된 CaseBlueprint에 존재하는지만 검사합니다.
+
+이 계약에 따라 백엔드가 단독으로 해금한 `EXPLORE`/`CONNECT` 단서도 별도 동기화 API
+없이 NPC에게 제시할 수 있습니다. CaseBlueprint에 없는 단서 ID는
+`400 INVALID_REQUEST`입니다.
+
+```http
+POST /api/v1/sessions/{sessionId}/assistant/queries
+X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
+Content-Type: application/json
+
+{
+  "question": "02:05 안전 진단 기록을 보여 주세요."
+}
+```
+
+`AI_INTERNAL_API_KEY`가 설정된 환경에서 사건 생성·조회, NPC, RAG 요청의 헤더가 없거나
+값이 다르면 다음 오류를 반환합니다.
+
+```json
+{
+  "timestamp": "2026-07-30T00:00:00Z",
+  "status": 403,
+  "code": "INVALID_INTERNAL_API_KEY",
+  "message": "Invalid internal API key"
+}
+```
+
+## 5. 오류 처리
 
 - `400`: 요청 형식 또는 ID가 잘못됨
 - `403`: 내부 API 키 불일치

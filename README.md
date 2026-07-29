@@ -70,9 +70,9 @@ mvn spring-boot:run
 미발견 단서, NPC의 숨긴 사실이 포함되지 않습니다.
 
 백엔드가 별도 서비스라면 [AI-백엔드 연동 계약](docs/AI_BACKEND_CONTRACT.md)의
-`/internal/v1/cases` API를 사용하세요. `AI_INTERNAL_API_KEY`가 설정된 환경에서는
-`X-Internal-AI-Key` 헤더가 필수입니다. 운영 환경에서는 이 경로를 사설 네트워크에만
-노출해야 합니다.
+`/internal/v1/cases`와 NPC/RAG API를 사용하세요. `AI_INTERNAL_API_KEY`가 설정된
+환경에서는 사건 생성·조회, NPC 심문, RAG 검색에 같은 `X-Internal-AI-Key` 헤더가
+필수입니다. 운영 환경에서는 이 경로들을 사설 네트워크에만 노출해야 합니다.
 백엔드 DTO 작성용 축약 없는 실제 `READY` 응답은
 [`docs/examples/internal-case-ready.response.json`](docs/examples/internal-case-ready.response.json)에
 있으며 통합 테스트가 현재 HTTP 응답과의 일치 여부를 검사합니다.
