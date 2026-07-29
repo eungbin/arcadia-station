@@ -149,3 +149,22 @@ Content-Type: application/json
 ## 6. 실제 연동 전환 방법 (참고)
 
 저희 쪽은 `application.yml`의 `arcadia.ai-server.base-url` / `internal-api-key`만 채우고, 배포 시 `real-ai` 스프링 프로파일만 켜면 Fake 클라이언트 대신 실제 클라이언트로 자동 전환됩니다. 코드 변경 없이 설정만으로 스위칭 가능한 상태라, URL/키만 주시면 바로 붙여볼 수 있습니다.
+
+---
+
+## 7. AI 서버팀 회신 반영 (2026-07-30)
+
+전체 회신 원문: [`docs/ai-server-integration-response.md`](./ai-server-integration-response.md)
+
+**`real-ai` 프로파일은 여전히 비활성 상태(기본값)** — AI 서버팀 요청대로 URL·인증·세션 영속화 P0가 끝날 때까지 켜지 않는다.
+
+회신에서 확인된 계약 차이 중 백엔드 코드 수정이 필요했던 두 가지를 반영 완료:
+
+- NPC/RAG 호출 시 플레이어 `sessionId`가 아니라 사건 생성 때 쓴 `aiCaseRequestId`를 전달하도록 수정(회신 3.1절). `GameSessionRepository.findByAiCaseRequestId` 추가.
+- AI 서버가 NPC 턴 이력을 누적하지 않는다는 확인에 따라(회신 3.2절), 그 NPC에게 지금까지 제시한 단서 전체(누적)를 매 요청에 보내도록 수정. `EvidenceInventory`도 NPC별로 제시 이력을 분리하도록 보강.
+- 실제 READY 응답의 `generation` 객체에 있는 추가 필드(`blueprintId`/`seed`/`worldTemplate`/`ruleTemplate`, 회신 3.3절)는 Jackson 기본 동작으로 이미 무시되고 있음을 실제 응답 예시로 확인.
+- AI 서버팀이 전달한 원본 `case-blueprint.schema.json`으로 우리 `CaseBlueprint` 역직렬화 결과를 기계적으로 검증하는 테스트 추가 — 통과 확인.
+
+추가 수정 없이 그대로 유효한 항목: `errorCode`는 `FAILED` 상태일 때만 `CASE_GENERATION_FAILED`(그 외 `null`), `redHerrings`는 저장만, `INTERROGATE`/`AUTO` 타입은 staging에서 생성 자체를 배제하기로 함(백엔드 쪽 추가 구현 불필요), `suggestedQueries`/`recommendedQuestions` 배열 길이는 원래부터 유연하게 처리 중.
+
+여전히 AI 서버팀 쪽 P0로 남아있어 백엔드가 기다리는 항목: Render 배포/URL 확정, 3개 엔드포인트 내부 인증 통일, AI 세션·RAG 인덱스 영속화, staging 생성 타입을 `EXPLORE`/`RAG_QUERY`/`CONNECT`로 제한.
