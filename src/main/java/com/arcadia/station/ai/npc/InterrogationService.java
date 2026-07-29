@@ -63,8 +63,7 @@ public class InterrogationService {
     private boolean shouldUseAi() {
         return properties.enabled()
                 && !properties.offlineMode()
-                && properties.apiKey() != null
-                && !properties.apiKey().isBlank();
+                && properties.hasActiveApiKey();
     }
 
     private NpcTurnResponse generateWithAi(NpcTurnContext context) {

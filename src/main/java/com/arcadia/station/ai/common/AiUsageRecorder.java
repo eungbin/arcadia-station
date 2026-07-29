@@ -56,4 +56,11 @@ public class AiUsageRecorder {
                 .register(registry)
                 .increment();
     }
+
+    public void recordQuotaCircuitOpened(String provider) {
+        Counter.builder("arcadia.ai.quota.circuit.opened")
+                .tag("provider", provider)
+                .register(registry)
+                .increment();
+    }
 }

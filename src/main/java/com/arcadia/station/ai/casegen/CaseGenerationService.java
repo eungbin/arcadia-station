@@ -2,6 +2,7 @@ package com.arcadia.station.ai.casegen;
 
 import com.arcadia.station.ai.common.ArcadiaAiProperties;
 import com.arcadia.station.ai.common.AiUsageRecorder;
+import com.arcadia.station.ai.common.AiQuotaExceededException;
 import com.arcadia.station.ai.template.TemplateRepository;
 import com.arcadia.station.ai.validation.CaseBlueprintValidator;
 import com.arcadia.station.ai.validation.CaseValidationResult;
@@ -42,7 +43,7 @@ public class CaseGenerationService {
     public FrozenCaseBlueprint createCase(String sessionId, String seed) {
         Instant createdAt = Instant.now();
         if (!properties.enabled() || properties.offlineMode()
-                || properties.apiKey() == null || properties.apiKey().isBlank()) {
+                || !properties.hasActiveApiKey()) {
             return validatedFallback(sessionId, seed, 0, createdAt);
         }
 
@@ -77,7 +78,7 @@ public class CaseGenerationService {
                             blueprint,
                             attempt,
                             GenerationSource.AI,
-                            properties.model(),
+                            properties.activeModel(),
                             properties.caseGeneration().promptVersion(),
                             createdAt
                     );
@@ -86,6 +87,8 @@ public class CaseGenerationService {
                 }
                 previousIssues = result.issues();
                 previousIssues.forEach(issue -> usageRecorder.recordValidationIssue(issue.code()));
+            } catch (AiQuotaExceededException exception) {
+                return validatedFallback(sessionId, seed, attempt, createdAt);
             } catch (RuntimeException exception) {
                 previousIssues = List.of(ValidationIssue.of(
                         "AI_GENERATION_FAILURE",
@@ -117,7 +120,7 @@ public class CaseGenerationService {
                 blueprint,
                 attempts,
                 GenerationSource.FALLBACK,
-                properties.model(),
+                properties.activeModel(),
                 properties.caseGeneration().promptVersion(),
                 createdAt
         );

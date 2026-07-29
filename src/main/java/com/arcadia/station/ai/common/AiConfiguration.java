@@ -1,10 +1,10 @@
 package com.arcadia.station.ai.common;
 
 import com.arcadia.station.ai.casegen.FallbackCaseProvider;
+import com.arcadia.station.infrastructure.gemini.GeminiInteractionsGateway;
 import com.arcadia.station.infrastructure.openai.OpenAiResponsesGateway;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.concurrent.Executor;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,15 +31,29 @@ public class AiConfiguration {
     ) {
         if (!properties.enabled()
                 || properties.offlineMode()
-                || properties.apiKey() == null
-                || properties.apiKey().isBlank()) {
+                || !properties.hasActiveApiKey()) {
             return new FakeOpenAiGateway(fallbackCaseProvider);
         }
-        return new OpenAiResponsesGateway(
-                objectMapper,
-                properties,
-                builder,
-                schemaValidator,
+        OpenAiGateway providerGateway = switch (properties.activeProvider()) {
+            case GEMINI -> new GeminiInteractionsGateway(
+                    objectMapper,
+                    properties,
+                    builder,
+                    schemaValidator,
+                    usageRecorder
+            );
+            case OPENAI -> new OpenAiResponsesGateway(
+                    objectMapper,
+                    properties,
+                    builder,
+                    schemaValidator,
+                    usageRecorder
+            );
+        };
+        return new QuotaAwareAiGateway(
+                providerGateway,
+                properties.activeProvider().name(),
+                properties.quotaCooldown(),
                 usageRecorder
         );
     }

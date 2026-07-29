@@ -79,7 +79,6 @@ public class RagIndexBuilder {
     private boolean embeddingEnabled() {
         return properties.enabled()
                 && !properties.offlineMode()
-                && properties.apiKey() != null
-                && !properties.apiKey().isBlank();
+                && properties.hasActiveApiKey();
     }
 }

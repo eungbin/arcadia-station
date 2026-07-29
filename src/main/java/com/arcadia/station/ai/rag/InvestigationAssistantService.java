@@ -100,7 +100,7 @@ public class InvestigationAssistantService {
             );
         }
         if (!properties.enabled() || properties.offlineMode()
-                || properties.apiKey() == null || properties.apiKey().isBlank()) {
+                || !properties.hasActiveApiKey()) {
             return deterministicSummary(hits);
         }
         try {
