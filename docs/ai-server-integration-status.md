@@ -208,3 +208,30 @@ AI 서버팀이 동일 조건(“CLUE-TRIGGER-LOG만 제시하면 200, CLUE-SETU
 **남은 후속 논의:** 선행 EXPLORE 단서를 필요로 하는 `RAG_QUERY` 단서(예: `acquisition.requiredClueIds`에 EXPLORE 단서가 걸려있는 경우)도 같은 종류의 상태 불일치가 RAG 엔드포인트에서 발생할 수 있어, RAG 요청에도 백엔드의 누적 `discoveredClueIds`를 함께 전달하는 방향으로 계약을 확장할지 AI 서버팀이 별도로 검토해서 공유하기로 함.
 
 AI 서버팀은 아직 수정 커밋을 반영하지 않은 상태이며, 수정 후 EXPLORE 단서 포함 회귀 테스트 결과와 커밋을 공유하기로 했습니다. 저희가 추가한 "AI 호출 실패 시 안전 응답으로 대체" 방어 처리는 근본 수정 이후에도 네트워크 장애·AI 서버 재시작 대비용으로 유지하는 것으로 상호 합의됨.
+
+---
+
+## 10. 수정 커밋 반영 및 백엔드 자체 재검증 (2026-07-30, 해결 확인)
+
+AI 서버 레포(`tyoonkk/GAME_AI`)에 수정 커밋 2개가 반영됐습니다.
+
+- `970937e` fix: 백엔드 발견 단서 심문과 AI 내부 인증 오류 수정
+- `ae18e03` docs: NPC 심문 단서 계약과 real-ai 재검증 결과 정리
+
+**코드 리뷰로 확인한 실제 변경 내용** (약속한 수정 방향과 정확히 일치):
+
+- `NpcContextFactory`: `session.evidenceInventory().containsAll(presentedClueIds)`(AI 서버 자체 발견 상태 검사) 제거 → `caseBlueprint.clues()`에 실제 존재하는 ID인지만 검사하도록 변경.
+- `InternalApiKeyGuard` 신설(상수 시간 비교로 타이밍 공격 방지) — 사건 생성/조회뿐 아니라 `POST /assistant/queries`, `POST /interrogations/{characterId}/turns`에도 동일하게 적용.
+- 인증 실패 응답을 `ResponseStatusException`(형식 불일치) 대신 공통 `ApiError`(`{timestamp, status, code:"INVALID_INTERNAL_API_KEY", message}`) 형식으로 통일 — 7번 항목에서 요청했던 부분.
+- 회귀 테스트 2건 추가: EXPLORE 단서(`CLUE-SETUP-PANEL`) + RAG 단서(`CLUE-TRIGGER-LOG`)를 함께 제시했을 때 `200`과 `FACT-SETUP` 공개를 확인하는 테스트, 내부 키 누락 시 NPC/RAG 모두 `403 INVALID_INTERNAL_API_KEY`를 확인하는 테스트.
+
+**독립 검증 결과 (백엔드 쪽에서 직접 재현):**
+
+1. AI 서버 Maven 테스트 직접 실행 → 24개 전체 통과(0 실패) 확인.
+2. AI 서버를 로컬 오프라인 모드로 재기동하고, **우리 백엔드를 `real-ai` 프로파일로** 붙여서 8번 섹션에 기록했던 재현 절차를 처음부터 다시 실행:
+   - 탐사로 `CLUE-SETUP-PANEL`(EXPLORE) 해금
+   - RAG로 `CLUE-TRIGGER-LOG`(RAG_QUERY) 해금
+   - `POST /interrogations/SOPHIA/turns`에 두 단서를 함께 `presentedClueIds`로 제시
+   - **결과: `200` + `revealedFactIds: ["FACT-SETUP"]`** (수정 전에는 500이었음)
+
+**결론:** 8번 섹션에서 보고한 이슈는 완전히 해결됐습니다. 백엔드 쪽 코드 변경은 없었습니다(이미 세 클라이언트 모두 `X-Internal-AI-Key`를 보내고 있었기 때문). 남은 것은 9번 섹션의 "선행 EXPLORE 단서가 필요한 RAG_QUERY 단서" 관련 후속 검토(AI 서버팀이 별도 공유 예정)뿐입니다.
