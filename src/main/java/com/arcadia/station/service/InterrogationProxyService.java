@@ -73,7 +73,13 @@ public class InterrogationProxyService {
             return handleAiSessionLost(session, knowledge);
         }
 
-        List<String> safeRevealedFacts = whitelistRevealedFacts(knowledge, presentedClueIds, result.revealedFactIds());
+        // 이번 턴에 새로 제시한 단서뿐 아니라, 이 세션에서 지금까지 누적으로 제시했던 단서까지 합쳐서
+        // 화이트리스트를 계산한다. 그렇지 않으면 이전 턴에 이미 제시한 단서를 이번 턴에 다시 제시하지
+        // 않았다는 이유만으로 정당한 revealPolicy가 매번 거부되는 버그가 생긴다.
+        Set<String> cumulativePresentedClueIds = new HashSet<>(inventory.getPresentedClueIdsByCharacter());
+        cumulativePresentedClueIds.addAll(presentedClueIds);
+        List<String> safeRevealedFacts =
+                whitelistRevealedFacts(knowledge, cumulativePresentedClueIds, result.revealedFactIds());
 
         inventory.getPresentedClueIdsByCharacter().addAll(presentedClueIds);
         inventory.getRevealedFactIds().addAll(safeRevealedFacts);
@@ -85,14 +91,13 @@ public class InterrogationProxyService {
         return new NpcTurnResponse(result.dialogue(), result.emotion(), safeRevealedFacts, recommended);
     }
 
-    // revealedFactIds ⊆ (initialClaimFactIds ∪ 이번 턴 제시로 조건이 충족된 revealPolicy의 factId) 인지 검증하고,
-    // 하나라도 벗어나면 5.3절대로 전체를 빈 배열로 덮어쓴다.
+    // revealedFactIds ⊆ (initialClaimFactIds ∪ 지금까지 누적 제시로 조건이 충족된 revealPolicy의 factId) 인지
+    // 검증하고, 하나라도 벗어나면 5.3절대로 전체를 빈 배열로 덮어쓴다.
     private List<String> whitelistRevealedFacts(
-            NpcKnowledge knowledge, List<String> presentedClueIds, List<String> claimedRevealedFactIds) {
-        Set<String> presented = Set.copyOf(presentedClueIds);
+            NpcKnowledge knowledge, Set<String> presentedClueIds, List<String> claimedRevealedFactIds) {
         Set<String> allowedFacts = new HashSet<>(knowledge.initialClaimFactIds());
         knowledge.revealPolicies().stream()
-                .filter(policy -> presented.containsAll(policy.requiredPresentedClueIds()))
+                .filter(policy -> presentedClueIds.containsAll(policy.requiredPresentedClueIds()))
                 .forEach(policy -> allowedFacts.add(policy.factId()));
 
         if (allowedFacts.containsAll(claimedRevealedFactIds)) {

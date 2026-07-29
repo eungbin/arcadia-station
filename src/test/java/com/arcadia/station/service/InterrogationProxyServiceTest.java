@@ -74,6 +74,21 @@ class InterrogationProxyServiceTest {
     }
 
     @Test
+    void 이전_턴에_제시했던_단서는_이번_턴에_다시_제시하지_않아도_화이트리스트에_누적으로_반영된다() throws IOException {
+        String sessionId = seedSession(List.of("CLUE-TRIGGER-LOG"));
+        InterrogationProxyService service = newService(
+                (sid, characterId, question, presentedClueIds) ->
+                        new NpcTurnResult("...", "DEFENSIVE", List.of("FACT-TRIGGER"), List.of()));
+
+        // 1턴: CLUE-TRIGGER-LOG를 제시해서 FACT-TRIGGER를 공개
+        service.ask(sessionId, "SOPHIA", "질문1", List.of("CLUE-TRIGGER-LOG"));
+        // 2턴: 아무 단서도 다시 제시하지 않음 — 그래도 이미 제시했던 CLUE-TRIGGER-LOG 기준으로 여전히 허용돼야 한다.
+        NpcTurnResponse response = service.ask(sessionId, "SOPHIA", "질문2", List.of());
+
+        assertThat(response.revealedFactIds()).containsExactly("FACT-TRIGGER");
+    }
+
+    @Test
     void AI_서버가_세션을_잃어버리면_안전응답으로_대체하고_플래그를_남긴다() throws IOException {
         String sessionId = seedSession(List.of());
         InterrogationClient lostClient = (sid, characterId, question, presentedClueIds) -> {
