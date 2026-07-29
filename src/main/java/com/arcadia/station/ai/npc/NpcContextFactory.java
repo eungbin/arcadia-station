@@ -4,7 +4,6 @@ import com.arcadia.station.ai.casegen.CaseBlueprint;
 import com.arcadia.station.ai.template.TemplateRepository;
 import com.arcadia.station.ai.template.WorldTemplate;
 import com.arcadia.station.game.application.GameSessionService;
-import com.arcadia.station.game.domain.GameSession;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -34,7 +33,6 @@ public class NpcContextFactory {
             String question,
             List<String> presentedClueIds
     ) {
-        GameSession session = sessions.requireSession(sessionId);
         CaseBlueprint blueprint = sessions.requireFrozenCase(sessionId).blueprint();
         WorldTemplate.CharacterDefinition character = templates.world().characters().stream()
                 .filter(candidate -> candidate.id().equals(characterId))
@@ -46,8 +44,15 @@ public class NpcContextFactory {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No interrogation context for characterId: " + characterId
                 ));
-        if (!session.evidenceInventory().containsAll(presentedClueIds)) {
-            throw new IllegalArgumentException("Presented clues must already be discovered");
+        // In split deployment the game backend owns discovery state for EXPLORE/CONNECT.
+        // The authenticated request is authoritative; this server only rejects foreign IDs.
+        Set<String> caseClueIds = blueprint.clues().stream()
+                .map(CaseBlueprint.Clue::clueId)
+                .collect(Collectors.toSet());
+        if (!caseClueIds.containsAll(presentedClueIds)) {
+            throw new IllegalArgumentException(
+                    "Presented clues must belong to the frozen case"
+            );
         }
 
         Map<String, CaseBlueprint.Fact> facts = blueprint.facts().stream()

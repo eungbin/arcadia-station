@@ -8,8 +8,6 @@ import com.arcadia.station.game.domain.GameSession;
 import com.arcadia.station.game.domain.SessionState;
 import java.net.URI;
 import java.time.Instant;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,18 +16,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/internal/v1/cases")
 public class InternalCaseController {
 
     private final GameSessionService sessions;
-    private final String internalApiKey;
+    private final InternalApiKeyGuard internalApiKey;
 
     public InternalCaseController(
             GameSessionService sessions,
-            @Value("${arcadia.internal-api-key:}") String internalApiKey
+            InternalApiKeyGuard internalApiKey
     ) {
         this.sessions = sessions;
         this.internalApiKey = internalApiKey;
@@ -40,7 +37,7 @@ public class InternalCaseController {
             @RequestHeader(value = "X-Internal-AI-Key", required = false) String key,
             @RequestBody InternalCaseRequest request
     ) {
-        requireInternalKey(key);
+        internalApiKey.requireValid(key);
         GameSession session = sessions.createSession(request.sessionId(), request.seed());
         InternalCaseAccepted response = new InternalCaseAccepted(
                 session.sessionId(),
@@ -57,7 +54,7 @@ public class InternalCaseController {
             @RequestHeader(value = "X-Internal-AI-Key", required = false) String key,
             @PathVariable String sessionId
     ) {
-        requireInternalKey(key);
+        internalApiKey.requireValid(key);
         GameSession session = sessions.requireSession(sessionId);
         GenerationPayload payload = session.frozenCase() == null
                 ? null
@@ -68,12 +65,6 @@ public class InternalCaseController {
                 payload,
                 session.failureCode()
         );
-    }
-
-    private void requireInternalKey(String provided) {
-        if (!internalApiKey.isBlank() && !internalApiKey.equals(provided)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid internal API key");
-        }
     }
 
     public record InternalCaseRequest(String sessionId, String seed) {}

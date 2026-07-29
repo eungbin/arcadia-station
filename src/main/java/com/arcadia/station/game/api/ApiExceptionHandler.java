@@ -23,6 +23,17 @@ public class ApiExceptionHandler {
         return response(HttpStatus.CONFLICT, "SESSION_NOT_READY", exception.getMessage());
     }
 
+    @ExceptionHandler(InvalidInternalApiKeyException.class)
+    ResponseEntity<ApiError> invalidInternalApiKey(
+            InvalidInternalApiKeyException exception
+    ) {
+        return response(
+                HttpStatus.FORBIDDEN,
+                "INVALID_INTERNAL_API_KEY",
+                exception.getMessage()
+        );
+    }
+
     @ExceptionHandler({IllegalArgumentException.class, MethodArgumentNotValidException.class})
     ResponseEntity<ApiError> badRequest(Exception exception) {
         return response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", exception.getMessage());

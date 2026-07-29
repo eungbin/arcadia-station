@@ -24,9 +24,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(properties = "arcadia.ai.offline-mode=true")
+@SpringBootTest(properties = {
+        "arcadia.ai.offline-mode=true",
+        "arcadia.internal-api-key=test-internal-key"
+})
 @AutoConfigureMockMvc
 class GameFlowIntegrationTest {
+
+    private static final String INTERNAL_KEY = "test-internal-key";
 
     @Autowired
     private MockMvc mockMvc;
@@ -75,6 +80,7 @@ class GameFlowIntegrationTest {
                                 "/api/v1/sessions/{id}/assistant/queries",
                                 sessionId
                         )
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -95,6 +101,7 @@ class GameFlowIntegrationTest {
                                 "/api/v1/sessions/{id}/interrogations/SOPHIA/turns",
                                 sessionId
                         )
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -132,6 +139,7 @@ class GameFlowIntegrationTest {
     @Test
     void internalBackendContractReturnsFrozenPrivatePayloadOnlyWhenReady() throws Exception {
         String accepted = mockMvc.perform(post("/internal/v1/cases")
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -147,7 +155,8 @@ class GameFlowIntegrationTest {
         String sessionId = objectMapper.readTree(accepted).path("sessionId").asText();
         awaitState(sessionId, SessionState.READY);
 
-        String readyResponse = mockMvc.perform(get("/internal/v1/cases/{id}", sessionId))
+        String readyResponse = mockMvc.perform(get("/internal/v1/cases/{id}", sessionId)
+                        .header("X-Internal-AI-Key", INTERNAL_KEY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("READY"))
                 .andExpect(jsonPath("$.generation.blueprintSha256").isString())
@@ -171,6 +180,113 @@ class GameFlowIntegrationTest {
         removeDynamicTimestamps(actualResponse);
         removeDynamicTimestamps(documentedResponse);
         assertThat(actualResponse).isEqualTo(documentedResponse);
+    }
+
+    @Test
+    void acceptsBackendDiscoveredExploreClueWithoutAiExploreCall() throws Exception {
+        String sessionId = "backend_explore_boundary_001";
+        mockMvc.perform(post("/internal/v1/cases")
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "sessionId": "backend_explore_boundary_001",
+                                  "seed": "backend-explore-boundary"
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+        awaitState(sessionId, SessionState.READY);
+
+        mockMvc.perform(post(
+                                "/api/v1/sessions/{id}/assistant/queries",
+                                sessionId
+                        )
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "question": "02:05"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.newlyDiscoveredClues[0].clueId")
+                        .value("CLUE-TRIGGER-LOG"));
+
+        mockMvc.perform(post(
+                                "/api/v1/sessions/{id}/interrogations/SOPHIA/turns",
+                                sessionId
+                        )
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "question": "제시한 두 기록을 설명해 주세요.",
+                                  "presentedClueIds": [
+                                    "CLUE-TRIGGER-LOG",
+                                    "CLUE-SETUP-PANEL"
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revealedFactIds[0]").value("FACT-SETUP"));
+
+        mockMvc.perform(post(
+                                "/api/v1/sessions/{id}/interrogations/SOPHIA/turns",
+                                sessionId
+                        )
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "question": "존재하지 않는 단서를 확인해 주세요.",
+                                  "presentedClueIds": ["CLUE-NOT-IN-FROZEN-CASE"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void requiresTheSharedInternalKeyForNpcAndRag() throws Exception {
+        String sessionId = "backend_internal_auth_001";
+        mockMvc.perform(post("/internal/v1/cases")
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "sessionId": "backend_internal_auth_001",
+                                  "seed": "backend-internal-auth"
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+        awaitState(sessionId, SessionState.READY);
+
+        mockMvc.perform(post(
+                                "/api/v1/sessions/{id}/assistant/queries",
+                                sessionId
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "question": "02:05"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("INVALID_INTERNAL_API_KEY"));
+
+        mockMvc.perform(post(
+                                "/api/v1/sessions/{id}/interrogations/SOPHIA/turns",
+                                sessionId
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "question": "기록을 설명해 주세요.",
+                                  "presentedClueIds": []
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("INVALID_INTERNAL_API_KEY"));
     }
 
     private void removeDynamicTimestamps(JsonNode response) {

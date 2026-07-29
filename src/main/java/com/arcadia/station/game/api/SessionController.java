@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,6 +37,7 @@ public class SessionController {
     private final InterrogationService interrogation;
     private final DeductionService deduction;
     private final FinalRevealService finalReveal;
+    private final InternalApiKeyGuard internalApiKey;
 
     public SessionController(
             GameSessionService sessions,
@@ -44,7 +46,8 @@ public class SessionController {
             InvestigationAssistantService assistant,
             InterrogationService interrogation,
             DeductionService deduction,
-            FinalRevealService finalReveal
+            FinalRevealService finalReveal,
+            InternalApiKeyGuard internalApiKey
     ) {
         this.sessions = sessions;
         this.playerViews = playerViews;
@@ -53,6 +56,7 @@ public class SessionController {
         this.interrogation = interrogation;
         this.deduction = deduction;
         this.finalReveal = finalReveal;
+        this.internalApiKey = internalApiKey;
     }
 
     @PostMapping
@@ -101,18 +105,22 @@ public class SessionController {
 
     @PostMapping("/{sessionId}/assistant/queries")
     public InvestigationAssistantService.AssistantQueryResponse queryAssistant(
+            @RequestHeader(value = "X-Internal-AI-Key", required = false) String key,
             @PathVariable String sessionId,
             @Valid @RequestBody AssistantQueryRequest request
     ) {
+        internalApiKey.requireValid(key);
         return assistant.query(sessionId, request.question());
     }
 
     @PostMapping("/{sessionId}/interrogations/{characterId}/turns")
     public NpcTurnResponse interrogate(
+            @RequestHeader(value = "X-Internal-AI-Key", required = false) String key,
             @PathVariable String sessionId,
             @PathVariable String characterId,
             @Valid @RequestBody InterrogationRequest request
     ) {
+        internalApiKey.requireValid(key);
         return interrogation.interrogate(
                 sessionId,
                 characterId,
