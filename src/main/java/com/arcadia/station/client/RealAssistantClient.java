@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 /**
  * 6장 계약(POST {AI_SERVER_BASE_URL}/api/v1/sessions/{aiCaseRequestId}/assistant/queries)의 실제 구현체.
@@ -48,6 +49,9 @@ public class RealAssistantClient implements AssistantClient {
                     .body(QueryResponseWire.class);
         } catch (HttpClientErrorException.NotFound e) {
             throw new AiSessionLostException("Assistant session not found: " + aiCaseRequestId);
+        } catch (RestClientException e) {
+            // 404 외의 실패(4xx/5xx/타임아웃 등)도 13장 원칙대로 게임을 중단시키지 않고 안전 응답으로 대체한다.
+            throw new AiTurnFailedException("Assistant call failed: " + aiCaseRequestId, e);
         }
 
         // clueId 이외의 필드는 우리 쪽 CaseBlueprint를 신뢰 소스로 다시 조회하므로 여기서는 참조하지 않는다(6.2절 재검증).

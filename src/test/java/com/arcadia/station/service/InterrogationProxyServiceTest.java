@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.arcadia.station.client.AiSessionLostException;
+import com.arcadia.station.client.AiTurnFailedException;
 import com.arcadia.station.client.InterrogationClient;
 import com.arcadia.station.client.dto.NpcTurnResult;
 import com.arcadia.station.domain.EvidenceInventory;
@@ -143,6 +144,23 @@ class InterrogationProxyServiceTest {
         assertThat(response.revealedFactIds()).isEmpty();
         assertThat(response.dialogue()).contains("잠시 후");
         assertThat(gameSessionRepository.findById(sessionId).orElseThrow().isAiSessionLost()).isTrue();
+    }
+
+    @Test
+    void AI_서버가_404가_아닌_이유로_실패해도_게임을_중단시키지_않고_플래그는_남기지_않는다() throws IOException {
+        // 실제 AI 서버 연동에서 발견: AI 서버가 400(Presented clues must already be discovered) 등
+        // 404 외의 이유로 이 턴을 거부해도 13장 원칙대로 안전 응답으로 대체해야 한다.
+        String sessionId = seedSession(List.of());
+        InterrogationClient failingClient = (sid, characterId, question, presentedClueIds) -> {
+            throw new AiTurnFailedException("AI 서버 400", new RuntimeException("Bad Request"));
+        };
+        InterrogationProxyService service = newService(failingClient);
+
+        NpcTurnResponse response = service.ask(sessionId, "SOPHIA", "질문", List.of());
+
+        assertThat(response.revealedFactIds()).isEmpty();
+        assertThat(response.dialogue()).contains("잠시 후");
+        assertThat(gameSessionRepository.findById(sessionId).orElseThrow().isAiSessionLost()).isFalse();
     }
 
     @Test

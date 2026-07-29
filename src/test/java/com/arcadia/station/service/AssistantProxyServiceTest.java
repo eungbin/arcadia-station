@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.arcadia.station.client.AiSessionLostException;
+import com.arcadia.station.client.AiTurnFailedException;
 import com.arcadia.station.client.AssistantClient;
 import com.arcadia.station.client.dto.AssistantQueryResult;
 import com.arcadia.station.client.dto.RagDiscoveredClueRef;
@@ -119,6 +120,20 @@ class AssistantProxyServiceTest {
         assertThat(response.answer()).contains("잠시 후");
         assertThat(response.citedRecordIds()).isEmpty();
         assertThat(gameSessionRepository.findById(sessionId).orElseThrow().isAiSessionLost()).isTrue();
+    }
+
+    @Test
+    void AI_서버가_404가_아닌_이유로_실패해도_게임을_중단시키지_않고_플래그는_남기지_않는다() throws IOException {
+        String sessionId = seedSession();
+        AssistantClient failingClient = (sid, question) -> {
+            throw new AiTurnFailedException("AI 서버 400", new RuntimeException("Bad Request"));
+        };
+
+        AssistantQueryResponse response = newService(failingClient).query(sessionId, "질문");
+
+        assertThat(response.answer()).contains("잠시 후");
+        assertThat(response.citedRecordIds()).isEmpty();
+        assertThat(gameSessionRepository.findById(sessionId).orElseThrow().isAiSessionLost()).isFalse();
     }
 
     private AssistantProxyService newService(AssistantClient client) {

@@ -1,6 +1,7 @@
 package com.arcadia.station.service;
 
 import com.arcadia.station.client.AiSessionLostException;
+import com.arcadia.station.client.AiTurnFailedException;
 import com.arcadia.station.client.AssistantClient;
 import com.arcadia.station.client.dto.AssistantQueryResult;
 import com.arcadia.station.client.dto.RagDiscoveredClueRef;
@@ -63,6 +64,9 @@ public class AssistantProxyService {
             result = assistantClient.query(session.getAiCaseRequestId(), question);
         } catch (AiSessionLostException e) {
             return handleAiSessionLost(session);
+        } catch (AiTurnFailedException e) {
+            log.warn("AI 서버 RAG 호출 실패, 안전 응답으로 대체: session={}", sessionId, e);
+            return safeFallbackResponse();
         }
 
         Set<String> knownRecordIds = blueprint.evidenceRecords().stream()
@@ -94,6 +98,11 @@ public class AssistantProxyService {
         log.warn("AI_SESSION_LOST: session={}", session.getSessionId());
         session.setAiSessionLost(true);
         gameSessionRepository.save(session);
+        return safeFallbackResponse();
+    }
+
+    // 13장: 404 외의 실패(4xx/5xx/타임아웃)도 게임을 중단시키지 않고 동일한 안전 응답으로 대체한다.
+    private AssistantQueryResponse safeFallbackResponse() {
         return new AssistantQueryResponse(
                 "지금은 검색할 수 없습니다. 잠시 후 다시 시도해주세요.", List.of(), List.of(), List.of());
     }

@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 /**
  * 5장 계약(POST {AI_SERVER_BASE_URL}/api/v1/sessions/{aiCaseRequestId}/interrogations/{characterId}/turns)의 실제 구현체.
@@ -39,6 +40,9 @@ public class RealInterrogationClient implements InterrogationClient {
                     .toResult();
         } catch (HttpClientErrorException.NotFound e) {
             throw new AiSessionLostException("Interrogation session not found: " + aiCaseRequestId);
+        } catch (RestClientException e) {
+            // 404 외의 실패(4xx/5xx/타임아웃 등)도 13장 원칙대로 게임을 중단시키지 않고 안전 응답으로 대체한다.
+            throw new AiTurnFailedException("Interrogation call failed: " + aiCaseRequestId, e);
         }
     }
 

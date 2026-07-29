@@ -1,6 +1,7 @@
 package com.arcadia.station.service;
 
 import com.arcadia.station.client.AiSessionLostException;
+import com.arcadia.station.client.AiTurnFailedException;
 import com.arcadia.station.client.InterrogationClient;
 import com.arcadia.station.client.dto.NpcTurnResult;
 import com.arcadia.station.domain.EvidenceInventory;
@@ -82,6 +83,9 @@ public class InterrogationProxyService {
                     session.getAiCaseRequestId(), characterId, question, List.copyOf(cumulativePresentedClueIds));
         } catch (AiSessionLostException e) {
             return handleAiSessionLost(session, knowledge);
+        } catch (AiTurnFailedException e) {
+            log.warn("AI 서버 심문 호출 실패, 안전 응답으로 대체: session={}, characterId={}", sessionId, characterId, e);
+            return safeFallbackResponse(knowledge);
         }
 
         List<String> safeRevealedFacts =
@@ -118,7 +122,12 @@ public class InterrogationProxyService {
         log.warn("AI_SESSION_LOST: session={}, characterId={}", session.getSessionId(), knowledge.characterId());
         session.setAiSessionLost(true);
         gameSessionRepository.save(session);
+        return safeFallbackResponse(knowledge);
+    }
 
+    // 13장: "NPC/RAG 호출이 실패(404 포함)하면 게임 진행 자체를 막지 않는다" — 404 외의 실패(4xx/5xx/타임아웃)도
+    // 동일한 고정 안전 응답으로 대체한다. AI_SESSION_LOST 플래그는 세션 유실(404)에만 해당하므로 여기서는 남기지 않는다.
+    private NpcTurnResponse safeFallbackResponse(NpcKnowledge knowledge) {
         List<RecommendedQuestionView> fallbackQuestions = knowledge.recommendedQuestionTopics().stream()
                 .limit(2)
                 .map(topic -> new RecommendedQuestionView("TOPIC-" + topic.hashCode(), topic))
