@@ -6,6 +6,7 @@ import com.arcadia.station.client.dto.CaseGenerationStatus;
 import com.arcadia.station.domain.EvidenceInventory;
 import com.arcadia.station.domain.GameSession;
 import com.arcadia.station.domain.SessionState;
+import com.arcadia.station.domain.caseblueprint.AcquisitionType;
 import com.arcadia.station.domain.caseblueprint.CaseBlueprint;
 import com.arcadia.station.dto.response.PlayerCaseView;
 import com.arcadia.station.dto.response.PlayerClueView;
@@ -17,6 +18,7 @@ import com.arcadia.station.repository.EvidenceInventoryRepository;
 import com.arcadia.station.repository.GameSessionRepository;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +89,7 @@ public class GameSessionService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
 
         if (session.getCaseBlueprintJson() == null) {
-            return new PlayerCaseView(sessionId, session.getState().name(), null, null, List.of(), List.of());
+            return new PlayerCaseView(sessionId, session.getState().name(), null, null, List.of(), List.of(), List.of());
         }
 
         CaseBlueprint blueprint = objectMapper.readValue(session.getCaseBlueprintJson(), CaseBlueprint.class);
@@ -101,10 +103,18 @@ public class GameSessionService {
                 .map(alibi -> alibi.characterId())
                 .distinct()
                 .toList();
+        // 탐사 UI에 노출할 장소 목록. EXPLORE 단서의 locationId는 사건마다 다르게 생성되므로
+        // 프론트가 미리 알 수 없다 — characterId와 같은 이유로 여기서 동적으로 내려준다.
+        List<String> exploreLocationIds = blueprint.clues().stream()
+                .filter(clue -> clue.acquisition().type() == AcquisitionType.EXPLORE)
+                .map(clue -> clue.acquisition().locationId())
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
 
         return new PlayerCaseView(
                 sessionId, session.getState().name(), blueprint.title(), blueprint.briefing(),
-                discoveredClues, suspectCharacterIds);
+                discoveredClues, suspectCharacterIds, exploreLocationIds);
     }
 
     private GameSession findSessionOrThrow(String sessionId) {

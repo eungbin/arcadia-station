@@ -12,5 +12,6 @@ public record PlayerCaseView(
     String title,
     String briefing,
     List<PlayerClueView> discoveredClues,
-    List<String> suspectCharacterIds
+    List<String> suspectCharacterIds,
+    List<String> exploreLocationIds
 ) {}

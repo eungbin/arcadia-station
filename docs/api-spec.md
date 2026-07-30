@@ -198,6 +198,7 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
 | data.discoveredClues[].clueType | 단서 종류 (`PHYSICAL`/`DIGITAL`/`MOTIVE`/`OPPORTUNITY`) | String | N | "DIGITAL" |
 | data.discoveredClues[].playerText | 단서 발견 시 노출 문구 | String | N | "의료 베이 단말기에 소피아 명의로..." |
 | data.suspectCharacterIds | 이 사건에 등장하는 용의자 전원의 ID 목록(단서 발견 여부와 무관하게 처음부터 전부 노출). 6번 API(NPC 심문)의 `{characterId}` 경로 값은 **이 배열 안에서만** 골라 써야 함 | String[] | N | ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"] |
+| data.exploreLocationIds | 이 사건에서 탐사 가능한 장소 ID 목록(단서 발견 여부와 무관하게 처음부터 전부 노출). 4번 API(장소 탐사)의 `locationId`는 **이 배열 안에서만** 골라 써야 함. 사건마다 값이 다르므로 프론트에서 하드코딩하면 안 됨 | String[] | N | ["MEDICAL_BAY", "LIFE_SUPPORT_CORRIDOR", "PERSONAL_QUARTERS"] |
 
 **Example**
 
@@ -218,12 +219,13 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
         "playerText": "의료 베이 단말기에 소피아 명의로 안전 점검 예약 기록이 남아있다."
       }
     ],
-    "suspectCharacterIds": ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"]
+    "suspectCharacterIds": ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"],
+    "exploreLocationIds": ["MEDICAL_BAY", "LIFE_SUPPORT_CORRIDOR", "PERSONAL_QUARTERS"]
   }
 }
 ```
 
-> **보안 참고:** 이 응답에는 범인(`culpritId`), 진실 요약, 아직 발견하지 않은 단서, NPC의 숨긴 사실 같은 스포일러 필드가 **절대 포함되지 않습니다.** `suspectCharacterIds`는 ID만 나열할 뿐 누가 범인인지는 알려주지 않으므로 안전합니다. 프론트는 이 응답을 그대로 화면에 렌더링해도 안전합니다.
+> **보안 참고:** 이 응답에는 범인(`culpritId`), 진실 요약, 아직 발견하지 않은 단서, NPC의 숨긴 사실 같은 스포일러 필드가 **절대 포함되지 않습니다.** `suspectCharacterIds`/`exploreLocationIds`는 ID만 나열할 뿐 누가 범인인지, 어디에 무슨 단서가 있는지는 알려주지 않으므로 안전합니다. 프론트는 이 응답을 그대로 화면에 렌더링해도 안전합니다.
 >
 > **⚠️ 알려진 제약:** 현재 6번 API(NPC 심문) 백엔드 검증은 AI 서버가 생성한 `npcKnowledge`에 있는 인물만 허용합니다. 사건에 따라 `npcKnowledge`가 `suspectCharacterIds`의 일부만 커버할 수 있어(예: 범인만), 그 경우 목록에 없는 인물을 심문 시도하면 400이 날 수 있습니다. 전 용의자 심문을 100% 보장하려면 AI 서버 쪽에서 전 용의자분 `npcKnowledge` 생성이 필요하며, 별도로 진행 중입니다.
 
@@ -252,7 +254,7 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
 
 | key | 설명 | value 타입 | 필수 | 예시 |
 | --- | --- | --- | --- | --- |
-| locationId | 조사할 장소 ID (사건 데이터에 정의된 값, 프론트가 지도/장소 목록 UI로 노출) | String | Y | "MEDICAL_BAY" |
+| locationId | 조사할 장소 ID. 3번 API 응답의 `exploreLocationIds` 목록에서만 골라야 함(사건마다 값이 다름) | String | Y | "MEDICAL_BAY" |
 | objectHint | 오브젝트 힌트(선택, 현재 백엔드 판정에 영향 없음) | String | N | null |
 
 **Request Example**

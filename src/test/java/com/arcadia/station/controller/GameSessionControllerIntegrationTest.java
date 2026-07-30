@@ -58,6 +58,9 @@ class GameSessionControllerIntegrationTest {
         assertThat(view.discoveredClues()).isEmpty();
         // 심문 UI용 용의자 목록은 탐사 여부와 무관하게 처음부터 전부 노출된다
         assertThat(view.suspectCharacterIds()).containsExactly("SOPHIA");
+        // 탐사 UI용 장소 목록도 마찬가지로 처음부터 전부 노출된다
+        assertThat(view.exploreLocationIds())
+                .containsExactlyInAnyOrder("MEDICAL_BAY", "LIFE_SUPPORT_CORRIDOR", "PERSONAL_QUARTERS");
     }
 
     @Test
