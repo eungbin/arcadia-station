@@ -53,6 +53,21 @@ class ExplorationControllerIntegrationTest {
     }
 
     @Test
+    void locationId가_없으면_500이_아니라_400을_반환한다() {
+        String sessionId = createSession();
+
+        ResponseEntity<ApiResponse<Void>> exploreResponse = restTemplate.exchange(
+                "/api/v1/sessions/{id}/explore",
+                HttpMethod.POST,
+                new HttpEntity<>(new ExploreRequest(null, null)),
+                new ParameterizedTypeReference<ApiResponse<Void>>() {},
+                sessionId);
+
+        assertThat(exploreResponse.getStatusCode().value()).isEqualTo(400);
+        assertThat(exploreResponse.getBody().success()).isFalse();
+    }
+
+    @Test
     void 해금_조건에_맞지_않는_장소를_탐사하면_빈_목록을_반환한다() {
         String sessionId = createSession();
 

@@ -51,6 +51,9 @@ public class DeductionService {
     }
 
     public DeductionResult submit(String sessionId, String culpritId, Map<String, String> evidenceByRole) {
+        if (culpritId == null || culpritId.isBlank() || evidenceByRole == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
         GameSession session = findSessionOrThrow(sessionId);
         requireReady(session);
 

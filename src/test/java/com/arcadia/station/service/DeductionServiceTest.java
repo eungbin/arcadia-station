@@ -103,6 +103,26 @@ class DeductionServiceTest {
     }
 
     @Test
+    void culpritId가_없으면_500이_아니라_INVALID_REQUEST다() throws IOException {
+        String sessionId = seedSession(ALL_CORRECT_CLUES);
+
+        assertThatThrownBy(() -> deductionService.submit(sessionId, null, correctEvidenceMap()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    void evidenceByRole이_없으면_500이_아니라_INVALID_REQUEST다() throws IOException {
+        String sessionId = seedSession(ALL_CORRECT_CLUES);
+
+        assertThatThrownBy(() -> deductionService.submit(sessionId, "SOPHIA", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
     void COMPLETED_이전에는_최종_재구성을_조회할_수_없다() throws IOException {
         String sessionId = seedSession(ALL_CORRECT_CLUES);
 

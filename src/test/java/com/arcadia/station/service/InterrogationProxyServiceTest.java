@@ -132,6 +132,18 @@ class InterrogationProxyServiceTest {
     }
 
     @Test
+    void presentedClueIds가_없으면_500이_아니라_INVALID_REQUEST다() throws IOException {
+        String sessionId = seedSession(List.of());
+        InterrogationProxyService service = newService(
+                (sid, characterId, question, presentedClueIds) -> new NpcTurnResult("x", "CALM", List.of(), List.of()));
+
+        assertThatThrownBy(() -> service.ask(sessionId, "SOPHIA", "질문", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
     void AI_서버가_세션을_잃어버리면_안전응답으로_대체하고_플래그를_남긴다() throws IOException {
         String sessionId = seedSession(List.of());
         InterrogationClient lostClient = (sid, characterId, question, presentedClueIds) -> {
