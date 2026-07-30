@@ -235,3 +235,15 @@ AI 서버 레포(`tyoonkk/GAME_AI`)에 수정 커밋 2개가 반영됐습니다.
    - **결과: `200` + `revealedFactIds: ["FACT-SETUP"]`** (수정 전에는 500이었음)
 
 **결론:** 8번 섹션에서 보고한 이슈는 완전히 해결됐습니다. 백엔드 쪽 코드 변경은 없었습니다(이미 세 클라이언트 모두 `X-Internal-AI-Key`를 보내고 있었기 때문). 남은 것은 9번 섹션의 "선행 EXPLORE 단서가 필요한 RAG_QUERY 단서" 관련 후속 검토(AI 서버팀이 별도 공유 예정)뿐입니다.
+
+---
+
+## 11. 탐사 장소(locationId) 정식 로스터 확정 및 반영 (2026-07-31)
+
+`docs/ai-server-request-location-roster.md`로 요청했던 탐사 장소 로스터 문제에 AI 서버팀이 회신했습니다. 전체 회신 원문: [`docs/ai-server-response-location-roster.md`](./ai-server-response-location-roster.md)
+
+AI 서버팀이 `ARCADIA_WORLD`를 `1.1.0`으로 올리고 다음 8개 `locationId`를 정식 로스터로 확정했습니다: `COMMANDER_OFFICE`, `DEPUTY_COMMANDER_OFFICE`, `CENTRAL_HUB`, `MEDICAL_BAY`, `ENGINEERING_BAY`, `COMMUNICATIONS_CENTER`, `CARGO_BAY`, `COMMON_AREA`. 모든 사건에 이 8개 방이 존재하며 전부 탐사 가능하다고 확인했습니다.
+
+**백엔드 쪽 반영:** `GameSessionService.getPlayerView`의 `exploreLocationIds`가 기존에는 사건마다 `clues[].acquisition.locationId`(EXPLORE 타입)를 동적으로 모아서 내려주고 있었는데, 로스터가 없던 때의 임시 처리였습니다. 로스터가 확정됨에 따라 이 계산을 걷어내고 위 8개 ID를 고정 상수로 반환하도록 수정했습니다(단서가 없는 방도 포함해 항상 8개 전부 노출). `suspectCharacterIds`(alibis 기반)와 달리, locationId는 블루프린트 안에 완전한 소스가 없어 고정 로스터를 하드코딩하는 방식을 택했습니다.
+
+로컬 fixture(`src/main/resources/fixtures/sample-case-blueprint.json`, `src/test/resources/fixtures/schema-sample-case-blueprint.json`)는 여전히 구형 ID(`LIFE_SUPPORT_CORRIDOR`, `PERSONAL_QUARTERS`)를 사용 중입니다. 우리 쪽 `/explore`는 로스터 검증 없이 블루프린트의 clue locationId와만 대조하므로 당장 기능에는 영향이 없지만, 실제 맵과 fixture 데이터를 맞추려면 별도로 정리가 필요합니다.

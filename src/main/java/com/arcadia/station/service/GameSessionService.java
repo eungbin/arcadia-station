@@ -6,7 +6,6 @@ import com.arcadia.station.client.dto.CaseGenerationStatus;
 import com.arcadia.station.domain.EvidenceInventory;
 import com.arcadia.station.domain.GameSession;
 import com.arcadia.station.domain.SessionState;
-import com.arcadia.station.domain.caseblueprint.AcquisitionType;
 import com.arcadia.station.domain.caseblueprint.CaseBlueprint;
 import com.arcadia.station.dto.response.PlayerCaseView;
 import com.arcadia.station.dto.response.PlayerClueView;
@@ -18,7 +17,6 @@ import com.arcadia.station.repository.EvidenceInventoryRepository;
 import com.arcadia.station.repository.GameSessionRepository;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +29,11 @@ import tools.jackson.databind.ObjectMapper;
 public class GameSessionService {
 
     private static final Logger log = LoggerFactory.getLogger(GameSessionService.class);
+
+    // ARCADIA_WORLD:1.1.0 정식 탐사 장소 로스터 (docs/ai-server-response-location-roster.md)
+    private static final List<String> EXPLORE_LOCATION_ROSTER = List.of(
+            "COMMANDER_OFFICE", "DEPUTY_COMMANDER_OFFICE", "CENTRAL_HUB", "MEDICAL_BAY",
+            "ENGINEERING_BAY", "COMMUNICATIONS_CENTER", "CARGO_BAY", "COMMON_AREA");
 
     private final GameSessionRepository gameSessionRepository;
     private final EvidenceInventoryRepository evidenceInventoryRepository;
@@ -103,14 +106,9 @@ public class GameSessionService {
                 .map(alibi -> alibi.characterId())
                 .distinct()
                 .toList();
-        // 탐사 UI에 노출할 장소 목록. EXPLORE 단서의 locationId는 사건마다 다르게 생성되므로
-        // 프론트가 미리 알 수 없다 — characterId와 같은 이유로 여기서 동적으로 내려준다.
-        List<String> exploreLocationIds = blueprint.clues().stream()
-                .filter(clue -> clue.acquisition().type() == AcquisitionType.EXPLORE)
-                .map(clue -> clue.acquisition().locationId())
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
+        // 탐사 UI용 장소 목록. ARCADIA_WORLD:1.1.0 정식 로스터(docs/ai-server-response-location-roster.md) —
+        // 모든 사건에 이 8개 방이 존재하고 전부 탐사 가능하므로 사건마다 동적으로 계산하지 않는다.
+        List<String> exploreLocationIds = EXPLORE_LOCATION_ROSTER;
 
         return new PlayerCaseView(
                 sessionId, session.getState().name(), blueprint.title(), blueprint.briefing(),

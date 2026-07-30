@@ -198,7 +198,7 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
 | data.discoveredClues[].clueType | 단서 종류 (`PHYSICAL`/`DIGITAL`/`MOTIVE`/`OPPORTUNITY`) | String | N | "DIGITAL" |
 | data.discoveredClues[].playerText | 단서 발견 시 노출 문구 | String | N | "의료 베이 단말기에 소피아 명의로..." |
 | data.suspectCharacterIds | 이 사건에 등장하는 용의자 전원의 ID 목록(단서 발견 여부와 무관하게 처음부터 전부 노출). 6번 API(NPC 심문)의 `{characterId}` 경로 값은 **이 배열 안에서만** 골라 써야 함 | String[] | N | ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"] |
-| data.exploreLocationIds | 이 사건에서 탐사 가능한 장소 ID 목록(단서 발견 여부와 무관하게 처음부터 전부 노출). 4번 API(장소 탐사)의 `locationId`는 **이 배열 안에서만** 골라 써야 함. 사건마다 값이 다르므로 프론트에서 하드코딩하면 안 됨 | String[] | N | ["MEDICAL_BAY", "LIFE_SUPPORT_CORRIDOR", "PERSONAL_QUARTERS"] |
+| data.exploreLocationIds | 탐사 가능한 장소 ID 목록(단서 발견 여부와 무관하게 처음부터 전부 노출). 4번 API(장소 탐사)의 `locationId`는 **이 배열 안에서만** 골라 써야 함. `ARCADIA_WORLD:1.1.0` 정식 로스터 8개로 고정이며 모든 사건에서 동일함(그래도 프론트는 이 배열을 통해 받아 쓰고 하드코딩은 하지 않는 걸 권장) | String[] | N | ["COMMANDER_OFFICE", "DEPUTY_COMMANDER_OFFICE", "CENTRAL_HUB", "MEDICAL_BAY", "ENGINEERING_BAY", "COMMUNICATIONS_CENTER", "CARGO_BAY", "COMMON_AREA"] |
 
 **Example**
 
@@ -220,7 +220,7 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
       }
     ],
     "suspectCharacterIds": ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"],
-    "exploreLocationIds": ["MEDICAL_BAY", "LIFE_SUPPORT_CORRIDOR", "PERSONAL_QUARTERS"]
+    "exploreLocationIds": ["COMMANDER_OFFICE", "DEPUTY_COMMANDER_OFFICE", "CENTRAL_HUB", "MEDICAL_BAY", "ENGINEERING_BAY", "COMMUNICATIONS_CENTER", "CARGO_BAY", "COMMON_AREA"]
   }
 }
 ```
@@ -254,7 +254,7 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
 
 | key | 설명 | value 타입 | 필수 | 예시 |
 | --- | --- | --- | --- | --- |
-| locationId | 조사할 장소 ID. 3번 API 응답의 `exploreLocationIds` 목록에서만 골라야 함(사건마다 값이 다름) | String | Y | "MEDICAL_BAY" |
+| locationId | 조사할 장소 ID. 3번 API 응답의 `exploreLocationIds` 목록(정식 로스터 8개, 모든 사건에서 동일)에서만 골라야 함 | String | Y | "MEDICAL_BAY" |
 | objectHint | 오브젝트 힌트(선택, 현재 백엔드 판정에 영향 없음) | String | N | null |
 
 **Request Example**
