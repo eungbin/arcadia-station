@@ -87,7 +87,7 @@ public class GameSessionService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
 
         if (session.getCaseBlueprintJson() == null) {
-            return new PlayerCaseView(sessionId, session.getState().name(), null, null, List.of());
+            return new PlayerCaseView(sessionId, session.getState().name(), null, null, List.of(), List.of());
         }
 
         CaseBlueprint blueprint = objectMapper.readValue(session.getCaseBlueprintJson(), CaseBlueprint.class);
@@ -95,8 +95,16 @@ public class GameSessionService {
                 .filter(clue -> inventory.getDiscoveredClueIds().contains(clue.clueId()))
                 .map(clue -> new PlayerClueView(clue.clueId(), clue.title(), clue.clueType(), clue.playerText()))
                 .toList();
+        // 심문 UI에 노출할 용의자 전원 목록. alibis는 사건에 등장하는 모든 용의자(범인 포함)를
+        // 빠짐없이 담고 있어 npcKnowledge(일부만 생성될 수 있음)보다 완전한 소스다.
+        List<String> suspectCharacterIds = blueprint.alibis().stream()
+                .map(alibi -> alibi.characterId())
+                .distinct()
+                .toList();
 
-        return new PlayerCaseView(sessionId, session.getState().name(), blueprint.title(), blueprint.briefing(), discoveredClues);
+        return new PlayerCaseView(
+                sessionId, session.getState().name(), blueprint.title(), blueprint.briefing(),
+                discoveredClues, suspectCharacterIds);
     }
 
     private GameSession findSessionOrThrow(String sessionId) {

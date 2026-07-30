@@ -83,12 +83,14 @@ GET /api/v1/sessions/{id}
     "status": "BRIEFING",
     "title": "아르카디아 스테이션 사건",
     "briefing": "생명 유지 시스템이 갑작스레 정지했다. 승무원 소피아를 포함한 용의자들을 조사하라.",
-    "discoveredClues": []
+    "discoveredClues": [],
+    "suspectCharacterIds": ["SOPHIA"]
   }
 }
 ```
 
 - 이 화면이 플레이어가 처음 보는 "사건 개요" 브리핑이다. `culpritId`/`solution` 같은 정답 관련 필드는 이 응답에 절대 없다(10장 보안 경계).
+- `suspectCharacterIds`는 4c(NPC 심문) API의 `{characterId}` 경로에 넣을 수 있는 값 목록이다. 단서 발견 여부와 무관하게 브리핑 시점부터 전부 내려온다.
 - 이후 첫 탐사 요청을 보내는 순간 세션은 내부적으로 `INVESTIGATION` 상태로 자동 전환된다(스펙에 별도 전환 API가 없어 첫 행동 시점에 자동 승격하도록 처리함).
 
 ## 4단계 — 조사(탐사 / RAG 검색 / 심문) — 반복

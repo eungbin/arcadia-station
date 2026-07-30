@@ -56,6 +56,8 @@ class GameSessionControllerIntegrationTest {
         assertThat(view.briefing()).isNotBlank();
         // 아직 탐사 전이므로 발견한 단서는 없어야 한다 (10장 보안 경계)
         assertThat(view.discoveredClues()).isEmpty();
+        // 심문 UI용 용의자 목록은 탐사 여부와 무관하게 처음부터 전부 노출된다
+        assertThat(view.suspectCharacterIds()).containsExactly("SOPHIA");
     }
 
     @Test

@@ -197,6 +197,7 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
 | data.discoveredClues[].title | 단서 제목 | String | N | "의료 안전 점검 예약 기록" |
 | data.discoveredClues[].clueType | 단서 종류 (`PHYSICAL`/`DIGITAL`/`MOTIVE`/`OPPORTUNITY`) | String | N | "DIGITAL" |
 | data.discoveredClues[].playerText | 단서 발견 시 노출 문구 | String | N | "의료 베이 단말기에 소피아 명의로..." |
+| data.suspectCharacterIds | 이 사건에 등장하는 용의자 전원의 ID 목록(단서 발견 여부와 무관하게 처음부터 전부 노출). 6번 API(NPC 심문)의 `{characterId}` 경로 값은 **이 배열 안에서만** 골라 써야 함 | String[] | N | ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"] |
 
 **Example**
 
@@ -216,12 +217,15 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
         "clueType": "DIGITAL",
         "playerText": "의료 베이 단말기에 소피아 명의로 안전 점검 예약 기록이 남아있다."
       }
-    ]
+    ],
+    "suspectCharacterIds": ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"]
   }
 }
 ```
 
-> **보안 참고:** 이 응답에는 범인(`culpritId`), 진실 요약, 아직 발견하지 않은 단서, NPC의 숨긴 사실 같은 스포일러 필드가 **절대 포함되지 않습니다.** 프론트는 이 응답을 그대로 화면에 렌더링해도 안전합니다.
+> **보안 참고:** 이 응답에는 범인(`culpritId`), 진실 요약, 아직 발견하지 않은 단서, NPC의 숨긴 사실 같은 스포일러 필드가 **절대 포함되지 않습니다.** `suspectCharacterIds`는 ID만 나열할 뿐 누가 범인인지는 알려주지 않으므로 안전합니다. 프론트는 이 응답을 그대로 화면에 렌더링해도 안전합니다.
+>
+> **⚠️ 알려진 제약:** 현재 6번 API(NPC 심문) 백엔드 검증은 AI 서버가 생성한 `npcKnowledge`에 있는 인물만 허용합니다. 사건에 따라 `npcKnowledge`가 `suspectCharacterIds`의 일부만 커버할 수 있어(예: 범인만), 그 경우 목록에 없는 인물을 심문 시도하면 400이 날 수 있습니다. 전 용의자 심문을 100% 보장하려면 AI 서버 쪽에서 전 용의자분 `npcKnowledge` 생성이 필요하며, 별도로 진행 중입니다.
 
 ### Status
 
@@ -397,7 +401,7 @@ Content-Type: application/json
 | key | 설명 | value 타입 | 예시 |
 | --- | --- | --- | --- |
 | id | 세션 ID | String | game_ec3c9086655e4179842cc9e851673a7f |
-| characterId | 심문할 인물 ID (사건 데이터에 정의된 값) | String | "SOPHIA" |
+| characterId | 심문할 인물 ID. 3번 API 응답의 `suspectCharacterIds` 목록에서만 골라야 함(그 외 값은 400) | String | "SOPHIA" |
 
 **Request Body**
 
