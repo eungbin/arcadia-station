@@ -6,6 +6,7 @@ import {
   SUSPECTS,
 } from "../data/investigation";
 import { validateTheory } from "../domain/theoryValidation";
+import type { CaseStateResponse, DiscoveredEvidence } from "../api/contracts";
 
 export type UiLayer =
   | "opening"
@@ -18,19 +19,37 @@ export type UiLayer =
   | "result";
 export type NotebookTab = "evidence" | "timeline" | "suspects" | "assistant" | "theory";
 export type InvestigationPhase = "DAY1" | "DAY2";
-export type TheoryEvidenceField = "method" | "motive" | "trace";
+/** 백엔드 판정 4역할과 1:1로 대응하는 이론 축. */
+export type TheoryEvidenceField = "setup" | "trigger" | "opportunity" | "motive";
 export type TrialEnding =
   | "CULPRIT_EXPELLED"
   | "CULPRIT_SURVIVED"
   | "INNOCENT_EXPELLED"
   | "TRIAL_DEADLOCK";
 
+/**
+ * 이론 초안. 증거 필드는 모두 서버 단서 ID(`clueId`)이며 백엔드 판정 4역할과 1:1로 맞춘다.
+ * 프런트엔드 오브젝트 ID를 넣으면 서버 판정에서 거절된다.
+ *
+ * 사건에 따라 준비(setup)와 실행(trigger)이 서로 다른 단서라, 두 축을 하나로 합치면
+ * 정답 판정이 구조적으로 불가능해진다.
+ */
 export type TheoryDraft = {
   suspectId: string | null;
-  method: string | null;
+  setup: string | null;
+  trigger: string | null;
+  opportunity: string | null;
   motive: string | null;
-  trace: string | null;
   exclusions: Record<string, string>;
+};
+
+const EMPTY_THEORY: TheoryDraft = {
+  suspectId: null,
+  setup: null,
+  trigger: null,
+  opportunity: null,
+  motive: null,
+  exclusions: {},
 };
 
 export type TrialResult = {
@@ -65,7 +84,15 @@ type GameState = {
   notebookTab: NotebookTab;
   focusedId: string | null;
   selectedId: string | null;
+  /** 플레이어가 조사한 3D 오브젝트 ID. 진행 게이트와 현장 표시에 쓰는 물리 계층 상태다. */
   discoveredIds: string[];
+  /** 서버가 해금해 준 단서. 수첩·이론·재판이 표시하고 제출하는 유일한 증거 출처다. */
+  evidence: DiscoveredEvidence[];
+  /** 서버가 생성한 사건 개요. */
+  caseTitle: string | null;
+  caseBriefing: string | null;
+  /** 서버가 알려준 이 사건의 용의자 명단. 비어 있으면 정적 로스터로 대체한다. */
+  suspectIds: string[];
   interviewedIds: string[];
   theory: TheoryDraft;
   trialResult: TrialResult | null;
@@ -78,7 +105,9 @@ type GameState = {
   closeOverlay: () => void;
   toggleNotebook: () => void;
   setNotebookTab: (tab: NotebookTab) => void;
-  recordEvidence: (id: string) => void;
+  markInspected: (objectId: string) => void;
+  recordEvidence: (found: DiscoveredEvidence[]) => void;
+  syncCaseState: (state: CaseStateResponse) => void;
   markInterviewed: (id: string) => void;
   openDayReview: () => void;
   beginDayTwo: () => void;
@@ -102,14 +131,12 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
   focusedId: null,
   selectedId: null,
   discoveredIds: [],
+  evidence: [],
+  caseTitle: null,
+  caseBriefing: null,
+  suspectIds: [],
   interviewedIds: [],
-  theory: {
-    suspectId: null,
-    method: null,
-    motive: null,
-    trace: null,
-    exclusions: {},
-  },
+  theory: EMPTY_THEORY,
   trialResult: null,
   scanUntil: 0,
   hasMoved: false,
@@ -143,14 +170,39 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
     });
   },
   setNotebookTab: (notebookTab) => set({ notebookTab }),
-  recordEvidence: (id) => {
+  markInspected: (objectId) => {
     if (
-      INVESTIGATION_OBJECTS[id]?.kind !== "PERSON" &&
-      !get().discoveredIds.includes(id)
+      INVESTIGATION_OBJECTS[objectId]?.kind !== "PERSON" &&
+      !get().discoveredIds.includes(objectId)
     ) {
-      set((state) => ({ discoveredIds: [...state.discoveredIds, id] }));
+      set((state) => ({ discoveredIds: [...state.discoveredIds, objectId] }));
     }
   },
+  recordEvidence: (found) => {
+    if (found.length === 0) return;
+    set((state) => {
+      const known = new Set(state.evidence.map((item) => item.clueId));
+      const added = found.filter((item) => !known.has(item.clueId));
+      return added.length === 0 ? state : { evidence: [...state.evidence, ...added] };
+    });
+  },
+  // 서버 공개 상태를 기준으로 맞춘다. 새로고침 복구와 배경 해금 반영에 쓴다.
+  // 단서는 쌓이기만 하므로 덮어쓰지 않고 합친다. 조회가 잠깐 뒤처져도 기록이 사라지지 않는다.
+  syncCaseState: ({ title, briefing, suspectIds, evidence }) =>
+    set((state) => {
+      const merged = [...state.evidence];
+      for (const record of evidence) {
+        const index = merged.findIndex((item) => item.clueId === record.clueId);
+        if (index === -1) merged.push(record);
+        else merged[index] = record;
+      }
+      return {
+        caseTitle: title ?? state.caseTitle,
+        caseBriefing: briefing ?? state.caseBriefing,
+        suspectIds: suspectIds.length > 0 ? suspectIds : state.suspectIds,
+        evidence: merged,
+      };
+    }),
   markInterviewed: (id) => {
     if (!get().interviewedIds.includes(id)) {
       set((state) => ({ interviewedIds: [...state.interviewedIds, id] }));
@@ -178,11 +230,11 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
       },
     })),
   startTrial: () => {
-    const { theory, phase, discoveredIds } = get();
+    const { theory, phase, evidence, suspectIds } = get();
     const validation = validateTheory(
       theory,
-      discoveredIds,
-      SUSPECTS.map((suspect) => suspect.id),
+      evidence.map((item) => item.clueId),
+      suspectIds.length > 0 ? suspectIds : SUSPECTS.map((suspect) => suspect.id),
     );
     if (phase === "DAY2" && validation.valid) {
       document.exitPointerLock?.();
@@ -201,14 +253,12 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
       focusedId: null,
       selectedId: null,
       discoveredIds: [],
+      evidence: [],
+      caseTitle: null,
+      caseBriefing: null,
+      suspectIds: [],
       interviewedIds: [],
-      theory: {
-        suspectId: null,
-        method: null,
-        motive: null,
-        trace: null,
-        exclusions: {},
-      },
+      theory: EMPTY_THEORY,
       trialResult: null,
       scanUntil: 0,
       hasMoved: false,
@@ -235,18 +285,32 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
     focusedId: null,
     selectedId: null,
     discoveredIds: state.discoveredIds,
+    evidence: state.evidence,
+    caseTitle: state.caseTitle,
+    caseBriefing: state.caseBriefing,
+    suspectIds: state.suspectIds,
     interviewedIds: state.interviewedIds,
     theory: state.theory,
     trialResult: state.trialResult,
     scanUntil: 0,
     hasMoved: state.hasMoved,
   }),
-  version: 1,
-  migrate: (persistedState) => {
+  version: 2,
+  migrate: (persistedState, fromVersion) => {
     const state = persistedState as Partial<GameState>;
     return {
       ...state,
       sessionVersion: typeof state.sessionVersion === "number" ? state.sessionVersion : 1,
+      // v1은 증거를 프런트엔드 오브젝트 ID로 저장했다. 그 ID는 서버 판정에서 거절되므로
+      // 증거와 이론을 비우고 서버 공개 상태로 다시 채운다.
+      evidence: fromVersion < 2 ? [] : (state.evidence ?? []),
+      caseTitle: fromVersion < 2 ? null : (state.caseTitle ?? null),
+      caseBriefing: fromVersion < 2 ? null : (state.caseBriefing ?? null),
+      suspectIds: fromVersion < 2 ? [] : (state.suspectIds ?? []),
+      theory:
+        fromVersion < 2
+          ? EMPTY_THEORY
+          : state.theory,
     } as GameState;
   },
 }));

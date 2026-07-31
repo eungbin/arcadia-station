@@ -2,15 +2,39 @@ import { useMutation } from "@tanstack/react-query";
 import { arcadiaApi } from "./client";
 import { useQuery } from "@tanstack/react-query";
 import type { InterrogationInput, SaveTheoryRequest } from "./contracts";
-import type { TheoryDraft } from "../store/gameStore";
+import { useGameStore, type TheoryDraft } from "../store/gameStore";
 
 export function useCreateSession() {
   return useMutation({
     mutationKey: ["session", "create"],
     mutationFn: async () => {
-      const session = await arcadiaApi.createSession();
-      return arcadiaApi.completeOpening(session.sessionId);
+      const created = await arcadiaApi.createSession();
+      const session = await arcadiaApi.completeOpening(created.sessionId);
+      // 서버가 생성한 사건 개요를 오프닝에서 바로 보여줄 수 있도록 함께 받아 온다.
+      const caseState = await arcadiaApi.fetchCaseState(session.sessionId);
+      return { session, caseState };
     },
+  });
+}
+
+/**
+ * 사건 개요와 확보한 단서 전체를 서버 기준으로 맞춘다.
+ *
+ * 조사·검색은 새로 열린 단서만 돌려주는데, 선행 조건이 충족돼 배경에서 열린 단서는 그 응답에
+ * 담기지 않는다. 이 조회가 수첩의 기준선을 잡아 준다.
+ */
+export function useCaseState(sessionId: string | null) {
+  const syncCaseState = useGameStore((state) => state.syncCaseState);
+  return useQuery({
+    queryKey: ["session", sessionId, "case-state"],
+    queryFn: async () => {
+      const state = await arcadiaApi.fetchCaseState(sessionId!);
+      syncCaseState(state);
+      return state;
+    },
+    enabled: Boolean(sessionId),
+    staleTime: 5_000,
+    retry: false,
   });
 }
 

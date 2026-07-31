@@ -5,49 +5,171 @@
 ```dotenv
 VITE_API_MODE=http
 VITE_API_BASE_URL=/api
+VITE_API_PROXY_TARGET=http://127.0.0.1:8080
 ```
 
-`mock`과 `http`는 `src/api/client.ts`의 같은 `ArcadiaApi` 인터페이스를 구현한다. 실제 연결에서는 UI나 Zustand 액션을 바꾸지 않고 HTTP 어댑터만 사용한다. 모든 요청은 JSON이며 기본 제한 시간은 10초다.
+`mock`과 `http`는 `src/api/client.ts`의 같은 `ArcadiaApi` 인터페이스를 구현한다. 실제 연결에서는 UI나 Zustand 액션을 바꾸지 않고 HTTP 어댑터(`src/api/httpApi.ts`)만 사용한다.
 
-## 현재 연결 지점
+게임 백엔드에 CORS 설정이 없으므로 브라우저가 8080을 직접 호출하면 차단된다. 개발에서는 `vite.config.ts`의 `/api` 프록시를 거치고, 배포에서는 같은 출처에 `/api`를 붙여야 한다.
 
-| 화면 동작 | 메서드와 경로 | 프런트엔드 반영 |
+실행 순서는 AI 서버(8081) → 게임 백엔드(8080) → 프런트엔드(5173)다. 백엔드 기본 프로필은 Fake AI 클라이언트라 AI 서버 없이도 전체 흐름이 동작한다.
+
+AI 서버까지 붙이려면 백엔드를 `real-ai` 프로필로 띄우고 두 서버에 같은 `AI_INTERNAL_API_KEY`를 준다. 백엔드가 Docker 안에 있으면 `AI_SERVER_BASE_URL`은 `http://host.docker.internal:8081`이다.
+
+## 어댑터 구조
+
+프런트엔드 `ArcadiaApi`와 백엔드 `/api/v1` 계약은 모양이 다르다. 세 파일이 그 차이를 흡수한다.
+
+| 파일 | 역할 |
+|---|---|
+| `src/api/backendContract.ts` | 오브젝트·인물·역할 변환표와 백엔드 응답 타입 |
+| `src/api/httpApi.ts` | 전송, 오류 정규화, 세션 원장, 각 API 변환 |
+| `src/api/errors.ts` | 두 모드가 공유하는 `ArcadiaApiError` |
+
+## 연결 지점
+
+| 화면 동작 | 백엔드 호출 | 변환 |
 |---|---|---|
-| 사건 준비 | `POST /sessions`, `GET /sessions/{id}` | `PREPARING`이면 `pollAfterMs` 간격으로 최대 60초 조회 |
-| 오프닝 완료 | `POST /sessions/{id}/opening/complete` | `sessionId`, `day`, `version` 저장 |
-| 오브젝트 기록 | `POST /sessions/{id}/objects/{objectId}/inspect` | 공개된 증거 ID와 `version` 반영 |
-| 심문 시작 | `POST /sessions/{id}/interrogations` | 심문 ID와 공개 시작 대사 표시 |
-| 선택 질문·자유 질문·증거 제시 | `POST /interrogations/{id}/messages` | `choiceId`, `query`, `evidenceId` 중 하나를 전송하고 답변, 공개 증거 ID, `version` 반영 |
-| 일차 종료 | `POST /sessions/{id}/days/{day}/complete` | 다음 일차와 `version` 반영 |
-| 수사 보조 | `POST /sessions/{id}/assistant` | 요약, 인용 ID, 관찰, 후속 질문 표시 |
-| 이론 저장 | `PUT /sessions/{id}/theory` | 현재 초안과 낙관적 잠금 `version` 제출 |
-| 최종 판정 | `POST /sessions/{id}/trial/verdict` | 투표 수, 엔딩, 정오 판정과 `version` 반영 |
+| 사건 준비 | `POST /api/v1/sessions` → `GET /api/v1/sessions/{id}/status` | `CREATING`·`VALIDATING`이면 2초 간격으로 최대 180초 폴링 |
+| 오프닝 완료 | `GET /api/v1/sessions/{id}` | 대응 엔드포인트 없음. 사건 동결 확인과 브리핑 수신 |
+| 사건 상태 동기화 | `GET /api/v1/sessions/{id}` | 수첩을 열 때마다 확보 단서를 서버 기준으로 합침 |
+| 오브젝트 조사 | `POST /api/v1/sessions/{id}/explore` | 오브젝트를 정식 장소 8종 중 하나로 옮김 |
+| 심문 시작 | 없음 | 채널 ID 합성, 첫 대사는 프런트엔드 정적 데이터 |
+| 선택 질문·자유 질문·증거 제시 | `POST /api/v1/sessions/{id}/interrogations/{characterId}/turns` | 세 입력을 `question` 한 필드로 합침 |
+| 일차 종료 | 없음 | 백엔드에 일차 개념 없음. 클라이언트 진행 기록 |
+| 수사 보조 | `POST /api/v1/sessions/{id}/assistant/queries` | 응답 필드 재배치 |
+| 이론 저장 | 없음 | 초안은 로컬 저장소에만 남음 |
+| 최종 판정 | 전 장소 재탐사 → `GET /api/v1/sessions/{id}` → `POST /api/v1/sessions/{id}/deductions` | 이론 3축을 판정 4역할로 폄 |
 
-경로의 `/api` 접두사는 `VITE_API_BASE_URL`이 담당한다.
+경로의 `/api` 접두사는 `VITE_API_BASE_URL`이, `/v1`은 어댑터가 담당한다.
+
+## 두 계층
+
+AI는 세션마다 다른 사건을 생성한다. 범인도 단서도 동기도 바뀐다. 그래서 플레이어가 읽는 사건 내용은 전부 서버에서 온다. 다만 3D 배치는 서버가 만들지 않으므로 계층을 나눈다.
+
+| 계층 | 출처 | 담당 |
+|---|---|---|
+| 물리 | 프런트엔드 고정 데이터 | 3D 소품의 위치·외형·이름, 방 구성, 용의자 얼굴과 색 |
+| 지식 | 서버 | 사건 제목·브리핑, 단서 제목과 본문, 용의자 명단, 판정 |
+
+`INVESTIGATION_OBJECTS`는 물리 계층만 담당한다. 조사해서 얻는 기록은 `DiscoveredEvidence`이며 서버가 유일한 출처다. 수첩·이론·재판은 전부 서버 단서 ID(`clueId`)로 동작한다.
+
+- 조사 패널은 소품 이름만 고정으로 쓰고, 본문은 서버 단서를 표시한다. 단서가 없으면 "찾지 못했다"로 처리한다.
+- `discoveredIds`(조사한 오브젝트)는 D1 진행 게이트와 현장 표시에만 쓴다. 증거로는 쓰지 않는다.
+- 심문 증거 제시와 최종 추리 제출에는 서버가 해금을 확인해 준 단서 ID만 보낸다. 미발견 단서 제시는 400이다.
+
+인물 ID는 `NPC_MAYA` → `MAYA`처럼 접두사만 제거한다. 장소는 `ARCADIA_WORLD:1.1.0` 정식 로스터 8종을 쓴다.
+
+오브젝트가 여러 개 같은 방에 매핑되고 사건 단서는 5개 안팎이라, 16개 소품 중 실제로 단서를 주는 것은 3개 남짓이다. 나머지는 빈 응답이며 오류가 아니다. 소품마다 고유한 단서가 나오게 하려면 AI 서버가 방마다 단서를 생성해야 한다.
+
+## 세션 직렬 큐
+
+백엔드는 탐사·검색·심문·판정에서 세션의 `EvidenceInventory` 한 행을 읽고 다시 쓴다. 요청을 동시에 보내면 나중에 끝난 쓰기가 앞선 해금을 덮어써서 **단서가 조용히 사라진다.**
+
+실측: 검색 질의 7건을 동시에 보내면 단서 2개, 순차로 보내면 4개가 열렸다.
+
+그래서 어댑터는 상태를 바꾸는 요청을 세션별 큐에 넣어 하나씩 보낸다. 조회 전용 요청(세션 상태·공개 상태)은 큐를 거치지 않는다.
+
+조회 전용 요청은 큐를 거치지 않아 화면 갱신이 검색 대기에 묶이지 않는다.
+
+## 단서 획득 경로
+
+백엔드 단서는 획득 방식이 두 가지다. 프런트엔드의 플레이어 행동과 1:1로 맞춘다.
+
+| 백엔드 `acquisition.type` | 플레이어 행동 | 호출 |
+|---|---|---|
+| `EXPLORE` | 오브젝트 조사 | `POST /explore` |
+| `RAG_QUERY` | 수사 보조 탭 검색 | `POST /assistant/queries` |
+| `CONNECT` | 위 둘의 결과로 자동 | 없음(백엔드가 연쇄 처리) |
+
+**조사가 검색을 대신 실행하지 않는다.** 예전에는 기록형 오브젝트를 조사할 때 검색을 배경으로 몰래 날렸는데, 조사 패널은 "찾지 못했다"고 하면서 몇 초 뒤 수첩에만 단서가 늘어나는 상태가 됐다. 화면과 수첩이 어긋나므로 제거했다.
+
+단서는 서로를 잠근다. 검색으로 열린 단서가 특정 방의 탐사 단서를 잠그는 구조가 실제로 존재한다.
+
+```text
+CLUE-TRIGGER-LOG (검색 전용)
+  └─> CLUE-ACCESS-HISTORY (탐사, 선행 단서 필요)
+        └─> CLUE-FULL-PICTURE (연결형)
+```
+
+그래서 **이미 조사한 오브젝트도 다시 조사할 수 있다.** 검색으로 선행 기록을 얻은 뒤 그 방을 다시 살피면 놓쳤던 단서가 열린다. 플레이어가 직접 하는 행동이라 화면과 수첩이 어긋나지 않는다.
+
+실제 AI 사건은 단서 5개 중 4개가 검색 전용이다. 수사 보조 탭을 쓰지 않으면 재판에 필요한 네 축을 채울 수 없다.
+
+탐사는 서버 DB만 오가고 이미 발견한 단서는 건너뛰므로 반복 비용이 낮다. 백엔드가 세션 인벤토리를 읽고 다시 쓰기 때문에 동시 요청은 서로의 갱신을 덮을 수 있어 순차로 보낸다.
+
+## 구형 장소 별칭
+
+백엔드 Fake 프로필 픽스처(`sample-case-blueprint.json`)는 아직 1.1.0 이전 장소 ID를 쓴다. `CLUE-ACCESS-HISTORY`가 `LIFE_SUPPORT_CORRIDOR`, `CLUE-MOTIVE-MESSAGE`가 `PERSONAL_QUARTERS`에 있어서, 백엔드가 스스로 광고하는 정식 로스터 8종만 탐사하면 그 단서를 영영 얻을 수 없다. **Fake 프로필에서 사건을 풀 수 없다는 뜻이다.**
+
+AI 서버의 오프라인 fallback 사건(`sophia-safe-v1.json`)도 마찬가지로 `LIFE_SUPPORT_CONTROL`을 쓴다. 로스터 문서는 두 곳 모두 1.1.0으로 갱신했다고 적고 있지만 실제 파일은 아직 구형이다.
+
+게임 백엔드의 탐사 API는 로스터를 검사하지 않으므로, 오브젝트를 조사할 때 같은 방을 가리키는 구형 ID까지 이어서 조회한다. 탐사는 서버 DB만 오가서 비용이 낮고, 결과는 조사 패널에 함께 표시된다. 정식 로스터를 쓰는 사건에서는 별칭 조회가 빈 배열만 돌려받는다.
+
+양쪽 픽스처가 1.1.0으로 갱신되면 `backendContract.ts`의 `LEGACY_LOCATION_ALIASES`를 비워도 된다.
+
+## 최종 추리
+
+이론의 네 축은 백엔드 판정 역할과 1:1로 대응한다.
+
+| 이론 필드 | 백엔드 역할 |
+|---|---|
+| `setup` | `SETUP` |
+| `trigger` | `TRIGGER` |
+| `opportunity` | `OPPORTUNITY` |
+| `motive` | `MOTIVE` |
+| `exclusions` | 서버로 보내지 않음 |
+
+사건에 따라 준비와 실행이 서로 다른 단서라, 두 역할을 한 축으로 합치면 정답 판정이 구조적으로 불가능해진다. 그래서 프런트엔드 이론도 네 축을 그대로 갖는다.
+
+네 축은 서로 다른 기록이어야 하고 값은 이미 확보한 서버 단서여야 한다. 배제 근거는 같은 기록을 여러 명에게 다시 쓸 수 있다. 사건 단서가 5개 안팎이라 네 축과 배제 4건 모두에 고유 기록을 요구하면 재판을 열 수 없기 때문이다.
+
+백엔드는 표 계산을 하지 않으므로 재판 결과는 판정 결과에서 유도한다. 엔딩 분기는 mock 어댑터와 같은 기준이다.
+
+| 백엔드 판정 | 재판 결과 | 표 |
+|---|---|---|
+| `CORRECT` | `CULPRIT_EXPELLED` | 5 |
+| `culpritCorrect`이고 `PARTIAL` | `CULPRIT_SURVIVED` | 3 |
+| 범인 오답, 역할 2개 이상 정답 | `INNOCENT_EXPELLED` | 4 |
+| 그 외 | `TRIAL_DEADLOCK` | 2 |
+
+## 연동 검증
+
+실제 백엔드를 상대로 전체 흐름(세션 생성 → 조사 16종 → 검색 → 심문 → 최종 추리)을 확인하는 스모크 테스트가 있다. 백엔드가 떠 있어야 하므로 기본 `npm test`에서는 건너뛴다.
+
+```bash
+cd ../backend && docker compose up -d --build
+cd ../frontend
+VITE_LIVE_BACKEND=1 VITE_API_BASE_URL=http://localhost:8080/api npx vitest run src/api/httpApi.live.test.ts
+```
 
 ## 오류 응답
 
-```json
-{
-  "code": "SESSION_VERSION_CONFLICT",
-  "message": "다른 요청이 먼저 처리되었습니다.",
-  "retryable": true
-}
-```
+백엔드는 모든 응답을 `{success, message, data}`로 감싸고, 오류에는 코드 문자열 없이 HTTP status만 준다. 어댑터가 이를 `ArcadiaApiError`로 정규화한다.
 
-비정상 HTTP 응답은 `ArcadiaApiError`로 정규화한다. 시작·조사·일차 저장·이론·판정은 해당 화면에서 오류와 재시도 가능 상태를 유지한다. 심문과 수사 보조 AI가 실패하면 정적 응답으로 전환되어 완주를 막지 않는다.
+| HTTP status | code | retryable |
+|---|---|---|
+| 400 | `INVALID_REQUEST` | 거짓 |
+| 404 | `SESSION_NOT_FOUND` | 거짓 |
+| 409 | `INVALID_SESSION_STATE` | 거짓 |
+| 5xx | `SERVER_ERROR` | 참 |
+| 네트워크·타임아웃 | `NETWORK_ERROR` | 참 |
+
+시작·조사·일차 저장·이론·판정은 해당 화면에서 오류와 재시도 가능 상태를 유지한다. 심문과 수사 보조가 실패하면 정적 응답으로 전환되어 완주를 막지 않는다.
+
+제한 시간은 DB만 오가는 요청이 12초, LLM을 거치는 요청이 70초다. 백엔드 자체 AI 타임아웃이 65초라 그보다 길게 잡았다.
+
+## 알려진 제약
+
+- **일차·재판 진행은 클라이언트 상태다.** 백엔드에 D1/D2 구분과 5단계 생존자 투표가 없다. 새로고침 복구는 로컬 저장소가 담당한다.
+- **수사 보조 인용은 확보한 단서 ID다.** 백엔드 `citedRecordIds`는 내부 기록 ID(`RECORD-*`)라 수첩에 없다. 대신 이번 검색으로 해금된 단서와 이미 확보한 단서를 인용으로 넘긴다.
+- **심문 응답의 공개 증거는 비어 있다.** 백엔드는 사실 ID(`FACT-*`)를 반환하는데 프런트엔드 증거와 대응하지 않는다.
+- **AI가 생성한 단서와 프런트엔드 오브젝트는 1:1이 아니다.** 사건마다 단서 배치가 달라 특정 오브젝트를 조사해도 새 단서가 없을 수 있다. 최종 추리는 그 시점까지 서버가 해금한 단서로 제출한다.
+- **Fake 프로필의 검색 매칭은 문자열 부분 일치다.** `FakeAssistantClient`가 질문에 기록의 `searchTerms`가 그대로 들어 있는지만 본다. 오브젝트별 검색 문구는 실제 AI에서도 자연스러우면서 이 매칭에도 걸리도록 골랐다. 실제 AI는 의미 검색이라 문구에 덜 민감하다.
+- **전 용의자 심문이 보장되지 않는다.** 백엔드가 `npcKnowledge`에 있는 인물만 허용해 일부 용의자는 400이 날 수 있다. 이때 UI는 정적 대사로 넘어간다.
 
 ## 보안 경계
 
-- 브라우저에는 AI API 키, 범인 ID, 전체 사건 성경, 미발견 증거, 비공개 투표 가중치를 전달하지 않는다.
-- 수사 보조 응답의 `citations`는 현재 세션에서 공개된 증거 ID만 허용한다.
-- NPC 응답은 공개 가능한 답변과 새로 공개된 증거 ID만 반환한다.
-- 최종 정오 판정과 표 계산은 서버가 수행한다.
-
-## 연결 시 서버에서 확인할 항목
-
-1. CORS 대신 동일 출처 `/api` 배포 또는 개발 프록시를 사용한다.
-2. 중복 조사와 메시지 재전송은 멱등하게 처리한다.
-3. `version` 충돌은 위 오류 형식과 `409`로 반환한다.
-4. `RESULT` 세션의 변경 요청은 거부한다.
-5. AI 타임아웃은 서버 정적 폴백을 우선하고, 불가능할 때만 오류를 반환한다.
+- 브라우저에는 AI API 키, 범인 ID, 전체 사건 성경, 미발견 증거를 전달하지 않는다.
+- 최종 정오 판정은 서버가 수행한다. 어댑터는 판정 결과를 표현만 바꾼다.
+- `AI_INTERNAL_API_KEY`는 게임 백엔드에만 두고 Vite 환경 변수로 만들지 않는다.

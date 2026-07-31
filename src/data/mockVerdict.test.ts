@@ -5,9 +5,10 @@ import type { TheoryDraft } from "../store/gameStore";
 function theory(overrides: Partial<TheoryDraft> = {}): TheoryDraft {
   return {
     suspectId: "JUNHO",
-    method: "CO_ENV_PANEL",
+    setup: "CO_ENV_PANEL",
+    trigger: "EN_LIFE_SUPPORT",
+    opportunity: "CO_DOOR_LOG",
     motive: "CO_TERMINAL",
-    trace: "EN_LIFE_SUPPORT",
     exclusions: {
       MAYA: "CO_XO_PASSAGE",
       SOPHIA: "MD_MEDICAL_TERMINAL",
@@ -31,9 +32,10 @@ describe("resolveMockTrial", () => {
   it("keeps the culprit alive when the evidence is weak", () => {
     const result = resolveMockTrial(
       theory({
-        method: "CO_BODY",
-        motive: "CG_CARGO_MANIFEST",
-        trace: "QT_ACCESS_BUFFER",
+        setup: "CO_BODY",
+        trigger: "CG_CARGO_MANIFEST",
+        opportunity: "QT_ACCESS_BUFFER",
+        motive: "CMN_FOOD_STATION",
       }),
     );
 
@@ -53,24 +55,25 @@ describe("resolveMockTrial", () => {
   });
 
   it("rejects an incomplete theory", () => {
-    expect(() => resolveMockTrial(theory({ trace: null }))).toThrow(
+    expect(() => resolveMockTrial(theory({ opportunity: null }))).toThrow(
       "재판 판정에 필요한 이론 항목이 누락되었습니다.",
     );
   });
 
   it.each([
-    ["MAYA", ["CO_BODY", "MD_MEDICAL_TERMINAL", "CO_DOOR_LOG"]],
-    ["JUNHO", ["CO_ENV_PANEL", "CO_TERMINAL", "EN_LIFE_SUPPORT"]],
-    ["SOPHIA", ["MD_MEDICAL_TERMINAL", "CO_BODY", "CO_TERMINAL"]],
-    ["KASIM", ["CM_SECURITY_ARCHIVE", "CO_DOOR_LOG", "CO_TERMINAL"]],
-    ["YUNA", ["CG_AIRLOCK_LOG", "CM_SECURITY_ARCHIVE", "CO_DOOR_LOG"]],
+    ["MAYA", ["CO_BODY", "MD_MEDICAL_TERMINAL", "CO_DOOR_LOG", "CO_SCANNER"]],
+    ["JUNHO", ["CO_ENV_PANEL", "CO_TERMINAL", "EN_LIFE_SUPPORT", "CO_DOOR_LOG"]],
+    ["SOPHIA", ["MD_MEDICAL_TERMINAL", "CO_BODY", "CO_TERMINAL", "CO_SCANNER"]],
+    ["KASIM", ["CM_SECURITY_ARCHIVE", "CO_DOOR_LOG", "CO_TERMINAL", "CO_SCANNER"]],
+    ["YUNA", ["CG_AIRLOCK_LOG", "CM_SECURITY_ARCHIVE", "CO_DOOR_LOG", "CO_SCANNER"]],
   ] as const)("can reproduce the verified fallback for %s", (culpritId, evidence) => {
     const result = resolveMockTrial(
       theory({
         suspectId: culpritId,
-        method: evidence[0],
-        motive: evidence[1],
-        trace: evidence[2],
+        setup: evidence[0],
+        trigger: evidence[1],
+        opportunity: evidence[2],
+        motive: evidence[3],
       }),
       culpritId,
     );

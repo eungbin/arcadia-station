@@ -16,6 +16,7 @@ import {
   useCompleteDay,
   useCreateSession,
   useAskAssistant,
+  useCaseState,
   useInspectObject,
   useInterrogationSession,
   useSaveTheory,
@@ -23,7 +24,9 @@ import {
   useSubmitVerdict,
 } from "../api/hooks";
 import { validateTheory } from "../domain/theoryValidation";
+import type { DiscoveredEvidence, EvidenceType } from "../api/contracts";
 
+/** 3D 소품의 종류. 물리 계층 표시에만 쓴다. */
 const KIND_LABELS: Record<TargetKind, string> = {
   PHYSICAL: "물리 단서",
   DIGITAL: "디지털 기록",
@@ -32,12 +35,46 @@ const KIND_LABELS: Record<TargetKind, string> = {
   PERSON: "용의자 심문",
 };
 
+/** 서버 단서의 종류. 수첩과 이론 구성에 쓴다. */
+const EVIDENCE_TYPE_LABELS: Record<EvidenceType, string> = {
+  PHYSICAL: "물리 증거",
+  DIGITAL: "디지털 기록",
+  MOTIVE: "동기 자료",
+  OPPORTUNITY: "기회와 권한",
+};
+
+/** 서버 용의자 ID를 화면 표시용 정보로 옮긴다. 정적 로스터에 없으면 ID를 그대로 쓴다. */
+function suspectProfile(id: string) {
+  return (
+    SUSPECTS.find((suspect) => suspect.id === id) ?? {
+      id,
+      name: id,
+      role: "승무원",
+      color: "#8f86e8",
+    }
+  );
+}
+
+/** 이 사건의 용의자 목록. 서버가 알려준 명단을 우선한다. */
+function useSuspects() {
+  const suspectIds = useGameStore((state) => state.suspectIds);
+  return useMemo(
+    () => (suspectIds.length > 0 ? suspectIds.map(suspectProfile) : SUSPECTS),
+    [suspectIds],
+  );
+}
+
 function OpeningOverlay() {
   const beginInvestigation = useGameStore((state) => state.beginInvestigation);
+  const syncCaseState = useGameStore((state) => state.syncCaseState);
+  const caseBriefing = useGameStore((state) => state.caseBriefing);
   const createSession = useCreateSession();
   const enterStation = () => {
     createSession.mutate(undefined, {
-      onSuccess: (session) => beginInvestigation(session.sessionId, session.version),
+      onSuccess: ({ session, caseState }) => {
+        syncCaseState(caseState);
+        beginInvestigation(session.sessionId, session.version);
+      },
     });
   };
 
@@ -56,10 +93,15 @@ function OpeningOverlay() {
           <span>INCIDENT 72</span>
         </h1>
         <div className="opening-rule" />
+        {/* 사건 개요는 서버가 세션마다 생성한다. 아직 못 받았으면 격리 상황 안내를 보여준다. */}
         <p className="opening-lead">
-          사령관 다니엘 로스가 사망했다.
-          <br />
-          구조선 도착까지 남은 시간은 72시간.
+          {caseBriefing ?? (
+            <>
+              사령관 다니엘 로스가 사망했다.
+              <br />
+              구조선 도착까지 남은 시간은 72시간.
+            </>
+          )}
         </p>
 
         <dl className="brief-grid">
@@ -225,18 +267,29 @@ function MissionHud() {
   );
 }
 
+/**
+ * 조사 패널.
+ *
+ * 오브젝트의 이름과 위치는 3D 소품의 물리적 정체성이라 프런트엔드가 갖고 있지만, 조사해서
+ * 얻는 기록은 전부 서버가 생성한 사건 단서다. 사건마다 단서 배치가 달라 아무것도 나오지 않는
+ * 오브젝트가 있고, 그건 오류가 아니다.
+ */
 function InspectionPanel() {
   const sessionId = useGameStore((state) => state.sessionId);
   const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
   const selectedId = useGameStore((state) => state.selectedId);
   const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const evidence = useGameStore((state) => state.evidence);
   const closeOverlay = useGameStore((state) => state.closeOverlay);
+  const markInspected = useGameStore((state) => state.markInspected);
   const recordEvidence = useGameStore((state) => state.recordEvidence);
   const inspectObject = useInspectObject(sessionId);
   const item = selectedId ? INVESTIGATION_OBJECTS[selectedId] : null;
 
   if (!item) return null;
-  const isRecorded = discoveredIds.includes(item.id);
+
+  const isInspected = discoveredIds.includes(item.id);
+  const found = evidence.filter((record) => record.sourceObjectId === item.id);
 
   return (
     <section className="inspection-shell" aria-label={`${item.title} 조사`}>
@@ -262,38 +315,53 @@ function InspectionPanel() {
         <div className="inspection-copy">
           <p className="inspection-index">OBSERVATION // {item.id}</p>
           <h2>{item.title}</h2>
-          <p className="inspection-summary">{item.summary}</p>
-          <div className="inspection-detail">
-            <span>상세 관찰</span>
-            <p>{item.detail}</p>
-          </div>
-          <blockquote>{item.observation}</blockquote>
+
+          {!isInspected && (
+            <p className="inspection-summary">
+              아직 조사하지 않았습니다. 정밀 조사로 사건 기록을 확인하십시오.
+            </p>
+          )}
+
+          {isInspected && found.length === 0 && (
+            <p className="inspection-summary">
+              이곳에서는 이번 사건과 연결되는 기록을 찾지 못했습니다. 새 기록을 확보한 뒤
+              다시 조사하면 놓쳤던 흔적이 보일 수 있습니다.
+            </p>
+          )}
+
+          {found.map((record) => (
+            <div className="inspection-detail" key={record.clueId}>
+              <span>{EVIDENCE_TYPE_LABELS[record.clueType]} · {record.title}</span>
+              <p>{record.playerText}</p>
+            </div>
+          ))}
         </div>
 
         <footer>
           <div>
-            <span>기록 항목</span>
-            <strong>{item.evidenceLabel}</strong>
+            <span>확보 기록</span>
+            <strong>{isInspected ? `${found.length}건` : "조사 전"}</strong>
           </div>
+          {/* 검색으로 선행 기록을 얻으면 이미 조사한 방에서 새 흔적이 열릴 수 있어 재조사를 막지 않는다. */}
           <button
-            className={isRecorded ? "record-action is-recorded" : "record-action"}
+            className={isInspected ? "record-action is-recorded" : "record-action"}
             type="button"
             disabled={inspectObject.isPending}
-            onClick={() => {
-              if (isRecorded) return;
+            onClick={() =>
               inspectObject.mutate(item.id, {
                 onSuccess: (result) => {
                   updateSessionVersion(result.version);
-                  recordEvidence(item.id);
+                  recordEvidence(result.discoveredEvidence);
+                  markInspected(item.id);
                 },
-              });
-            }}
+              })
+            }
           >
-            {isRecorded
-              ? "수첩에 기록됨"
-              : inspectObject.isPending
-                ? "보안 기록 동기화 중"
-                : "증거로 기록"}
+            {inspectObject.isPending
+              ? "보안 기록 조회 중"
+              : isInspected
+                ? "다시 조사"
+                : "정밀 조사"}
           </button>
           {inspectObject.isError && (
             <small className="inline-error" role="alert">{inspectObject.error.message}</small>
@@ -312,36 +380,38 @@ const NOTEBOOK_TABS: Array<{ id: NotebookTab; label: string; index: string }> = 
   { id: "theory", label: "사건 재구성", index: "05" },
 ];
 
-function EvidenceTab({ discoveredIds }: { discoveredIds: string[] }) {
-  const evidence = discoveredIds
-    .map((id) => INVESTIGATION_OBJECTS[id])
-    .filter(Boolean);
-
+function EvidenceTab({ evidence }: { evidence: DiscoveredEvidence[] }) {
   if (evidence.length === 0) {
     return (
       <div className="notebook-empty">
         <span>NO EVIDENCE LOGGED</span>
-        <h3>기록된 증거가 없습니다.</h3>
-        <p>현장에서 오브젝트를 조사한 뒤 증거로 기록하십시오.</p>
+        <h3>확보한 기록이 없습니다.</h3>
+        <p>현장 오브젝트를 조사하거나 수사 보조로 사건 기록을 검색하십시오.</p>
       </div>
     );
   }
 
   return (
     <div className="evidence-grid">
-      {evidence.map((item, index) => (
-        <article className="evidence-card" key={item.id}>
-          <header>
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            <em>{KIND_LABELS[item.kind]}</em>
-          </header>
-          <div className={`evidence-card__mark evidence-card__mark--${item.kind.toLowerCase()}`} />
-          <small>{item.zone} · {item.id}</small>
-          <h3>{item.title}</h3>
-          <p>{item.summary}</p>
-          <footer>{item.evidenceLabel}</footer>
-        </article>
-      ))}
+      {evidence.map((record, index) => {
+        const source = record.sourceObjectId
+          ? INVESTIGATION_OBJECTS[record.sourceObjectId]
+          : null;
+        const kindClass = record.clueType.toLowerCase();
+        return (
+          <article className="evidence-card" key={record.clueId}>
+            <header>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <em>{EVIDENCE_TYPE_LABELS[record.clueType]}</em>
+            </header>
+            <div className={`evidence-card__mark evidence-card__mark--${kindClass}`} />
+            <small>{source ? `${source.zone} · ${source.title}` : "사건 기록 검색"}</small>
+            <h3>{record.title}</h3>
+            <p>{record.playerText}</p>
+            <footer>{record.clueId}</footer>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -367,9 +437,10 @@ function TimelineTab() {
 
 function SuspectsTab() {
   const interviewedIds = useGameStore((state) => state.interviewedIds);
+  const suspects = useSuspects();
   return (
     <div className="suspect-list">
-      {SUSPECTS.map((suspect, index) => (
+      {suspects.map((suspect, index) => (
         <article key={suspect.id}>
           <div className="suspect-number" style={{ "--suspect": suspect.color } as React.CSSProperties}>
             {String(index + 1).padStart(2, "0")}
@@ -402,14 +473,19 @@ const ASSISTANT_QUERIES = [
 
 function AssistantTab() {
   const sessionId = useGameStore((state) => state.sessionId);
-  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const evidence = useGameStore((state) => state.evidence);
   const [query, setQuery] = useState(ASSISTANT_QUERIES[0]);
   const assistant = useAskAssistant(sessionId);
+  const caseState = useCaseState(sessionId);
   const submit = (nextQuery = query) => {
     const normalized = nextQuery.trim();
     if (!normalized) return;
     setQuery(normalized);
-    assistant.mutate({ query: normalized, discoveredEvidenceIds: discoveredIds });
+    assistant.mutate(
+      { query: normalized, discoveredEvidenceIds: evidence.map((record) => record.clueId) },
+      // 검색으로 새 단서가 열릴 수 있다. 서버 공개 상태를 다시 읽어 수첩을 맞춘다.
+      { onSuccess: () => void caseState.refetch() },
+    );
   };
 
   return (
@@ -419,7 +495,7 @@ function AssistantTab() {
           <span>LOCAL EVIDENCE INDEX // READ ONLY</span>
           <h3>아르카디아 수사 보조</h3>
         </div>
-        <strong>{discoveredIds.length} RECORDS AVAILABLE</strong>
+        <strong>{evidence.length} RECORDS AVAILABLE</strong>
       </header>
 
       <div className="assistant-presets">
@@ -474,7 +550,7 @@ function AssistantTab() {
                 key={id}
                 onClick={() => useGameStore.getState().setNotebookTab("evidence")}
               >
-                {id} · {INVESTIGATION_OBJECTS[id]?.title}
+                {evidence.find((record) => record.clueId === id)?.title ?? id}
               </button>
             ))}
           </div>
@@ -494,7 +570,8 @@ function TheoryTab() {
   const sessionVersion = useGameStore((state) => state.sessionVersion);
   const phase = useGameStore((state) => state.phase);
   const theory = useGameStore((state) => state.theory);
-  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const evidence = useGameStore((state) => state.evidence);
+  const suspects = useSuspects();
   const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
   const setTheorySuspect = useGameStore((state) => state.setTheorySuspect);
   const setTheoryEvidence = useGameStore((state) => state.setTheoryEvidence);
@@ -502,14 +579,11 @@ function TheoryTab() {
   const startTrial = useGameStore((state) => state.startTrial);
   const saveTheory = useSaveTheory(sessionId);
 
-  const evidence = discoveredIds
-    .map((id) => INVESTIGATION_OBJECTS[id])
-    .filter((item) => item && item.kind !== "PERSON");
-  const otherSuspects = SUSPECTS.filter((suspect) => suspect.id !== theory.suspectId);
+  const otherSuspects = suspects.filter((suspect) => suspect.id !== theory.suspectId);
   const validation = validateTheory(
     theory,
-    discoveredIds,
-    SUSPECTS.map((suspect) => suspect.id),
+    evidence.map((record) => record.clueId),
+    suspects.map((suspect) => suspect.id),
   );
   const ready = phase === "DAY2" && validation.valid;
   const submitTheory = () => {
@@ -538,10 +612,10 @@ function TheoryTab() {
 
   const evidenceOptions = (value: string | null, onChange: (id: string) => void) => (
     <select value={value ?? ""} onChange={(event) => onChange(event.target.value)}>
-      <option value="" disabled>증거 선택</option>
-      {evidence.map((item) => (
-        <option key={item.id} value={item.id}>
-          [{item.zone}] {item.title}
+      <option value="" disabled>기록 선택</option>
+      {evidence.map((record) => (
+        <option key={record.clueId} value={record.clueId}>
+          [{EVIDENCE_TYPE_LABELS[record.clueType]}] {record.title}
         </option>
       ))}
     </select>
@@ -556,7 +630,7 @@ function TheoryTab() {
           <p>범행 조건을 모두 만족하는 한 명을 선택합니다.</p>
         </header>
         <div>
-          {SUSPECTS.map((suspect) => (
+          {suspects.map((suspect) => (
             <button
               key={suspect.id}
               type="button"
@@ -576,23 +650,28 @@ function TheoryTab() {
         <header>
           <span>02 // CORE PROOF</span>
           <h3>핵심 입증</h3>
-          <p>수단·동기·현장 연결을 서로 다른 기록으로 구성합니다.</p>
+          <p>준비·실행·기회·동기를 서로 다른 기록으로 구성합니다.</p>
         </header>
         <div>
           <label>
-            <span>METHOD</span>
-            <strong>범행 수단</strong>
-            {evidenceOptions(theory.method, (id) => setTheoryEvidence("method", id))}
+            <span>SETUP</span>
+            <strong>범행 준비</strong>
+            {evidenceOptions(theory.setup, (id) => setTheoryEvidence("setup", id))}
+          </label>
+          <label>
+            <span>TRIGGER</span>
+            <strong>실행 트리거</strong>
+            {evidenceOptions(theory.trigger, (id) => setTheoryEvidence("trigger", id))}
+          </label>
+          <label>
+            <span>OPPORTUNITY</span>
+            <strong>기회와 권한</strong>
+            {evidenceOptions(theory.opportunity, (id) => setTheoryEvidence("opportunity", id))}
           </label>
           <label>
             <span>MOTIVE</span>
             <strong>범행 동기</strong>
             {evidenceOptions(theory.motive, (id) => setTheoryEvidence("motive", id))}
-          </label>
-          <label>
-            <span>TRACE</span>
-            <strong>기회와 흔적</strong>
-            {evidenceOptions(theory.trace, (id) => setTheoryEvidence("trace", id))}
           </label>
         </div>
       </section>
@@ -647,7 +726,7 @@ function InterrogationPanel() {
   const subtitles = useSettingsStore((state) => state.subtitles);
   const sessionId = useGameStore((state) => state.sessionId);
   const selectedId = useGameStore((state) => state.selectedId);
-  const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const evidence = useGameStore((state) => state.evidence);
   const closeOverlay = useGameStore((state) => state.closeOverlay);
   const markInterviewed = useGameStore((state) => state.markInterviewed);
   const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
@@ -663,9 +742,6 @@ function InterrogationPanel() {
   const sendMessage = useSendInterrogationMessage(
     interrogation.data?.interrogationId ?? null,
   );
-  const evidence = discoveredIds
-    .map((id) => INVESTIGATION_OBJECTS[id])
-    .filter((item) => item && item.kind !== "PERSON");
 
   useEffect(() => {
     setResponse(null);
@@ -711,7 +787,7 @@ function InterrogationPanel() {
     if (!selectedId) return;
     setActiveChoice(`evidence-${evidenceId}`);
     setLastQuestion(
-      `증거 제시 · ${INVESTIGATION_OBJECTS[evidenceId]?.title ?? evidenceId}`,
+      `증거 제시 · ${evidence.find((record) => record.clueId === evidenceId)?.title ?? evidenceId}`,
     );
     const fallbackResponse =
       "해당 기록은 확인하겠습니다. 다만 그 자료만으로 제 행동과 사망을 직접 연결할 수는 없습니다.";
@@ -922,16 +998,20 @@ function InterrogationPanel() {
                 <button type="button" onClick={() => setShowEvidence(false)}>돌아가기</button>
               </header>
               <div>
-                {evidence.map((item) => (
+                {evidence.map((record) => (
                   <button
-                    key={item.id}
+                    key={record.clueId}
                     type="button"
                     disabled={sendMessage.isPending}
-                    onClick={() => presentEvidence(item.id)}
+                    onClick={() => presentEvidence(record.clueId)}
                   >
-                    <small>{item.zone} · {item.id}</small>
-                    <strong>{item.title}</strong>
-                    <span>{KIND_LABELS[item.kind]}</span>
+                    <small>
+                      {record.sourceObjectId
+                        ? INVESTIGATION_OBJECTS[record.sourceObjectId]?.zone
+                        : "검색"}
+                    </small>
+                    <strong>{record.title}</strong>
+                    <span>{EVIDENCE_TYPE_LABELS[record.clueType]}</span>
                   </button>
                 ))}
               </div>
@@ -944,11 +1024,15 @@ function InterrogationPanel() {
 }
 
 function Notebook() {
+  const sessionId = useGameStore((state) => state.sessionId);
   const closeOverlay = useGameStore((state) => state.closeOverlay);
   const tab = useGameStore((state) => state.notebookTab);
   const setTab = useGameStore((state) => state.setNotebookTab);
   const discoveredIds = useGameStore((state) => state.discoveredIds);
+  const evidence = useGameStore((state) => state.evidence);
   const progress = getRequiredProgress(discoveredIds);
+  // 수첩을 열 때마다 서버 공개 상태로 맞춘다. 배경에서 열린 단서가 여기서 반영된다.
+  useCaseState(sessionId);
 
   return (
     <section className="notebook-shell" aria-label="사건 수첩">
@@ -995,7 +1079,7 @@ function Notebook() {
           </header>
 
           <div className="notebook-content">
-            {tab === "evidence" && <EvidenceTab discoveredIds={discoveredIds} />}
+            {tab === "evidence" && <EvidenceTab evidence={evidence} />}
             {tab === "timeline" && <TimelineTab />}
             {tab === "suspects" && <SuspectsTab />}
             {tab === "assistant" && <AssistantTab />}
@@ -1115,13 +1199,25 @@ function DayReview() {
 function TrialScreen() {
   const sessionId = useGameStore((state) => state.sessionId);
   const theory = useGameStore((state) => state.theory);
+  const evidenceRecords = useGameStore((state) => state.evidence);
+  const suspects = useSuspects();
   const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
   const completeTrial = useGameStore((state) => state.completeTrial);
   const submitVerdict = useSubmitVerdict(sessionId);
   const [step, setStep] = useState(0);
-  const accused = SUSPECTS.find((suspect) => suspect.id === theory.suspectId);
+  const accused = suspects.find((suspect) => suspect.id === theory.suspectId);
+  const findEvidence = (clueId: string | null | undefined) =>
+    clueId ? evidenceRecords.find((record) => record.clueId === clueId) : undefined;
 
-  if (!accused || !theory.method || !theory.motive || !theory.trace) return null;
+  if (
+    !accused ||
+    !theory.setup ||
+    !theory.trigger ||
+    !theory.opportunity ||
+    !theory.motive
+  ) {
+    return null;
+  }
 
   const stages = [
     {
@@ -1132,11 +1228,18 @@ function TrialScreen() {
       action: "기소 내용 확정",
     },
     {
-      code: "METHOD",
-      title: "범행 수단을 입증하십시오.",
-      line: "그 장치와 기록은 제 담당 업무만 보여줄 뿐입니다. 사망 시점의 실행까지 연결할 수 있습니까?",
-      evidenceId: theory.method,
-      action: "수단 증거 제시",
+      code: "SETUP",
+      title: "범행 준비를 입증하십시오.",
+      line: "그 기록은 제 담당 업무만 보여줄 뿐입니다. 준비 행위였다고 단정할 수 있습니까?",
+      evidenceId: theory.setup,
+      action: "준비 증거 제시",
+    },
+    {
+      code: "TRIGGER",
+      title: "실행 시점을 입증하십시오.",
+      line: "작업이 실행됐다는 것과 제가 실행했다는 것은 다릅니다. 사망 시점까지 연결할 수 있습니까?",
+      evidenceId: theory.trigger,
+      action: "실행 증거 제시",
     },
     {
       code: "MOTIVE",
@@ -1147,9 +1250,9 @@ function TrialScreen() {
     },
     {
       code: "EXCLUSION",
-      title: "다른 네 명을 배제하십시오.",
+      title: "다른 용의자를 배제하십시오.",
       line: "다른 사람도 같은 시간과 장소에 접근할 수 있었습니다. 왜 반드시 저여야 합니까?",
-      evidenceId: theory.trace,
+      evidenceId: theory.opportunity,
       action: "배제 논리 제출",
     },
     {
@@ -1161,15 +1264,13 @@ function TrialScreen() {
     },
   ];
   const stage = stages[step];
-  const evidence = stage.evidenceId
-    ? INVESTIGATION_OBJECTS[stage.evidenceId]
-    : null;
-  const exclusions = SUSPECTS.filter((suspect) => suspect.id !== theory.suspectId).map(
-    (suspect) => ({
+  const evidence = findEvidence(stage.evidenceId);
+  const exclusions = suspects
+    .filter((suspect) => suspect.id !== theory.suspectId)
+    .map((suspect) => ({
       suspect,
-      evidence: INVESTIGATION_OBJECTS[theory.exclusions[suspect.id]],
-    }),
-  );
+      evidence: findEvidence(theory.exclusions[suspect.id]),
+    }));
 
   const proceed = () => {
     if (step < stages.length - 1) {
@@ -1206,7 +1307,7 @@ function TrialScreen() {
       </header>
 
       <div className="trial-jury">
-        {SUSPECTS.map((suspect) => (
+        {suspects.map((suspect) => (
           <div
             key={suspect.id}
             className={suspect.id === accused.id ? "is-accused" : ""}
@@ -1233,16 +1334,22 @@ function TrialScreen() {
           {evidence && (
             <article>
               <header>
-                <span>{KIND_LABELS[evidence.kind]}</span>
-                <small>{evidence.zone} · {evidence.id}</small>
+                <span>{EVIDENCE_TYPE_LABELS[evidence.clueType]}</span>
+                <small>
+                  {evidence.sourceObjectId
+                    ? INVESTIGATION_OBJECTS[evidence.sourceObjectId]?.title
+                    : "사건 기록 검색"}
+                </small>
               </header>
-              <div className={`trial-proof-mark trial-proof-mark--${evidence.kind.toLowerCase()}`} />
+              <div
+                className={`trial-proof-mark trial-proof-mark--${evidence.clueType.toLowerCase()}`}
+              />
               <h3>{evidence.title}</h3>
-              <p>{evidence.summary}</p>
+              <p>{evidence.playerText}</p>
             </article>
           )}
 
-          {step === 3 && (
+          {stage.code === "EXCLUSION" && (
             <div className="trial-exclusions">
               {exclusions.map(({ suspect, evidence: exclusionEvidence }) => (
                 <article key={suspect.id}>
@@ -1258,7 +1365,7 @@ function TrialScreen() {
             </div>
           )}
 
-          {step === 0 && (
+          {stage.code === "ACCUSATION" && (
             <div className="accusation-seal">
               <span>ACCUSED</span>
               <strong>{accused.name}</strong>
@@ -1266,7 +1373,7 @@ function TrialScreen() {
             </div>
           )}
 
-          {step === 4 && (
+          {stage.code === "VOTE" && (
             <div className="vote-warning">
               <span>IRREVERSIBLE ACTION</span>
               <h3>추방에는 생존자 6명 중 4표가 필요합니다.</h3>

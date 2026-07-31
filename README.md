@@ -23,6 +23,12 @@ npm run verify
 npm run test:browser
 ```
 
+실제 게임 백엔드를 상대로 전체 흐름을 확인하려면(백엔드가 떠 있어야 합니다):
+
+```bash
+VITE_LIVE_BACKEND=1 VITE_API_BASE_URL=http://localhost:8080/api npx vitest run src/api/httpApi.live.test.ts
+```
+
 ## 조작
 
 | 입력 | 동작 |
@@ -60,20 +66,26 @@ npm run test:browser
 
 ## 데이터 경계
 
-기본값인 `VITE_API_MODE=mock`에서는 세션 생성부터 조사, 심문, 일차 종료, 수사 보조, 이론 저장과 판정까지 브라우저 내부 어댑터로 동작합니다. `VITE_API_MODE=http`로 바꾸면 같은 UI와 상태 흐름이 REST API를 사용합니다.
+기본값인 `VITE_API_MODE=mock`에서는 세션 생성부터 조사, 심문, 일차 종료, 수사 보조, 이론 저장과 판정까지 브라우저 내부 어댑터로 동작합니다. `VITE_API_MODE=http`로 바꾸면 같은 UI와 상태 흐름이 게임 백엔드의 `/api/v1` REST API를 사용합니다.
 
-실제 연동 시 다음 부분을 교체합니다.
+게임 백엔드 연결:
 
-- 사건 생성 대기 → `POST /api/sessions`
-- 공개 진행 상태 → `GET /api/sessions/{id}`
-- 오브젝트 조사·분석 → 세션 조사 API
-- NPC 심문 → 심문 API
-- 발견 기록 기반 수사 보조 → 세션 보조 API
-- D1/D2 기록 봉인 → 일차 완료 API
-- 이론 제출·재판 → 서버 판정 API
+```bash
+# 1. 게임 백엔드 (서버 8080 + PostgreSQL 5432)
+cd ../backend && docker compose up -d --build
+
+# 2. 프런트엔드
+cp .env.example .env.local   # VITE_API_MODE=http 로 수정
+npm run dev
+```
+
+백엔드 기본 프로필은 Fake AI 클라이언트라 AI 서버 없이도 전체 흐름이 동작합니다. 실제 AI 사건 생성을 쓰려면 AI 서버를 8081에 띄우고 백엔드를 `real-ai` 프로필로 실행합니다.
+
+백엔드에 CORS 설정이 없어 브라우저가 8080을 직접 호출하면 차단됩니다. 개발에서는 `vite.config.ts`의 `/api` 프록시를 거칩니다.
+
+프런트엔드 `ArcadiaApi`와 백엔드 계약은 모양이 다르며, `src/api/httpApi.ts`가 그 차이를 흡수합니다. UI와 Zustand 액션은 두 모드에서 동일합니다. 변환 규칙, 식별자 매핑, 알려진 제약은 [`API_INTEGRATION.md`](./docs/API_INTEGRATION.md)에 정리되어 있습니다.
 
 프런트엔드는 운영 환경에서 범인 ID나 비공개 `CaseBible`을 받지 않습니다.
-구체적인 요청·응답과 오류 규약은 [`API_INTEGRATION.md`](./docs/API_INTEGRATION.md)에 정리되어 있습니다.
 
 개발용 오류 화면은 URL의 `mockError`로 재현할 수 있습니다.
 

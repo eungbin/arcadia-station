@@ -19,12 +19,24 @@ export function resolveMockTrial(
   theory: TheoryDraft,
   culpritId: MockCaseId = "JUNHO",
 ): TrialResult {
-  if (!theory.suspectId || !theory.method || !theory.motive || !theory.trace) {
+  if (
+    !theory.suspectId ||
+    !theory.setup ||
+    !theory.trigger ||
+    !theory.opportunity ||
+    !theory.motive
+  ) {
     throw new Error("재판 판정에 필요한 이론 항목이 누락되었습니다.");
   }
 
   const strongEvidenceIds = new Set<string>(DEV_MOCK_CASES[culpritId]);
-  const submittedEvidence = [theory.method, theory.motive, theory.trace];
+  // 이론은 서버 단서 ID를 담는다. mock 단서는 조사 오브젝트에서 파생하므로 접두사를 떼고 맞춘다.
+  const submittedEvidence = [
+    theory.setup,
+    theory.trigger,
+    theory.opportunity,
+    theory.motive,
+  ].map((id) => id.replace(/^MOCK-/, ""));
   const strongEvidenceCount = submittedEvidence.filter((id) =>
     strongEvidenceIds.has(id),
   ).length;

@@ -1,7 +1,8 @@
 import type {
-  ApiErrorPayload,
   AssistantResponse,
+  CaseStateResponse,
   CompleteDayResponse,
+  DiscoveredEvidence,
   InspectObjectResponse,
   InterrogationInput,
   InterrogationMessage,
@@ -10,39 +11,15 @@ import type {
   SessionDto,
   TrialVerdictResponse,
 } from "./contracts";
-import { INVESTIGATION_OBJECTS, NPC_DIALOGUE } from "../data/investigation";
+import { INVESTIGATION_OBJECTS, NPC_DIALOGUE, SUSPECTS } from "../data/investigation";
 import { resolveMockTrial, type MockCaseId } from "../data/mockVerdict";
 import type { TheoryDraft } from "../store/gameStore";
+import { ArcadiaApiError } from "./errors";
+import { httpApi } from "./httpApi";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
+export { ArcadiaApiError };
+
 const API_MODE = import.meta.env.VITE_API_MODE ?? "mock";
-
-export class ArcadiaApiError extends Error {
-  constructor(
-    message: string,
-    readonly code: string,
-    readonly retryable: boolean,
-  ) {
-    super(message);
-  }
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
-    throw new ArcadiaApiError(
-      payload?.message ?? "서버 요청을 완료하지 못했습니다.",
-      payload?.code ?? `HTTP_${response.status}`,
-      payload?.retryable ?? response.status >= 500,
-    );
-  }
-  return response.json() as Promise<T>;
-}
 
 const mockDelay = (ms = 420) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const shouldFail = (target: string) =>
@@ -57,11 +34,31 @@ const getMockCase = (): MockCaseId => {
     ? requested
     : "JUNHO";
 };
-const mockDiscoveredEvidence = new Map<string, Set<string>>();
+const mockDiscoveredEvidence = new Map<string, DiscoveredEvidence[]>();
+
+/**
+ * mock 모드용 단서. HTTP 모드와 같은 모양의 서버 단서를 정적 조사 데이터에서 만들어,
+ * UI가 두 모드에서 동일한 지식 계층을 보게 한다.
+ */
+const MOCK_CLUE_PREFIX = "MOCK-";
+
+function mockEvidenceFor(objectId: string): DiscoveredEvidence | null {
+  const object = INVESTIGATION_OBJECTS[objectId];
+  if (!object || object.kind === "PERSON") return null;
+  return {
+    clueId: `${MOCK_CLUE_PREFIX}${objectId}`,
+    title: object.evidenceLabel,
+    clueType: object.kind === "WORLD" ? "OPPORTUNITY" : object.kind,
+    playerText: object.detail,
+    sourceObjectId: objectId,
+  };
+}
 
 export type ArcadiaApi = {
   createSession: () => Promise<SessionDto>;
   completeOpening: (sessionId: string) => Promise<SessionDto>;
+  /** 사건 개요와 지금까지 확보한 단서 전체. 새로고침 복구와 진행 중 동기화에 쓴다. */
+  fetchCaseState: (sessionId: string) => Promise<CaseStateResponse>;
   inspectObject: (sessionId: string, objectId: string) => Promise<InspectObjectResponse>;
   startInterrogation: (sessionId: string, npcId: string) => Promise<InterrogationSession>;
   sendInterrogationMessage: (
@@ -85,7 +82,7 @@ const mockApi: ArcadiaApi = {
       throw new ArcadiaApiError("격리 서버와 보안 채널을 열지 못했습니다.", "MOCK_OFFLINE", true);
     }
     const sessionId = `LOCAL-${crypto.randomUUID()}`;
-    mockDiscoveredEvidence.set(sessionId, new Set());
+    mockDiscoveredEvidence.set(sessionId, []);
     return {
       sessionId,
       status: "READY",
@@ -102,15 +99,33 @@ const mockApi: ArcadiaApi = {
       version: 2,
     };
   },
-  async inspectObject(_sessionId: string, objectId: string): Promise<InspectObjectResponse> {
+  async fetchCaseState(sessionId: string): Promise<CaseStateResponse> {
+    await mockDelay(120);
+    return {
+      title: "아르카디아 스테이션 사건",
+      briefing:
+        "태양풍 격리 중 사령관 다니엘 로스가 사망했다. 구조선 도착까지 남은 시간은 72시간이다.",
+      suspectIds: SUSPECTS.map((suspect) => suspect.id),
+      evidence: mockDiscoveredEvidence.get(sessionId) ?? [],
+    };
+  },
+  async inspectObject(sessionId: string, objectId: string): Promise<InspectObjectResponse> {
     await mockDelay(180);
     if (shouldFail("inspect")) {
       throw new ArcadiaApiError("증거 기록 장치가 응답하지 않습니다.", "MOCK_INSPECT_TIMEOUT", true);
     }
-    const discovered = mockDiscoveredEvidence.get(_sessionId) ?? new Set<string>();
-    discovered.add(objectId);
-    mockDiscoveredEvidence.set(_sessionId, discovered);
-    return { objectId, discoveredEvidenceIds: [objectId], version: 2 };
+    const found = mockEvidenceFor(objectId);
+    const discovered = mockDiscoveredEvidence.get(sessionId) ?? [];
+    const isNew = Boolean(found) && !discovered.some((item) => item.clueId === found?.clueId);
+    if (found && isNew) {
+      discovered.push(found);
+      mockDiscoveredEvidence.set(sessionId, discovered);
+    }
+    return {
+      objectId,
+      discoveredEvidence: found && isNew ? [found] : [],
+      version: 2,
+    };
   },
   async startInterrogation(
     _sessionId: string,
@@ -137,9 +152,12 @@ const mockApi: ArcadiaApi = {
     }
     const dialogue = NPC_DIALOGUE[input.npcId];
     const choiceResponse = dialogue?.choices.find((choice) => choice.id === input.choiceId)?.response;
-    const evidenceTitle = input.evidenceId
-      ? input.evidenceId.replaceAll("_", " ")
-      : null;
+    const sessionId = interrogationId.replace(/^LOCAL-INT-/, "");
+    const evidenceTitle =
+      mockDiscoveredEvidence
+        .get(sessionId)
+        ?.find((item) => item.clueId === input.evidenceId)?.title ??
+      (input.evidenceId ? input.evidenceId.replace(MOCK_CLUE_PREFIX, "").replaceAll("_", " ") : null);
     const freeQuestionResponse = input.query
       ? `“${input.query}”에 대한 제 답은 같습니다. 추측이 아니라 당시 보안 기록과 제 동선으로 판단해 주십시오.`
       : null;
@@ -171,10 +189,8 @@ const mockApi: ArcadiaApi = {
     if (shouldFail("assistant")) {
       throw new ArcadiaApiError("수사 보조 연산이 지연되고 있습니다.", "MOCK_AI_TIMEOUT", true);
     }
-    const knownIds = new Set([
-      ...(mockDiscoveredEvidence.get(sessionId) ?? []),
-      ...discoveredEvidenceIds,
-    ]);
+    const known = mockDiscoveredEvidence.get(sessionId) ?? [];
+    const knownIds = new Set([...known.map((item) => item.clueId), ...discoveredEvidenceIds]);
     const citations = [...knownIds].slice(-3);
     if (citations.length === 0) {
       return {
@@ -186,7 +202,7 @@ const mockApi: ArcadiaApi = {
       };
     }
     const labels = citations
-      .map((id) => INVESTIGATION_OBJECTS[id]?.title)
+      .map((id) => known.find((item) => item.clueId === id)?.title)
       .filter(Boolean)
       .join(", ");
     return {
@@ -211,65 +227,6 @@ const mockApi: ArcadiaApi = {
     }
     return { ...resolveMockTrial(theory, getMockCase()), version: 6 };
   },
-};
-
-const httpApi: ArcadiaApi = {
-  createSession: async () => {
-    let session = await request<SessionDto>("/sessions", { method: "POST", body: "{}" });
-    const deadline = Date.now() + 60_000;
-    while (session.status === "PREPARING") {
-      if (Date.now() >= deadline) {
-        throw new ArcadiaApiError(
-          "사건 생성이 제한 시간 안에 완료되지 않았습니다.",
-          "SESSION_PREPARATION_TIMEOUT",
-          true,
-        );
-      }
-      await mockDelay(Math.max(250, session.pollAfterMs ?? 1_000));
-      session = await request<SessionDto>(`/sessions/${session.sessionId}`);
-    }
-    return session;
-  },
-  completeOpening: (sessionId: string) =>
-    request<SessionDto>(`/sessions/${sessionId}/opening/complete`, {
-      method: "POST",
-      body: "{}",
-    }),
-  inspectObject: (sessionId: string, objectId: string) =>
-    request<InspectObjectResponse>(`/sessions/${sessionId}/objects/${objectId}/inspect`, {
-      method: "POST",
-      body: "{}",
-    }),
-  startInterrogation: (sessionId: string, npcId: string) =>
-    request<InterrogationSession>(`/sessions/${sessionId}/interrogations`, {
-      method: "POST",
-      body: JSON.stringify({ npcId }),
-    }),
-  sendInterrogationMessage: (interrogationId: string, input: InterrogationInput) =>
-    request<InterrogationMessage>(`/interrogations/${interrogationId}/messages`, {
-      method: "POST",
-      body: JSON.stringify(input),
-    }),
-  completeDay: (sessionId: string, day: 1 | 2) =>
-    request<CompleteDayResponse>(`/sessions/${sessionId}/days/${day}/complete`, {
-      method: "POST",
-      body: "{}",
-    }),
-  askAssistant: (sessionId: string, query: string, _discoveredEvidenceIds?: string[]) =>
-    request<AssistantResponse>(`/sessions/${sessionId}/assistant`, {
-      method: "POST",
-      body: JSON.stringify({ query }),
-    }),
-  saveTheory: (sessionId: string, requestBody: SaveTheoryRequest) =>
-    request<{ version: number }>(`/sessions/${sessionId}/theory`, {
-      method: "PUT",
-      body: JSON.stringify(requestBody),
-    }),
-  submitVerdict: (sessionId: string, _theory: TheoryDraft) =>
-    request<TrialVerdictResponse>(`/sessions/${sessionId}/trial/verdict`, {
-      method: "POST",
-      body: "{}",
-    }),
 };
 
 export const arcadiaApi = API_MODE === "http" ? httpApi : mockApi;

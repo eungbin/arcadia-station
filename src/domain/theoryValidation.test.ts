@@ -3,10 +3,11 @@ import { validateTheory } from "./theoryValidation";
 
 const completeTheory = {
   suspectId: "JUNHO",
-  method: "E1",
-  motive: "E2",
-  trace: "E3",
-  exclusions: { SOFIA: "E4", KASHIM: "E5" },
+  setup: "E1",
+  trigger: "E2",
+  opportunity: "E3",
+  motive: "E4",
+  exclusions: { SOFIA: "E5", KASHIM: "E5" },
 };
 
 describe("validateTheory", () => {
@@ -19,7 +20,7 @@ describe("validateTheory", () => {
   it("rejects evidence reused across claims", () => {
     expect(
       validateTheory(
-        { ...completeTheory, trace: "E1" },
+        { ...completeTheory, opportunity: "E1" },
         ["E1", "E2", "E3", "E4", "E5"],
         ["JUNHO", "SOFIA", "KASHIM"],
       ).valid,

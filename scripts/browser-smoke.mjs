@@ -10,11 +10,12 @@ await mkdir(outputDir, { recursive: true });
 
 let server;
 let browser;
+const safetyLimitMs = Number(process.env.ARCADIA_SMOKE_TIMEOUT_MS ?? 180_000);
 const hardTimeout = setTimeout(() => {
-  console.error("Browser smoke exceeded the 120 second safety limit.");
+  console.error(`Browser smoke exceeded the ${safetyLimitMs / 1000} second safety limit.`);
   server?.kill();
   process.exit(1);
-}, 120_000);
+}, safetyLimitMs);
 const stage = (message) => console.log(`[browser-smoke] ${message}`);
 const parsePosition = (value) => value?.split(",").map(Number) ?? [];
 const positionDistance = (from, to) =>
@@ -45,7 +46,12 @@ try {
       `--port=${port}`,
       "--strictPort",
     ],
-    { stdio: "ignore" },
+    {
+      stdio: "ignore",
+      // 이 스모크는 mock 어댑터의 UI 흐름을 검사한다. 개발자의 .env.local이
+      // VITE_API_MODE=http로 잡혀 있어도 결과가 흔들리지 않게 강제한다.
+      env: { ...process.env, VITE_API_MODE: "mock" },
+    },
   );
   await waitForServer(baseUrl);
 
