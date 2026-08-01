@@ -1,0 +1,255 @@
+{
+  "blueprintId": "case_01ARCADIA",
+  "seed": "arcadia-demo-seed",
+  "worldTemplate": { "id": "world-station-01", "version": "1.0.0" },
+  "ruleTemplate": { "id": "rule-classic-01", "version": "1.0.0" },
+  "culpritId": "SOPHIA",
+  "title": "아르카디아 스테이션 사건",
+  "briefing": "생명 유지 시스템이 갑작스레 정지했다. 승무원 소피아를 포함한 용의자들을 조사하라.",
+  "truthSummary": "소피아가 의료 안전 점검을 가장해 생명 유지 시스템을 정지시켰다.",
+  "method": {
+    "fictionalSummary": "안전 점검을 가장해 트리거를 심었다.",
+    "setupAction": {
+      "actorId": "SOPHIA",
+      "locationId": "MEDICAL_BAY",
+      "systemId": "LIFE_SUPPORT",
+      "operation": "SCHEDULE_SAFETY_CHECK",
+      "requiredCapabilityIds": ["MEDICAL_ACCESS"]
+    },
+    "triggerAction": {
+      "actorId": "SOPHIA",
+      "locationId": "LIFE_SUPPORT_CORRIDOR",
+      "systemId": "LIFE_SUPPORT",
+      "operation": "RUN_SAFETY_DIAGNOSTIC",
+      "requiredCapabilityIds": ["MEDICAL_ACCESS"]
+    },
+    "victimCondition": "생명 유지 장치 의존 상태"
+  },
+  "timeline": [
+    {
+      "eventId": "EVENT-SETUP",
+      "time": "01:40",
+      "actorIds": ["SOPHIA"],
+      "locationId": "MEDICAL_BAY",
+      "actionType": "SYSTEM_ACTION",
+      "summary": "01:40 소피아가 의료 안전 점검을 예약했다.",
+      "factIds": ["FACT-SETUP"]
+    },
+    {
+      "eventId": "EVENT-TRIGGER",
+      "time": "02:05",
+      "actorIds": ["SOPHIA"],
+      "locationId": "LIFE_SUPPORT_CORRIDOR",
+      "actionType": "SYSTEM_ACTION",
+      "summary": "02:05 생명 유지 시스템에서 의료 안전 진단이 실행됐다.",
+      "factIds": ["FACT-TRIGGER"]
+    }
+  ],
+  "facts": [
+    {
+      "factId": "FACT-SETUP",
+      "kind": "ACTION",
+      "statement": "소피아가 의료 안전 점검을 예약했다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["SOPHIA"]
+    },
+    {
+      "factId": "FACT-TRIGGER",
+      "kind": "ACTION",
+      "statement": "02:05 소피아 인증으로 안전 진단이 실행됐다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["SOPHIA"]
+    },
+    {
+      "factId": "FACT-ACCESS",
+      "kind": "ACTION",
+      "statement": "02:03 소피아가 생명유지구역에 출입했다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["SOPHIA"]
+    },
+    {
+      "factId": "FACT-MOTIVE",
+      "kind": "MOTIVE",
+      "statement": "소피아는 피해자로부터 해고 통보를 받았다.",
+      "truthValue": true,
+      "subjectCharacterIds": ["SOPHIA"]
+    }
+  ],
+  "alibis": [
+    {
+      "characterId": "SOPHIA",
+      "initialClaim": "그 시간엔 자고 있었다.",
+      "actualWhereabouts": "LIFE_SUPPORT_CORRIDOR",
+      "supportingFactIds": [],
+      "contradictingFactIds": ["FACT-TRIGGER", "FACT-ACCESS"]
+    }
+  ],
+  "clues": [
+    {
+      "clueId": "CLUE-SETUP-LOG",
+      "title": "의료 안전 점검 예약 기록",
+      "clueType": "DIGITAL",
+      "isCore": true,
+      "solutionRoles": ["SETUP"],
+      "source": { "sourceType": "SYSTEM_LOG", "sourceId": "MEDICAL_BAY" },
+      "acquisition": {
+        "type": "EXPLORE",
+        "locationId": "MEDICAL_BAY",
+        "characterId": null,
+        "requiredClueIds": [],
+        "queryTopics": []
+      },
+      "revealsFactIds": ["FACT-SETUP"],
+      "playerText": "의료 베이 단말기에 소피아 명의로 안전 점검 예약 기록이 남아있다.",
+      "suspectEffects": [
+        { "characterId": "SOPHIA", "effect": "SUPPORTS" }
+      ]
+    },
+    {
+      "clueId": "CLUE-TRIGGER-LOG",
+      "title": "02:05 안전 진단 감사 로그",
+      "clueType": "DIGITAL",
+      "isCore": true,
+      "solutionRoles": ["TRIGGER"],
+      "source": { "sourceType": "SYSTEM_LOG", "sourceId": "LIFE_SUPPORT" },
+      "acquisition": {
+        "type": "RAG_QUERY",
+        "locationId": null,
+        "characterId": null,
+        "requiredClueIds": [],
+        "queryTopics": ["02:05 안전 진단"]
+      },
+      "revealsFactIds": ["FACT-TRIGGER"],
+      "playerText": "02:05에 소피아의 인증으로 의료 안전 진단 작업이 실행됐다.",
+      "suspectEffects": [
+        { "characterId": "SOPHIA", "effect": "SUPPORTS" }
+      ]
+    },
+    {
+      "clueId": "CLUE-ACCESS-HISTORY",
+      "title": "생명유지구역 출입 기록",
+      "clueType": "DIGITAL",
+      "isCore": true,
+      "solutionRoles": ["OPPORTUNITY"],
+      "source": { "sourceType": "ACCESS_LOG", "sourceId": "LIFE_SUPPORT_CORRIDOR" },
+      "acquisition": {
+        "type": "EXPLORE",
+        "locationId": "LIFE_SUPPORT_CORRIDOR",
+        "characterId": null,
+        "requiredClueIds": ["CLUE-TRIGGER-LOG"],
+        "queryTopics": []
+      },
+      "revealsFactIds": ["FACT-ACCESS"],
+      "playerText": "02:03 소피아가 생명유지구역에 출입한 기록이 있다.",
+      "suspectEffects": [
+        { "characterId": "SOPHIA", "effect": "SUPPORTS" }
+      ]
+    },
+    {
+      "clueId": "CLUE-MOTIVE-MESSAGE",
+      "title": "소피아의 개인 메시지",
+      "clueType": "MOTIVE",
+      "isCore": true,
+      "solutionRoles": ["MOTIVE"],
+      "source": { "sourceType": "PERSONAL_MESSAGE", "sourceId": "SOPHIA" },
+      "acquisition": {
+        "type": "EXPLORE",
+        "locationId": "PERSONAL_QUARTERS",
+        "characterId": null,
+        "requiredClueIds": [],
+        "queryTopics": []
+      },
+      "revealsFactIds": ["FACT-MOTIVE"],
+      "playerText": "소피아가 피해자로부터 해고 통보를 받았다는 개인 메시지가 남아있다.",
+      "suspectEffects": [
+        { "characterId": "SOPHIA", "effect": "SUPPORTS" }
+      ]
+    },
+    {
+      "clueId": "CLUE-FULL-PICTURE",
+      "title": "사건의 전체 그림",
+      "clueType": "PHYSICAL",
+      "isCore": false,
+      "solutionRoles": [],
+      "source": { "sourceType": "DEDUCTION_INSIGHT", "sourceId": "PLAYER" },
+      "acquisition": {
+        "type": "CONNECT",
+        "locationId": null,
+        "characterId": null,
+        "requiredClueIds": ["CLUE-SETUP-LOG", "CLUE-ACCESS-HISTORY"],
+        "queryTopics": []
+      },
+      "revealsFactIds": [],
+      "playerText": "설치와 접근 기록을 종합하니 사건의 전체 그림이 보이기 시작한다.",
+      "suspectEffects": []
+    }
+  ],
+  "evidenceRecords": [
+    {
+      "recordId": "RECORD-TRIGGER",
+      "recordType": "SYSTEM_LOG",
+      "timestamp": "02:05",
+      "title": "02:05 의료 안전 진단 실행 기록",
+      "body": "02:05 생명 유지 시스템에서 의료 안전 진단이 실행됐다.",
+      "metadata": { "actorId": "SOPHIA", "systemId": "LIFE_SUPPORT" },
+      "revealsClueIds": ["CLUE-TRIGGER-LOG"],
+      "searchTerms": ["안전 진단", "02:05"],
+      "visibility": "SEARCHABLE"
+    }
+  ],
+  "npcKnowledge": [
+    {
+      "characterId": "SOPHIA",
+      "knownFactIds": ["FACT-SETUP", "FACT-TRIGGER", "FACT-ACCESS", "FACT-MOTIVE"],
+      "initialClaimFactIds": [],
+      "concealedFactIds": ["FACT-TRIGGER", "FACT-MOTIVE"],
+      "revealPolicies": [
+        {
+          "factId": "FACT-TRIGGER",
+          "requiredPresentedClueIds": ["CLUE-TRIGGER-LOG"],
+          "responseMode": "PARTIAL_ADMISSION"
+        },
+        {
+          "factId": "FACT-MOTIVE",
+          "requiredPresentedClueIds": ["CLUE-MOTIVE-MESSAGE"],
+          "responseMode": "FULL_ADMISSION"
+        }
+      ],
+      "allowedLieFactIds": [],
+      "recommendedQuestionTopics": ["안전 점검 예약의 목적", "02:05 진단 실행 시각"]
+    }
+  ],
+  "redHerrings": [
+    {
+      "redHerringId": "RH-1",
+      "suspectId": "MARCUS",
+      "presentation": "마커스가 그 시간에 근처에 있었다는 목격담",
+      "resolutionFactIds": ["FACT-ACCESS"],
+      "mustBeResolvable": true
+    }
+  ],
+  "solution": {
+    "culpritId": "SOPHIA",
+    "requiredEvidenceByRole": {
+      "SETUP": ["CLUE-SETUP-LOG"],
+      "TRIGGER": ["CLUE-TRIGGER-LOG"],
+      "OPPORTUNITY": ["CLUE-ACCESS-HISTORY"],
+      "MOTIVE": ["CLUE-MOTIVE-MESSAGE"],
+      "VICTIM_CONDITION": []
+    },
+    "acceptedAlternativesByRole": {
+      "SETUP": [],
+      "TRIGGER": [],
+      "OPPORTUNITY": [],
+      "MOTIVE": [],
+      "VICTIM_CONDITION": []
+    },
+    "nonCulpritExclusions": [
+      {
+        "characterId": "MARCUS",
+        "excludedByClueIds": ["CLUE-ACCESS-HISTORY"],
+        "reason": "마커스는 접근 권한이 없었다."
+      }
+    ]
+  }
+}
