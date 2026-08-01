@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "templateId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "locale": {
+      "type": "string"
+    },
+    "setting": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "era": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "publicFacts": {
+          "$ref": "#/$defs/strings"
+        },
+        "privateFacts": {
+          "$ref": "#/$defs/strings"
+        },
+        "worldInvariants": {
+          "$ref": "#/$defs/strings"
+        },
+        "forbiddenElements": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "name",
+        "era",
+        "summary",
+        "publicFacts",
+        "privateFacts",
+        "worldInvariants",
+        "forbiddenElements"
+      ]
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/character"
+      }
+    },
+    "locations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/location"
+      }
+    },
+    "systems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/system"
+      }
+    },
+    "evidenceSources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "requiredMetadataKeys": {
+            "$ref": "#/$defs/strings"
+          }
+        },
+        "required": ["type", "requiredMetadataKeys"]
+      }
+    }
+  },
+  "required": [
+    "templateId",
+    "version",
+    "locale",
+    "setting",
+    "characters",
+    "locations",
+    "systems",
+    "evidenceSources"
+  ],
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "occupation": {
+          "type": "string"
+        },
+        "suspect": {
+          "type": "boolean"
+        },
+        "publicProfile": {
+          "type": "string"
+        },
+        "personalityTraits": {
+          "$ref": "#/$defs/strings"
+        },
+        "skills": {
+          "$ref": "#/$defs/strings"
+        },
+        "physicalAccess": {
+          "$ref": "#/$defs/strings"
+        },
+        "systemPermissions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "systemId": {
+                "type": "string"
+              },
+              "allowedOperations": {
+                "$ref": "#/$defs/strings"
+              }
+            },
+            "required": ["systemId", "allowedOperations"]
+          }
+        },
+        "knowledgeDomains": {
+          "$ref": "#/$defs/strings"
+        },
+        "motiveDomains": {
+          "$ref": "#/$defs/strings"
+        },
+        "relationshipSeeds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "characterId": {
+                "type": "string"
+              },
+              "publicRelation": {
+                "type": "string"
+              },
+              "privatePossibilities": {
+                "$ref": "#/$defs/strings"
+              }
+            },
+            "required": ["characterId", "publicRelation", "privatePossibilities"]
+          }
+        },
+        "privateBackground": {
+          "type": "string"
+        },
+        "forbiddenCapabilities": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "occupation",
+        "suspect",
+        "publicProfile",
+        "personalityTraits",
+        "skills",
+        "physicalAccess",
+        "systemPermissions",
+        "knowledgeDomains",
+        "motiveDomains",
+        "relationshipSeeds",
+        "privateBackground",
+        "forbiddenCapabilities"
+      ]
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "publicDescription": {
+          "type": "string"
+        },
+        "accessCondition": {
+          "type": "string"
+        },
+        "connectedLocationIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "installedSystemIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "investigableObjectTypes": {
+          "$ref": "#/$defs/strings"
+        },
+        "evidenceSourceTypes": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "publicDescription",
+        "accessCondition",
+        "connectedLocationIds",
+        "installedSystemIds",
+        "investigableObjectTypes",
+        "evidenceSourceTypes"
+      ]
+    },
+    "system": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "responsibleRoles": {
+          "$ref": "#/$defs/strings"
+        },
+        "accessibleCharacterIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "allowedOperations": {
+          "$ref": "#/$defs/strings"
+        },
+        "dependentSystemIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "auditSourceTypes": {
+          "$ref": "#/$defs/strings"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "responsibleRoles",
+        "accessibleCharacterIds",
+        "allowedOperations",
+        "dependentSystemIds",
+        "auditSourceTypes",
+        "limitations"
+      ]
+    }
+  }
+}

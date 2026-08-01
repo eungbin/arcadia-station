@@ -1,0 +1,433 @@
+{
+  "templateId": "ARCADIA_WORLD",
+  "version": "1.1.0",
+  "locale": "ko-KR",
+  "setting": {
+    "name": "아르카디아 스테이션",
+    "era": "근미래 심우주 개발 시대",
+    "summary": "태양 플레어로 지구와 단절된 희귀광물 채굴·저중력 연구 정거장에서 발생한 사망 사건을 조사한다.",
+    "publicFacts": [
+      "구조선 도착까지 66시간이 남았다.",
+      "사건 당시 정거장에는 피해자와 다섯 명의 용의자만 상주했다.",
+      "보안 구역 출입과 주요 시스템 작업은 감사 기록을 남긴다."
+    ],
+    "privateFacts": [
+      "표면상 사령관 다니엘 로스는 실제로는 8개월간 대역을 맡은 정민석이다.",
+      "부사령관 마야만 피해자의 신원 대역 사실을 알고 있다."
+    ],
+    "worldInvariants": [
+      "모든 보안 구역 출입은 개인 인증 기록을 남긴다.",
+      "정거장 시스템은 등록된 권한 범위 밖의 명령을 거부한다.",
+      "중요 시스템 작업은 디지털 감사 기록 또는 물리 흔적 중 하나 이상을 남긴다.",
+      "사건에 등장하는 인물, 장소와 시스템은 이 템플릿에 등록된 ID만 사용한다."
+    ],
+    "forbiddenElements": [
+      "초능력",
+      "시간 여행",
+      "등록되지 않은 비밀 통로",
+      "검증 불가능한 제3의 인물",
+      "로그가 남지 않는 만능 관리자 권한",
+      "현실에서 실행 가능한 상세 유해 절차"
+    ]
+  },
+  "characters": [
+    {
+      "id": "MAYA",
+      "displayName": "마야 헨드릭스",
+      "occupation": "부사령관",
+      "suspect": true,
+      "publicProfile": "정거장 운영과 비상 지휘를 담당하는 차분한 부사령관이다.",
+      "personalityTraits": ["협조적", "논리정연", "압박 시 과묵함"],
+      "skills": ["COMMAND_AUTHORIZATION", "AUDIT_REVIEW"],
+      "physicalAccess": ["COMMANDER_OFFICE", "DEPUTY_COMMANDER_OFFICE", "CENTRAL_HUB", "COMMON_AREA"],
+      "systemPermissions": [
+        {
+          "systemId": "COMMAND_SYSTEM",
+          "allowedOperations": ["REVIEW_STATION_AUDIT", "APPROVE_RESOURCE_PLAN"]
+        },
+        {
+          "systemId": "SECURITY_SYSTEM",
+          "allowedOperations": ["READ_ACCESS_LOG"]
+        }
+      ],
+      "knowledgeDomains": ["정거장 지휘", "자원 배분", "비상 규정"],
+      "motiveDomains": ["감사 노출 우려", "지휘권 승계", "은폐 책임"],
+      "relationshipSeeds": [
+        {
+          "characterId": "VICTIM",
+          "publicRelation": "사령관의 가장 가까운 업무 파트너였다.",
+          "privatePossibilities": ["피해자의 대역 신분 유지 조력", "감사 방향을 둘러싼 갈등"]
+        },
+        {
+          "characterId": "JUNHO",
+          "publicRelation": "설비 예산을 두고 자주 협의했다.",
+          "privatePossibilities": ["예산 문제 묵인", "업무상 부채 관계"]
+        }
+      ],
+      "privateBackground": "정민석이 다니엘 로스의 대역이라는 사실을 아는 유일한 인물이며 살인에는 관여하지 않았다.",
+      "forbiddenCapabilities": ["MEDICAL_ADMIN", "LIFE_SUPPORT_WRITE", "UNLOGGED_OVERRIDE"]
+    },
+    {
+      "id": "JUNHO",
+      "displayName": "백준호",
+      "occupation": "수석 엔지니어",
+      "suspect": true,
+      "publicProfile": "생명 유지와 발전 설비의 정비를 총괄한다.",
+      "personalityTraits": ["방어적", "기술 중심", "압박 시 침묵"],
+      "skills": ["SYSTEM_DIAGNOSIS", "REPAIR_PLANNING"],
+      "physicalAccess": ["ENGINEERING_BAY", "CENTRAL_HUB", "COMMON_AREA"],
+      "systemPermissions": [
+        {
+          "systemId": "LIFE_SUPPORT",
+          "allowedOperations": ["READ_STATUS", "RUN_MAINTENANCE_DIAGNOSTIC"]
+        },
+        {
+          "systemId": "MAINTENANCE_SYSTEM",
+          "allowedOperations": ["READ_WORK_ORDER", "CLOSE_WORK_ORDER"]
+        }
+      ],
+      "knowledgeDomains": ["생명 유지 설비", "발전기", "정비 기록"],
+      "motiveDomains": ["예산 착복 노출", "정비 과실", "감사 갈등"],
+      "relationshipSeeds": [
+        {
+          "characterId": "SOPHIA",
+          "publicRelation": "건강·안전 점검에서 협업해 왔다.",
+          "privatePossibilities": ["서로의 감사 위험을 눈치챔"]
+        }
+      ],
+      "privateBackground": "노후 부품 교체 예산을 유용한 정황이 있으나 사망 사건의 범인은 아니다.",
+      "forbiddenCapabilities": ["MEDICAL_ADMIN", "COMMAND_AUTHORIZATION", "UNLOGGED_OVERRIDE"]
+    },
+    {
+      "id": "SOPHIA",
+      "displayName": "소피아 알바레즈",
+      "occupation": "의무관",
+      "suspect": true,
+      "publicProfile": "승무원 건강 관리와 환경 안전 점검을 담당하는 침착한 의무관이다.",
+      "personalityTraits": ["침착함", "전문가적", "정보를 선택적으로 공개함"],
+      "skills": ["MEDICAL_DIAGNOSIS", "SAFETY_INSPECTION"],
+      "physicalAccess": ["MEDICAL_BAY", "CENTRAL_HUB", "COMMON_AREA"],
+      "systemPermissions": [
+        {
+          "systemId": "MEDICAL_RECORDS",
+          "allowedOperations": ["READ_PATIENT_RECORD", "RUN_HEALTH_AUDIT"]
+        },
+        {
+          "systemId": "LIFE_SUPPORT",
+          "allowedOperations": ["READ_STATUS", "SCHEDULE_HEALTH_SAFETY_CHECK", "RUN_SAFETY_DIAGNOSTIC"]
+        }
+      ],
+      "knowledgeDomains": ["승무원 건강", "환경 안전 기준", "의료 기록"],
+      "motiveDomains": ["미승인 연구 발각 위기", "의료 윤리 감사", "전문 경력 보호"],
+      "relationshipSeeds": [
+        {
+          "characterId": "VICTIM",
+          "publicRelation": "정기 건강 보고를 두고 업무상 충돌했다.",
+          "privatePossibilities": ["감사 면담 통보", "연구 기록 노출 우려"]
+        },
+        {
+          "characterId": "JUNHO",
+          "publicRelation": "환경 안전 점검에서 협업했다.",
+          "privatePossibilities": ["상대의 비밀을 일부 눈치챔"]
+        }
+      ],
+      "privateBackground": "윤리 승인 없이 중단된 수면 연구를 정거장에서 이어가다 감사에 적발될 위기에 놓였다.",
+      "forbiddenCapabilities": ["SECURITY_MASTER_OVERRIDE", "COMMAND_AUTHORIZATION", "UNLOGGED_OVERRIDE"]
+    },
+    {
+      "id": "KASIM",
+      "displayName": "카심 나예리",
+      "occupation": "통신정보장교",
+      "suspect": true,
+      "publicProfile": "통신 상태와 보안 로그 전송을 담당한다.",
+      "personalityTraits": ["말이 빠름", "논리적", "불리할 때 과잉 설명"],
+      "skills": ["SIGNAL_ANALYSIS", "LOG_ROUTING"],
+      "physicalAccess": ["COMMUNICATIONS_CENTER", "CENTRAL_HUB", "COMMON_AREA"],
+      "systemPermissions": [
+        {
+          "systemId": "COMMUNICATION_SYSTEM",
+          "allowedOperations": ["READ_SIGNAL_STATUS", "QUEUE_OUTBOUND_MESSAGE"]
+        },
+        {
+          "systemId": "SECURITY_SYSTEM",
+          "allowedOperations": ["READ_ACCESS_LOG"]
+        }
+      ],
+      "knowledgeDomains": ["태양풍", "통신 장애", "보안 로그 전달"],
+      "motiveDomains": ["정보 유출 노출", "통신 기록 감사", "외부 거래"],
+      "relationshipSeeds": [
+        {
+          "characterId": "YUNA",
+          "publicRelation": "화물 송수신 기록을 함께 관리했다.",
+          "privatePossibilities": ["화물 기록 무마"]
+        }
+      ],
+      "privateBackground": "경쟁 컨소시엄으로 정보를 빼돌린 정황이 있으나 사망 사건의 범인은 아니다.",
+      "forbiddenCapabilities": ["MEDICAL_ADMIN", "LIFE_SUPPORT_WRITE", "UNLOGGED_OVERRIDE"]
+    },
+    {
+      "id": "YUNA",
+      "displayName": "유나 조",
+      "occupation": "화물관리관",
+      "suspect": true,
+      "publicProfile": "화물창고와 도킹 물자 기록을 관리한다.",
+      "personalityTraits": ["감정적", "억울함을 강하게 호소함", "사소한 거짓말을 먼저 인정함"],
+      "skills": ["CARGO_ACCOUNTING", "DOCKING_COORDINATION"],
+      "physicalAccess": ["CARGO_BAY", "CENTRAL_HUB", "COMMON_AREA"],
+      "systemPermissions": [
+        {
+          "systemId": "CARGO_SYSTEM",
+          "allowedOperations": ["READ_MANIFEST", "UPDATE_STORAGE_SLOT"]
+        },
+        {
+          "systemId": "DOCKING_SYSTEM",
+          "allowedOperations": ["READ_DOCKING_SCHEDULE"]
+        }
+      ],
+      "knowledgeDomains": ["화물 목록", "도킹 일정", "창고 동선"],
+      "motiveDomains": ["밀반출 적발", "화물 감사", "징계 우려"],
+      "relationshipSeeds": [
+        {
+          "characterId": "MAYA",
+          "publicRelation": "자원 배분을 두고 자주 충돌했다.",
+          "privatePossibilities": ["업무상 반감"]
+        }
+      ],
+      "privateBackground": "희귀광물 밀반출을 숨기고 있으나 사망 사건의 범인은 아니다.",
+      "forbiddenCapabilities": ["MEDICAL_ADMIN", "LIFE_SUPPORT_WRITE", "SECURITY_MASTER_OVERRIDE"]
+    },
+    {
+      "id": "VICTIM",
+      "displayName": "다니엘 로스",
+      "occupation": "정거장 사령관",
+      "suspect": false,
+      "publicProfile": "정거장 내부 감사를 주도하던 사령관이다.",
+      "personalityTraits": ["원칙주의", "신중함", "책임감"],
+      "skills": ["COMMAND_AUTHORIZATION", "BASIC_SYSTEMS"],
+      "physicalAccess": ["COMMANDER_OFFICE", "CENTRAL_HUB", "COMMON_AREA"],
+      "systemPermissions": [
+        {
+          "systemId": "COMMAND_SYSTEM",
+          "allowedOperations": ["REVIEW_STATION_AUDIT", "APPROVE_RESOURCE_PLAN"]
+        },
+        {
+          "systemId": "LIFE_SUPPORT",
+          "allowedOperations": ["READ_STATUS"]
+        }
+      ],
+      "knowledgeDomains": ["정거장 감사", "인사 기록", "자원 배분"],
+      "motiveDomains": [],
+      "relationshipSeeds": [
+        {
+          "characterId": "MAYA",
+          "publicRelation": "부사령관과 긴밀히 협력했다.",
+          "privatePossibilities": ["대역 신분 유지 조력"]
+        }
+      ],
+      "privateBackground": "실제 인물은 정민석이며 8개월간 사령관 다니엘 로스의 신분을 유지했다.",
+      "forbiddenCapabilities": ["MEDICAL_ADMIN", "UNLOGGED_OVERRIDE"]
+    }
+  ],
+  "locations": [
+    {
+      "id": "COMMANDER_OFFICE",
+      "displayName": "사령관실",
+      "publicDescription": "사령관 업무와 정거장 운영 감사가 이뤄지는 범행 현장이다.",
+      "accessCondition": "지휘 계통 인증",
+      "connectedLocationIds": ["DEPUTY_COMMANDER_OFFICE", "CENTRAL_HUB"],
+      "installedSystemIds": ["COMMAND_SYSTEM", "SECURITY_SYSTEM"],
+      "investigableObjectTypes": ["BODY", "DESK", "TERMINAL", "ACCESS_READER", "DOCUMENT_LOCKER"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "ACCESS_LOG", "MESSAGE", "COMMAND_LOG"]
+    },
+    {
+      "id": "DEPUTY_COMMANDER_OFFICE",
+      "displayName": "부사령관 집무실",
+      "publicDescription": "부사령관 전용 업무 공간이며 사령관실과 직통 통로로 연결된다.",
+      "accessCondition": "부사령관 또는 지휘 계통 인증",
+      "connectedLocationIds": ["COMMANDER_OFFICE", "CENTRAL_HUB"],
+      "installedSystemIds": ["COMMAND_SYSTEM"],
+      "investigableObjectTypes": ["DESK", "RESOURCE_BOARD", "DOCUMENT_LOCKER"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "MESSAGE", "COMMAND_LOG"]
+    },
+    {
+      "id": "CENTRAL_HUB",
+      "displayName": "중앙 허브",
+      "publicDescription": "모든 주요 방을 연결하며 환경 제어 패널이 설치된 중앙 복도다.",
+      "accessCondition": "상주 승무원 인증",
+      "connectedLocationIds": ["COMMANDER_OFFICE", "DEPUTY_COMMANDER_OFFICE", "MEDICAL_BAY", "ENGINEERING_BAY", "COMMUNICATIONS_CENTER", "CARGO_BAY", "COMMON_AREA"],
+      "installedSystemIds": ["LIFE_SUPPORT", "MAINTENANCE_SYSTEM", "SECURITY_SYSTEM"],
+      "investigableObjectTypes": ["CONTROL_PANEL", "ACCESS_READER", "SERVICE_PANEL", "WALL_TERMINAL"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "ACCESS_LOG", "COMMAND_LOG", "MAINTENANCE_LOG"]
+    },
+    {
+      "id": "MEDICAL_BAY",
+      "displayName": "의무실",
+      "publicDescription": "승무원 진료와 건강 기록 검토가 이뤄지는 구역이다.",
+      "accessCondition": "의료 인증",
+      "connectedLocationIds": ["CENTRAL_HUB"],
+      "installedSystemIds": ["MEDICAL_RECORDS"],
+      "investigableObjectTypes": ["MEDICAL_TERMINAL", "LOCKED_CABINET", "DIAGNOSTIC_DESK"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "MEDICAL_LOG", "MESSAGE"]
+    },
+    {
+      "id": "ENGINEERING_BAY",
+      "displayName": "엔지니어링",
+      "publicDescription": "설비 진단과 부품 정비가 이뤄지는 백준호의 작업 구역이다.",
+      "accessCondition": "공학 직군 인증",
+      "connectedLocationIds": ["CENTRAL_HUB"],
+      "installedSystemIds": ["MAINTENANCE_SYSTEM"],
+      "investigableObjectTypes": ["TOOL_CABINET", "WORKBENCH", "PARTS_RACK"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "MAINTENANCE_LOG"]
+    },
+    {
+      "id": "COMMUNICATIONS_CENTER",
+      "displayName": "통신실",
+      "publicDescription": "태양풍과 외부 통신 상태를 감시하는 구역이다.",
+      "accessCondition": "통신 또는 보안 인증",
+      "connectedLocationIds": ["CENTRAL_HUB"],
+      "installedSystemIds": ["COMMUNICATION_SYSTEM"],
+      "investigableObjectTypes": ["SIGNAL_CONSOLE", "MESSAGE_QUEUE"],
+      "evidenceSourceTypes": ["COMMUNICATION_LOG", "MESSAGE", "ACCESS_LOG"]
+    },
+    {
+      "id": "CARGO_BAY",
+      "displayName": "화물칸",
+      "publicDescription": "보급품과 채굴 자원을 보관하며 에어록과 연결되는 구역이다.",
+      "accessCondition": "화물 인증",
+      "connectedLocationIds": ["CENTRAL_HUB"],
+      "installedSystemIds": ["CARGO_SYSTEM", "DOCKING_SYSTEM"],
+      "investigableObjectTypes": ["CARGO_CONTAINER", "MANIFEST_TERMINAL", "AIRLOCK_CONSOLE"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "CARGO_LOG", "ACCESS_LOG"]
+    },
+    {
+      "id": "COMMON_AREA",
+      "displayName": "공용구역",
+      "publicDescription": "식당과 승무원 숙소가 함께 있는 공용 생활 구역이다.",
+      "accessCondition": "상주 승무원 인증",
+      "connectedLocationIds": ["CENTRAL_HUB"],
+      "installedSystemIds": ["SECURITY_SYSTEM"],
+      "investigableObjectTypes": ["FOOD_STATION", "QUARTERS_ACCESS_BUFFER", "COMMON_TERMINAL"],
+      "evidenceSourceTypes": ["ACCESS_LOG", "PHYSICAL_OBJECT"]
+    }
+  ],
+  "systems": [
+    {
+      "id": "LIFE_SUPPORT",
+      "displayName": "생명 유지 시스템",
+      "responsibleRoles": ["수석 엔지니어", "의무관"],
+      "accessibleCharacterIds": ["JUNHO", "SOPHIA", "VICTIM"],
+      "allowedOperations": ["READ_STATUS", "RUN_MAINTENANCE_DIAGNOSTIC", "SCHEDULE_HEALTH_SAFETY_CHECK", "RUN_SAFETY_DIAGNOSTIC"],
+      "dependentSystemIds": ["MAINTENANCE_SYSTEM"],
+      "auditSourceTypes": ["COMMAND_LOG", "MAINTENANCE_LOG"],
+      "limitations": [
+        "등록되지 않은 권한으로 설정을 변경할 수 없다.",
+        "진단과 안전 점검은 감사 기록 또는 물리 흔적을 남긴다.",
+        "실제 동작 원리는 허구적이고 비실행적인 수준으로만 사건에 사용한다."
+      ]
+    },
+    {
+      "id": "COMMAND_SYSTEM",
+      "displayName": "지휘 감사 시스템",
+      "responsibleRoles": ["사령관", "부사령관"],
+      "accessibleCharacterIds": ["MAYA", "VICTIM"],
+      "allowedOperations": ["REVIEW_STATION_AUDIT", "APPROVE_RESOURCE_PLAN"],
+      "dependentSystemIds": ["SECURITY_SYSTEM"],
+      "auditSourceTypes": ["COMMAND_LOG", "MESSAGE"],
+      "limitations": ["다른 직군의 고유 작업 권한을 대신 부여할 수 없다."]
+    },
+    {
+      "id": "SECURITY_SYSTEM",
+      "displayName": "출입 보안 시스템",
+      "responsibleRoles": ["부사령관", "통신정보장교"],
+      "accessibleCharacterIds": ["MAYA", "KASIM"],
+      "allowedOperations": ["READ_ACCESS_LOG"],
+      "dependentSystemIds": [],
+      "auditSourceTypes": ["ACCESS_LOG"],
+      "limitations": ["기록 열람 권한은 과거 기록 수정 권한을 포함하지 않는다."]
+    },
+    {
+      "id": "MAINTENANCE_SYSTEM",
+      "displayName": "정비 작업 시스템",
+      "responsibleRoles": ["수석 엔지니어"],
+      "accessibleCharacterIds": ["JUNHO"],
+      "allowedOperations": ["READ_WORK_ORDER", "CLOSE_WORK_ORDER"],
+      "dependentSystemIds": [],
+      "auditSourceTypes": ["MAINTENANCE_LOG"],
+      "limitations": ["의료 안전 점검 권한을 대신하지 않는다."]
+    },
+    {
+      "id": "MEDICAL_RECORDS",
+      "displayName": "의료 기록 시스템",
+      "responsibleRoles": ["의무관"],
+      "accessibleCharacterIds": ["SOPHIA"],
+      "allowedOperations": ["READ_PATIENT_RECORD", "RUN_HEALTH_AUDIT"],
+      "dependentSystemIds": [],
+      "auditSourceTypes": ["MEDICAL_LOG"],
+      "limitations": ["환자 기록 열람은 지휘·보안 권한을 부여하지 않는다."]
+    },
+    {
+      "id": "COMMUNICATION_SYSTEM",
+      "displayName": "통신 시스템",
+      "responsibleRoles": ["통신정보장교"],
+      "accessibleCharacterIds": ["KASIM"],
+      "allowedOperations": ["READ_SIGNAL_STATUS", "QUEUE_OUTBOUND_MESSAGE"],
+      "dependentSystemIds": [],
+      "auditSourceTypes": ["COMMUNICATION_LOG", "MESSAGE"],
+      "limitations": ["통신 대기열은 다른 시스템 명령을 실행하지 않는다."]
+    },
+    {
+      "id": "CARGO_SYSTEM",
+      "displayName": "화물 관리 시스템",
+      "responsibleRoles": ["화물관리관"],
+      "accessibleCharacterIds": ["YUNA"],
+      "allowedOperations": ["READ_MANIFEST", "UPDATE_STORAGE_SLOT"],
+      "dependentSystemIds": ["DOCKING_SYSTEM"],
+      "auditSourceTypes": ["CARGO_LOG"],
+      "limitations": ["화물 권한은 도킹 일정 변경 권한을 포함하지 않는다."]
+    },
+    {
+      "id": "DOCKING_SYSTEM",
+      "displayName": "도킹 시스템",
+      "responsibleRoles": ["화물관리관"],
+      "accessibleCharacterIds": ["YUNA"],
+      "allowedOperations": ["READ_DOCKING_SCHEDULE"],
+      "dependentSystemIds": [],
+      "auditSourceTypes": ["CARGO_LOG"],
+      "limitations": ["현재 통신 두절 상태에서는 외부 도킹 명령을 보낼 수 없다."]
+    }
+  ],
+  "evidenceSources": [
+    {
+      "type": "PHYSICAL_OBJECT",
+      "requiredMetadataKeys": ["locationId", "objectId"]
+    },
+    {
+      "type": "ACCESS_LOG",
+      "requiredMetadataKeys": ["actorId", "locationId", "result"]
+    },
+    {
+      "type": "COMMAND_LOG",
+      "requiredMetadataKeys": ["actorId", "systemId", "operation"]
+    },
+    {
+      "type": "MAINTENANCE_LOG",
+      "requiredMetadataKeys": ["actorId", "systemId", "operation"]
+    },
+    {
+      "type": "MEDICAL_LOG",
+      "requiredMetadataKeys": ["actorId", "systemId", "operation"]
+    },
+    {
+      "type": "COMMUNICATION_LOG",
+      "requiredMetadataKeys": ["actorId", "systemId", "operation"]
+    },
+    {
+      "type": "CARGO_LOG",
+      "requiredMetadataKeys": ["actorId", "systemId", "operation"]
+    },
+    {
+      "type": "MESSAGE",
+      "requiredMetadataKeys": ["actorId", "characterId", "messageType"]
+    }
+  ]
+}

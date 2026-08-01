@@ -1,0 +1,604 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "blueprintId": {
+      "type": "string"
+    },
+    "seed": {
+      "type": "string"
+    },
+    "worldTemplate": {
+      "$ref": "#/$defs/templateRef"
+    },
+    "ruleTemplate": {
+      "$ref": "#/$defs/templateRef"
+    },
+    "culpritId": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "briefing": {
+      "type": "string"
+    },
+    "truthSummary": {
+      "type": "string"
+    },
+    "method": {
+      "$ref": "#/$defs/method"
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/timelineEvent"
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fact"
+      }
+    },
+    "alibis": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/alibi"
+      }
+    },
+    "clues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/clue"
+      }
+    },
+    "evidenceRecords": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRecord"
+      }
+    },
+    "npcKnowledge": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/npcKnowledge"
+      }
+    },
+    "redHerrings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/redHerring"
+      }
+    },
+    "solution": {
+      "$ref": "#/$defs/solution"
+    }
+  },
+  "required": [
+    "blueprintId",
+    "seed",
+    "worldTemplate",
+    "ruleTemplate",
+    "culpritId",
+    "title",
+    "briefing",
+    "truthSummary",
+    "method",
+    "timeline",
+    "facts",
+    "alibis",
+    "clues",
+    "evidenceRecords",
+    "npcKnowledge",
+    "redHerrings",
+    "solution"
+  ],
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "nullableString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidenceRoles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["SETUP", "TRIGGER", "OPPORTUNITY", "MOTIVE", "VICTIM_CONDITION"]
+      }
+    },
+    "templateRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "version"]
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fictionalSummary": {
+          "type": "string"
+        },
+        "setupAction": {
+          "$ref": "#/$defs/caseAction"
+        },
+        "triggerAction": {
+          "$ref": "#/$defs/caseAction"
+        },
+        "victimCondition": {
+          "type": "string"
+        }
+      },
+      "required": ["fictionalSummary", "setupAction", "triggerAction", "victimCondition"]
+    },
+    "caseAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actorId": {
+          "type": "string"
+        },
+        "locationId": {
+          "type": "string"
+        },
+        "systemId": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "requiredCapabilityIds": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "actorId",
+        "locationId",
+        "systemId",
+        "operation",
+        "requiredCapabilityIds"
+      ]
+    },
+    "timelineEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "type": "string"
+        },
+        "time": {
+          "type": "string",
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+        },
+        "actorIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "locationId": {
+          "type": "string"
+        },
+        "actionType": {
+          "type": "string",
+          "enum": ["MOVEMENT", "SYSTEM_ACTION", "CONVERSATION", "DISCOVERY", "BACKGROUND"]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "factIds": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "eventId",
+        "time",
+        "actorIds",
+        "locationId",
+        "actionType",
+        "summary",
+        "factIds"
+      ]
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "factId": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["ACTION", "MOTIVE", "ALIBI", "EXCLUSION", "CONDITION", "CLAIM"]
+        },
+        "statement": {
+          "type": "string"
+        },
+        "truthValue": {
+          "type": "boolean"
+        },
+        "subjectCharacterIds": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": ["factId", "kind", "statement", "truthValue", "subjectCharacterIds"]
+    },
+    "alibi": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "characterId": {
+          "type": "string"
+        },
+        "initialClaim": {
+          "type": "string"
+        },
+        "actualWhereabouts": {
+          "type": "string"
+        },
+        "supportingFactIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "contradictingFactIds": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "characterId",
+        "initialClaim",
+        "actualWhereabouts",
+        "supportingFactIds",
+        "contradictingFactIds"
+      ]
+    },
+    "clue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "clueId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "clueType": {
+          "type": "string",
+          "enum": ["PHYSICAL", "DIGITAL", "MOTIVE", "OPPORTUNITY"]
+        },
+        "isCore": {
+          "type": "boolean"
+        },
+        "solutionRoles": {
+          "$ref": "#/$defs/evidenceRoles"
+        },
+        "source": {
+          "$ref": "#/$defs/clueSource"
+        },
+        "acquisition": {
+          "$ref": "#/$defs/acquisition"
+        },
+        "revealsFactIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "playerText": {
+          "type": "string"
+        },
+        "suspectEffects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/suspectEffect"
+          }
+        }
+      },
+      "required": [
+        "clueId",
+        "title",
+        "clueType",
+        "isCore",
+        "solutionRoles",
+        "source",
+        "acquisition",
+        "revealsFactIds",
+        "playerText",
+        "suspectEffects"
+      ]
+    },
+    "clueSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "type": "string"
+        },
+        "sourceId": {
+          "type": "string"
+        }
+      },
+      "required": ["sourceType", "sourceId"]
+    },
+    "acquisition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["EXPLORE", "INTERROGATE", "RAG_QUERY", "CONNECT", "AUTO"]
+        },
+        "locationId": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "characterId": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "requiredClueIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "queryTopics": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": ["type", "locationId", "characterId", "requiredClueIds", "queryTopics"]
+    },
+    "suspectEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "characterId": {
+          "type": "string"
+        },
+        "effect": {
+          "type": "string",
+          "enum": ["SUPPORTS", "EXCLUDES", "NEUTRAL"]
+        }
+      },
+      "required": ["characterId", "effect"]
+    },
+    "evidenceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordId": {
+          "type": "string"
+        },
+        "recordType": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "revealsClueIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "searchTerms": {
+          "$ref": "#/$defs/strings"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["SEARCHABLE", "HIDDEN"]
+        }
+      },
+      "required": [
+        "recordId",
+        "recordType",
+        "timestamp",
+        "title",
+        "body",
+        "metadata",
+        "revealsClueIds",
+        "searchTerms",
+        "visibility"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actorId": {
+          "type": "string"
+        },
+        "systemId": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "locationId": {
+          "type": "string"
+        },
+        "result": {
+          "type": "string"
+        },
+        "characterId": {
+          "type": "string"
+        },
+        "messageType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "actorId",
+        "systemId",
+        "operation",
+        "locationId",
+        "result",
+        "characterId",
+        "messageType"
+      ]
+    },
+    "npcKnowledge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "characterId": {
+          "type": "string"
+        },
+        "knownFactIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "initialClaimFactIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "concealedFactIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "revealPolicies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/revealPolicy"
+          }
+        },
+        "allowedLieFactIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "recommendedQuestionTopics": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "characterId",
+        "knownFactIds",
+        "initialClaimFactIds",
+        "concealedFactIds",
+        "revealPolicies",
+        "allowedLieFactIds",
+        "recommendedQuestionTopics"
+      ]
+    },
+    "revealPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "factId": {
+          "type": "string"
+        },
+        "requiredPresentedClueIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "responseMode": {
+          "type": "string",
+          "enum": ["DENIAL", "EVASION", "PARTIAL_ADMISSION", "FULL_ADMISSION"]
+        }
+      },
+      "required": ["factId", "requiredPresentedClueIds", "responseMode"]
+    },
+    "redHerring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "redHerringId": {
+          "type": "string"
+        },
+        "suspectId": {
+          "type": "string"
+        },
+        "presentation": {
+          "type": "string"
+        },
+        "resolutionFactIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "mustBeResolvable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "redHerringId",
+        "suspectId",
+        "presentation",
+        "resolutionFactIds",
+        "mustBeResolvable"
+      ]
+    },
+    "solution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "culpritId": {
+          "type": "string"
+        },
+        "requiredEvidenceByRole": {
+          "$ref": "#/$defs/evidenceRoleMap"
+        },
+        "acceptedAlternativesByRole": {
+          "$ref": "#/$defs/evidenceRoleMap"
+        },
+        "nonCulpritExclusions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonCulpritExclusion"
+          }
+        }
+      },
+      "required": [
+        "culpritId",
+        "requiredEvidenceByRole",
+        "acceptedAlternativesByRole",
+        "nonCulpritExclusions"
+      ]
+    },
+    "evidenceRoleMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "SETUP": {
+          "$ref": "#/$defs/strings"
+        },
+        "TRIGGER": {
+          "$ref": "#/$defs/strings"
+        },
+        "OPPORTUNITY": {
+          "$ref": "#/$defs/strings"
+        },
+        "MOTIVE": {
+          "$ref": "#/$defs/strings"
+        },
+        "VICTIM_CONDITION": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": ["SETUP", "TRIGGER", "OPPORTUNITY", "MOTIVE", "VICTIM_CONDITION"]
+    },
+    "nonCulpritExclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "characterId": {
+          "type": "string"
+        },
+        "excludedByClueIds": {
+          "$ref": "#/$defs/strings"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": ["characterId", "excludedByClueIds", "reason"]
+    }
+  }
+}

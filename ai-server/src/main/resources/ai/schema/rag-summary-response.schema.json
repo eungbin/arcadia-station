@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "answer": {
+      "type": "string"
+    },
+    "citedRecordIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggestedQueries": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": ["answer", "citedRecordIds", "suggestedQueries"]
+}

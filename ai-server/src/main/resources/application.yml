@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: arcadia-station-ai
+
+server:
+  port: ${PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+arcadia:
+  internal-api-key: ${AI_INTERNAL_API_KEY:}
+  ai:
+    enabled: ${AI_ENABLED:true}
+    offline-mode: ${AI_OFFLINE_MODE:true}
+    provider: ${AI_PROVIDER:openai}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_TEXT_MODEL:gpt-5.6-terra}
+      embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_TEXT_MODEL:gemini-3.6-flash}
+      embedding-model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-2}
+      base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+    quota-cooldown: ${AI_QUOTA_COOLDOWN:10m}
+    case-generation:
+      timeout: ${AI_CASE_GENERATION_TIMEOUT:60s}
+      max-retries: ${AI_CASE_GENERATION_MAX_RETRIES:2}
+      prompt-version: case-generator-v2
+    npc:
+      timeout: 8s
+      max-history-turns: 8
+    rag:
+      top-k: 5
+      minimum-score: 0.05

@@ -1,0 +1,114 @@
+{
+  "version": "1.2.0",
+  "frontendRepository": "eungbin/arcadia-station",
+  "npcCharacterIds": {
+    "NPC_MAYA": "MAYA",
+    "NPC_JUNHO": "JUNHO",
+    "NPC_SOPHIA": "SOPHIA",
+    "NPC_KASIM": "KASIM",
+    "NPC_YUNA": "YUNA"
+  },
+  "investigationObjects": {
+    "CO_BODY": {
+      "mode": "EXPLORE",
+      "locationId": "COMMANDER_OFFICE",
+      "query": null,
+      "clueRequired": true
+    },
+    "CO_DOOR_LOG": {
+      "mode": "EXPLORE",
+      "locationId": "COMMANDER_OFFICE",
+      "query": null,
+      "clueRequired": true
+    },
+    "CO_XO_PASSAGE": {
+      "mode": "EXPLORE",
+      "locationId": "DEPUTY_COMMANDER_OFFICE",
+      "query": null,
+      "clueRequired": true
+    },
+    "CO_ENV_PANEL": {
+      "mode": "EXPLORE",
+      "locationId": "CENTRAL_HUB",
+      "query": null,
+      "clueRequired": true
+    },
+    "CO_TERMINAL": {
+      "mode": "EXPLORE",
+      "locationId": "COMMANDER_OFFICE",
+      "query": null,
+      "clueRequired": true
+    },
+    "CO_SCANNER": {
+      "mode": "EXPLORE",
+      "locationId": "COMMANDER_OFFICE",
+      "query": null,
+      "clueRequired": false
+    },
+    "HB_MAINTENANCE": {
+      "mode": "EXPLORE",
+      "locationId": "CENTRAL_HUB",
+      "query": null,
+      "clueRequired": false
+    },
+    "XO_RESOURCE_BOARD": {
+      "mode": "EXPLORE",
+      "locationId": "DEPUTY_COMMANDER_OFFICE",
+      "query": null,
+      "clueRequired": false
+    },
+    "MD_MEDICAL_TERMINAL": {
+      "mode": "EXPLORE",
+      "locationId": "MEDICAL_BAY",
+      "query": null,
+      "clueRequired": false
+    },
+    "MD_MEDICAL_STORAGE": {
+      "mode": "EXPLORE",
+      "locationId": "MEDICAL_BAY",
+      "query": null,
+      "clueRequired": true
+    },
+    "EN_LIFE_SUPPORT": {
+      "mode": "EXPLORE",
+      "locationId": "ENGINEERING_BAY",
+      "query": null,
+      "clueRequired": true
+    },
+    "CM_SECURITY_ARCHIVE": {
+      "mode": "EXPLORE",
+      "locationId": "COMMUNICATIONS_CENTER",
+      "query": null,
+      "clueRequired": true
+    },
+    "CG_AIRLOCK_LOG": {
+      "mode": "EXPLORE",
+      "locationId": "CARGO_BAY",
+      "query": null,
+      "clueRequired": false
+    },
+    "CG_CARGO_MANIFEST": {
+      "mode": "EXPLORE",
+      "locationId": "CARGO_BAY",
+      "query": null,
+      "clueRequired": true
+    },
+    "CMN_FOOD_STATION": {
+      "mode": "EXPLORE",
+      "locationId": "COMMON_AREA",
+      "query": null,
+      "clueRequired": true
+    },
+    "QT_ACCESS_BUFFER": {
+      "mode": "EXPLORE",
+      "locationId": "COMMON_AREA",
+      "query": null,
+      "clueRequired": false
+    }
+  },
+  "theoryFields": {
+    "method": ["SETUP", "TRIGGER"],
+    "trace": ["OPPORTUNITY"],
+    "motive": ["MOTIVE"]
+  }
+}
