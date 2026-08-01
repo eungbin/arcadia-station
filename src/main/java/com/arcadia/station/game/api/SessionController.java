@@ -100,7 +100,11 @@ public class SessionController {
             @PathVariable String sessionId,
             @Valid @RequestBody ExploreRequest request
     ) {
-        return exploration.explore(sessionId, request.locationId());
+        return exploration.explore(
+                sessionId,
+                request.locationId(),
+                request.objectHint()
+        );
     }
 
     @PostMapping("/{sessionId}/assistant/queries")
@@ -158,7 +162,7 @@ public class SessionController {
             String errorCode
     ) {}
 
-    public record ExploreRequest(@NotBlank String locationId) {}
+    public record ExploreRequest(@NotBlank String locationId, String objectHint) {}
 
     public record AssistantQueryRequest(@NotBlank String question) {}
 

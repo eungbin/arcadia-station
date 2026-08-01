@@ -1,6 +1,7 @@
 package com.arcadia.station.integration;
 
 import com.arcadia.station.ai.casegen.CaseBlueprint.EvidenceRole;
+import com.arcadia.station.ai.template.ArcadiaLocationRoster;
 import com.arcadia.station.ai.template.TemplateRepository;
 import com.arcadia.station.ai.template.WorldTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,6 +30,25 @@ public class FrontendIntegrationContractRepository {
             "trace",
             "motive"
     );
+    private static final Set<String> EXPECTED_INVESTIGATION_OBJECT_IDS = Set.of(
+            "CO_BODY",
+            "CO_DOOR_LOG",
+            "CO_XO_PASSAGE",
+            "CO_ENV_PANEL",
+            "CO_TERMINAL",
+            "CO_SCANNER",
+            "HB_MAINTENANCE",
+            "XO_RESOURCE_BOARD",
+            "MD_MEDICAL_TERMINAL",
+            "MD_MEDICAL_STORAGE",
+            "EN_LIFE_SUPPORT",
+            "CM_SECURITY_ARCHIVE",
+            "CG_AIRLOCK_LOG",
+            "CG_CARGO_MANIFEST",
+            "CMN_FOOD_STATION",
+            "QT_ACCESS_BUFFER"
+    );
+    private static final int REQUIRED_OBJECT_CLUE_COUNT = 10;
 
     private final FrontendIntegrationContract contract;
 
@@ -88,14 +108,19 @@ public class FrontendIntegrationContractRepository {
                 .map(WorldTemplate.LocationDefinition::id)
                 .collect(Collectors.toSet());
         require(
-                candidate.investigationObjects().size() == 16,
-                "Frontend investigation object map must contain 16 objects"
+                candidate.investigationObjects().keySet()
+                        .equals(EXPECTED_INVESTIGATION_OBJECT_IDS),
+                "Frontend investigation object IDs do not match the 16-object roster"
         );
         for (Map.Entry<String, FrontendIntegrationContract.InvestigationObjectRoute> entry
                 : candidate.investigationObjects().entrySet()) {
             require(!entry.getKey().isBlank(), "Blank frontend object ID");
             FrontendIntegrationContract.InvestigationObjectRoute route = entry.getValue();
             require(route.mode() != null, "Missing inspection mode: " + entry.getKey());
+            require(
+                    route.mode() == FrontendIntegrationContract.InspectionMode.EXPLORE,
+                    "Frontend object must use EXPLORE: " + entry.getKey()
+            );
             require(
                     locationIds.contains(route.locationId()),
                     "Unknown AI location for " + entry.getKey() + ": " + route.locationId()
@@ -107,6 +132,20 @@ public class FrontendIntegrationContractRepository {
                 );
             }
         }
+        require(
+                candidate.investigationObjects().values().stream()
+                        .filter(FrontendIntegrationContract.InvestigationObjectRoute::clueRequired)
+                        .count() == REQUIRED_OBJECT_CLUE_COUNT,
+                "Exactly 10 frontend objects must require generated clues"
+        );
+        Set<String> requiredClueLocations = candidate.investigationObjects().values().stream()
+                .filter(FrontendIntegrationContract.InvestigationObjectRoute::clueRequired)
+                .map(FrontendIntegrationContract.InvestigationObjectRoute::locationId)
+                .collect(Collectors.toSet());
+        require(
+                requiredClueLocations.equals(ArcadiaLocationRoster.ID_SET),
+                "Required frontend object clues must cover all eight locations"
+        );
 
         Set<EvidenceRole> mappedRoles = candidate.theoryFields().values().stream()
                 .flatMap(java.util.Collection::stream)

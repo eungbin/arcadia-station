@@ -6,17 +6,17 @@
     "seed" : "backend-seed",
     "worldTemplate" : {
       "id" : "ARCADIA_WORLD",
-      "version" : "1.0.0"
+      "version" : "1.1.0"
     },
     "ruleTemplate" : {
       "id" : "ARCADIA_MYSTERY_RULES",
-      "version" : "1.0.0"
+      "version" : "1.1.0"
     },
-    "blueprintSha256" : "957f5a0079fe882acc6f8bd5d5844fe30f197238787639b50628e366a0c90e09",
+    "blueprintSha256" : "304ef513aa671f52a0764781cb9c628a55030d1b33ed229939504581de16eea5",
     "generationAttemptCount" : 0,
     "generationSource" : "FALLBACK",
     "model" : "gpt-5.6-terra",
-    "promptVersion" : "case-generator-v1",
+    "promptVersion" : "case-generator-v2",
     "createdAt" : "2026-07-27T17:22:19.159085600Z",
     "frozenAt" : "2026-07-27T17:22:19.225110700Z",
     "caseBlueprint" : {
@@ -24,39 +24,39 @@
       "seed" : "backend-seed",
       "worldTemplate" : {
         "id" : "ARCADIA_WORLD",
-        "version" : "1.0.0"
+        "version" : "1.1.0"
       },
       "ruleTemplate" : {
         "id" : "ARCADIA_MYSTERY_RULES",
-        "version" : "1.0.0"
+        "version" : "1.1.0"
       },
       "culpritId" : "SOPHIA",
       "title" : "엇갈린 안전 점검",
-      "briefing" : "생명 유지 제어실에서 사령관이 숨진 채 발견됐다. 출입과 점검 기록을 연결해 사건의 준비와 촉발 과정을 밝혀야 한다.",
+      "briefing" : "사령관실에서 사령관이 숨진 채 발견됐다. 중앙 허브 환경 제어 패널과 출입 기록을 연결해 사건의 준비와 촉발 과정을 밝혀야 한다.",
       "truthSummary" : "소피아는 자신의 의료 안전 점검 권한 안에서 두 개의 허구적 안전 연동 작업을 시간차로 조합해 사건을 준비하고 촉발했다. 모든 작업은 감사 기록과 물리 흔적을 남겼다.",
       "method" : {
         "fictionalSummary" : "허구적인 환경 안전 연동의 점검 상태가 뒤이은 진단과 충돌하도록 준비했다. 현실에서 재현 가능한 절차나 수치는 포함하지 않는다.",
         "setupAction" : {
           "actorId" : "SOPHIA",
-          "locationId" : "LIFE_SUPPORT_CONTROL",
+          "locationId" : "CENTRAL_HUB",
           "systemId" : "LIFE_SUPPORT",
           "operation" : "SCHEDULE_HEALTH_SAFETY_CHECK",
           "requiredCapabilityIds" : [ "SAFETY_INSPECTION" ]
         },
         "triggerAction" : {
           "actorId" : "SOPHIA",
-          "locationId" : "LIFE_SUPPORT_CONTROL",
+          "locationId" : "CENTRAL_HUB",
           "systemId" : "LIFE_SUPPORT",
           "operation" : "RUN_SAFETY_DIAGNOSTIC",
           "requiredCapabilityIds" : [ "MEDICAL_DIAGNOSIS", "SAFETY_INSPECTION" ]
         },
-        "victimCondition" : "피해자가 평소와 달리 새벽에 제어실에서 혼자 감사 자료를 검토하고 있었다."
+        "victimCondition" : "피해자가 평소와 달리 새벽에 사령관실에서 혼자 감사 자료를 검토하고 있었다."
       },
       "timeline" : [ {
         "eventId" : "EVT-001",
         "time" : "01:40",
         "actorIds" : [ "SOPHIA" ],
-        "locationId" : "LIFE_SUPPORT_CONTROL",
+        "locationId" : "CENTRAL_HUB",
         "actionType" : "SYSTEM_ACTION",
         "summary" : "의료 환경 점검 명목의 예약 작업이 등록됐다.",
         "factIds" : [ "FACT-SETUP", "FACT-OPPORTUNITY" ]
@@ -64,7 +64,7 @@
         "eventId" : "EVT-002",
         "time" : "02:05",
         "actorIds" : [ "SOPHIA" ],
-        "locationId" : "LIFE_SUPPORT_CONTROL",
+        "locationId" : "CENTRAL_HUB",
         "actionType" : "SYSTEM_ACTION",
         "summary" : "예약 작업과 충돌하는 안전 진단이 실행되어 사건이 촉발됐다.",
         "factIds" : [ "FACT-TRIGGER" ]
@@ -72,15 +72,15 @@
         "eventId" : "EVT-003",
         "time" : "02:08",
         "actorIds" : [ "VICTIM" ],
-        "locationId" : "LIFE_SUPPORT_CONTROL",
+        "locationId" : "COMMANDER_OFFICE",
         "actionType" : "BACKGROUND",
-        "summary" : "피해자가 비정상적인 시각에 제어실에 머물렀다.",
+        "summary" : "피해자가 비정상적인 시각에 사령관실에 머물렀다.",
         "factIds" : [ "FACT-VICTIM-CONDITION" ]
       }, {
         "eventId" : "EVT-004",
         "time" : "06:00",
         "actorIds" : [ "SOPHIA" ],
-        "locationId" : "LIFE_SUPPORT_CONTROL",
+        "locationId" : "COMMANDER_OFFICE",
         "actionType" : "DISCOVERY",
         "summary" : "소피아가 정기 순찰 중 피해자를 발견해 보고했다.",
         "factIds" : [ "FACT-SOPHIA-CLAIM" ]
@@ -100,7 +100,7 @@
       }, {
         "factId" : "FACT-OPPORTUNITY",
         "kind" : "ALIBI",
-        "statement" : "소피아는 준비와 촉발 시각 모두 제어실 출입 및 작업 권한을 갖고 있었다.",
+        "statement" : "소피아는 준비와 촉발 시각 모두 중앙 허브 환경 제어 패널의 작업 권한을 갖고 있었다.",
         "truthValue" : true,
         "subjectCharacterIds" : [ "SOPHIA" ]
       }, {
@@ -112,13 +112,13 @@
       }, {
         "factId" : "FACT-VICTIM-CONDITION",
         "kind" : "CONDITION",
-        "statement" : "피해자는 예정보다 이른 시각에 홀로 제어실에 있었다.",
+        "statement" : "피해자는 예정보다 이른 시각에 홀로 사령관실에 있었다.",
         "truthValue" : true,
         "subjectCharacterIds" : [ "VICTIM" ]
       }, {
         "factId" : "FACT-MAYA-EXCLUSION",
         "kind" : "EXCLUSION",
-        "statement" : "마야는 지휘 갑판 감사 기록으로 준비 시각의 위치가 확인되고 의료 안전 점검 권한도 없다.",
+        "statement" : "마야는 부사령관 집무실 감사 기록으로 준비 시각의 위치가 확인되고 의료 안전 점검 권한도 없다.",
         "truthValue" : true,
         "subjectCharacterIds" : [ "MAYA" ]
       }, {
@@ -130,13 +130,37 @@
       }, {
         "factId" : "FACT-KASIM-EXCLUSION",
         "kind" : "EXCLUSION",
-        "statement" : "카심은 생명 유지 제어실과 해당 시스템 작업 권한이 없다.",
+        "statement" : "카심은 중앙 허브에 접근할 수 있지만 생명 유지 시스템 작업 권한이 없다.",
         "truthValue" : true,
         "subjectCharacterIds" : [ "KASIM" ]
       }, {
         "factId" : "FACT-YUNA-EXCLUSION",
         "kind" : "EXCLUSION",
-        "statement" : "유나는 생명 유지 제어실과 해당 시스템 작업 권한이 없다.",
+        "statement" : "유나는 중앙 허브에 접근할 수 있지만 생명 유지 시스템 작업 권한이 없다.",
+        "truthValue" : true,
+        "subjectCharacterIds" : [ "YUNA" ]
+      }, {
+        "factId" : "FACT-MAYA-CLAIM",
+        "kind" : "CLAIM",
+        "statement" : "마야는 사건 시각에 부사령관 집무실에서 감사 기록을 검토했다고 진술했다.",
+        "truthValue" : true,
+        "subjectCharacterIds" : [ "MAYA" ]
+      }, {
+        "factId" : "FACT-JUNHO-CLAIM",
+        "kind" : "CLAIM",
+        "statement" : "백준호는 사건 시각에 공학 작업실에서 정비 자료를 정리했다고 진술했다.",
+        "truthValue" : true,
+        "subjectCharacterIds" : [ "JUNHO" ]
+      }, {
+        "factId" : "FACT-KASIM-CLAIM",
+        "kind" : "CLAIM",
+        "statement" : "카심은 사건 시각에 통신실에서 태양풍 상태를 감시했다고 진술했다.",
+        "truthValue" : true,
+        "subjectCharacterIds" : [ "KASIM" ]
+      }, {
+        "factId" : "FACT-YUNA-CLAIM",
+        "kind" : "CLAIM",
+        "statement" : "유나는 사건 시각에 화물칸에서 재고를 확인했다고 진술했다.",
         "truthValue" : true,
         "subjectCharacterIds" : [ "YUNA" ]
       }, {
@@ -148,33 +172,33 @@
       } ],
       "alibis" : [ {
         "characterId" : "MAYA",
-        "initialClaim" : "지휘 갑판에서 감사 기록을 검토했다.",
-        "actualWhereabouts" : "지휘 갑판",
-        "supportingFactIds" : [ "FACT-MAYA-EXCLUSION" ],
+        "initialClaim" : "부사령관 집무실에서 감사 기록을 검토했다.",
+        "actualWhereabouts" : "부사령관 집무실",
+        "supportingFactIds" : [ "FACT-MAYA-CLAIM", "FACT-MAYA-EXCLUSION" ],
         "contradictingFactIds" : [ ]
       }, {
         "characterId" : "JUNHO",
         "initialClaim" : "공학 작업실에서 발전기 정비 자료를 정리했다.",
         "actualWhereabouts" : "공학 작업실",
-        "supportingFactIds" : [ "FACT-JUNHO-EXCLUSION" ],
+        "supportingFactIds" : [ "FACT-JUNHO-CLAIM", "FACT-JUNHO-EXCLUSION" ],
         "contradictingFactIds" : [ ]
       }, {
         "characterId" : "SOPHIA",
         "initialClaim" : "의무실에서 문서를 검토했다.",
-        "actualWhereabouts" : "생명 유지 제어실",
+        "actualWhereabouts" : "중앙 허브",
         "supportingFactIds" : [ ],
-        "contradictingFactIds" : [ "FACT-SETUP", "FACT-TRIGGER", "FACT-OPPORTUNITY" ]
+        "contradictingFactIds" : [ "FACT-SOPHIA-CLAIM", "FACT-SETUP", "FACT-TRIGGER", "FACT-OPPORTUNITY" ]
       }, {
         "characterId" : "KASIM",
-        "initialClaim" : "통신 센터에서 태양풍 상태를 감시했다.",
-        "actualWhereabouts" : "통신 센터",
-        "supportingFactIds" : [ "FACT-KASIM-EXCLUSION" ],
+        "initialClaim" : "통신실에서 태양풍 상태를 감시했다.",
+        "actualWhereabouts" : "통신실",
+        "supportingFactIds" : [ "FACT-KASIM-CLAIM", "FACT-KASIM-EXCLUSION" ],
         "contradictingFactIds" : [ ]
       }, {
         "characterId" : "YUNA",
-        "initialClaim" : "화물창고에서 재고를 확인했다.",
-        "actualWhereabouts" : "중앙 연결 통로와 화물창고",
-        "supportingFactIds" : [ "FACT-YUNA-EXCLUSION" ],
+        "initialClaim" : "화물칸에서 재고를 확인했다.",
+        "actualWhereabouts" : "중앙 허브와 화물칸",
+        "supportingFactIds" : [ "FACT-YUNA-CLAIM", "FACT-YUNA-EXCLUSION" ],
         "contradictingFactIds" : [ ]
       } ],
       "clues" : [ {
@@ -185,11 +209,11 @@
         "solutionRoles" : [ "SETUP" ],
         "source" : {
           "sourceType" : "PHYSICAL_OBJECT",
-          "sourceId" : "OBJECT-SAFETY-PANEL"
+          "sourceId" : "CO_ENV_PANEL"
         },
         "acquisition" : {
           "type" : "EXPLORE",
-          "locationId" : "LIFE_SUPPORT_CONTROL",
+          "locationId" : "CENTRAL_HUB",
           "characterId" : null,
           "requiredClueIds" : [ ],
           "queryTopics" : [ ]
@@ -209,6 +233,105 @@
           "characterId" : "YUNA",
           "effect" : "EXCLUDES"
         } ]
+      }, {
+        "clueId" : "CLUE-BODY-CONDITION",
+        "title" : "시신 주변의 시간차 흔적",
+        "clueType" : "PHYSICAL",
+        "isCore" : false,
+        "solutionRoles" : [ "VICTIM_CONDITION" ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "CO_BODY" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "COMMANDER_OFFICE", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-VICTIM-CONDITION" ],
+        "playerText" : "시신과 주변 물품의 상태는 피해자가 예정 시간보다 일찍 사령관실에 혼자 있었음을 보여준다.",
+        "suspectEffects" : [ ]
+      }, {
+        "clueId" : "CLUE-DOOR-BUFFER",
+        "title" : "사령관실 문틀의 로컬 버퍼",
+        "clueType" : "OPPORTUNITY",
+        "isCore" : false,
+        "solutionRoles" : [ ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "CO_DOOR_LOG" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "COMMANDER_OFFICE", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-MAYA-EXCLUSION" ],
+        "playerText" : "문틀 로컬 버퍼와 부사령관 집무실 단말 시각을 맞추면 마야의 준비 시각 위치가 확인된다.",
+        "suspectEffects" : [ { "characterId" : "MAYA", "effect" : "EXCLUDES" } ]
+      }, {
+        "clueId" : "CLUE-XO-PASSAGE",
+        "title" : "지휘부 직통 통로의 미세 먼지",
+        "clueType" : "PHYSICAL",
+        "isCore" : false,
+        "solutionRoles" : [ ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "CO_XO_PASSAGE" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "DEPUTY_COMMANDER_OFFICE", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-MAYA-CLAIM" ],
+        "playerText" : "직통 통로 바닥의 먼지는 최근 왕래 흔적이 거의 없으며 마야의 진술을 보조한다.",
+        "suspectEffects" : [ { "characterId" : "MAYA", "effect" : "NEUTRAL" } ]
+      }, {
+        "clueId" : "CLUE-COMMAND-TERMINAL",
+        "title" : "사령관 개인 단말의 면담 초안",
+        "clueType" : "MOTIVE",
+        "isCore" : false,
+        "solutionRoles" : [ ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "CO_TERMINAL" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "COMMANDER_OFFICE", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-MOTIVE" ],
+        "playerText" : "피해자의 단말에는 소피아의 미승인 연구를 정식 감사로 넘기기 위한 면담 초안이 열려 있다.",
+        "suspectEffects" : [ { "characterId" : "SOPHIA", "effect" : "SUPPORTS" } ]
+      }, {
+        "clueId" : "CLUE-MEDICAL-STORAGE",
+        "title" : "약품고 봉인의 재부착 흔적",
+        "clueType" : "PHYSICAL",
+        "isCore" : false,
+        "solutionRoles" : [ ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "MD_MEDICAL_STORAGE" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "MEDICAL_BAY", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-MOTIVE", "FACT-SOPHIA-CLAIM" ],
+        "playerText" : "약품고 봉인이 최근 다시 붙은 흔적과 문서 검토만 했다는 소피아의 주장 사이에 빈틈이 있다.",
+        "suspectEffects" : [ { "characterId" : "SOPHIA", "effect" : "SUPPORTS" } ]
+      }, {
+        "clueId" : "CLUE-ENGINEERING-DIAGNOSTIC",
+        "title" : "엔지니어링 진단 단말의 권한표",
+        "clueType" : "DIGITAL",
+        "isCore" : false,
+        "solutionRoles" : [ ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "EN_LIFE_SUPPORT" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "ENGINEERING_BAY", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-JUNHO-EXCLUSION" ],
+        "playerText" : "백준호의 정비 권한은 상태 진단까지만 허용하며 사건의 의료 안전 작업을 실행할 수 없다.",
+        "suspectEffects" : [ { "characterId" : "JUNHO", "effect" : "EXCLUDES" } ]
+      }, {
+        "clueId" : "CLUE-SECURITY-ARCHIVE",
+        "title" : "통신실 보안 로그 원본 카트리지",
+        "clueType" : "DIGITAL",
+        "isCore" : false,
+        "solutionRoles" : [ ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "CM_SECURITY_ARCHIVE" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "COMMUNICATIONS_CENTER", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-KASIM-EXCLUSION" ],
+        "playerText" : "원본 카트리지는 카심에게 중앙 허브 접근은 있었지만 생명 유지 작업 권한은 없었음을 확인한다.",
+        "suspectEffects" : [ { "characterId" : "KASIM", "effect" : "EXCLUDES" } ]
+      }, {
+        "clueId" : "CLUE-CARGO-MANIFEST",
+        "title" : "화물 목록과 봉인 번호 대조",
+        "clueType" : "MOTIVE",
+        "isCore" : false,
+        "solutionRoles" : [ ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "CG_CARGO_MANIFEST" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "CARGO_BAY", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-YUNA-EXCLUSION" ],
+        "playerText" : "유나의 화물 비위는 드러나지만 목록과 시스템 권한은 사건의 의료 안전 작업과 연결되지 않는다.",
+        "suspectEffects" : [ { "characterId" : "YUNA", "effect" : "EXCLUDES" } ]
+      }, {
+        "clueId" : "CLUE-FOOD-STATION",
+        "title" : "공용 배급기의 사용 흔적",
+        "clueType" : "PHYSICAL",
+        "isCore" : false,
+        "solutionRoles" : [ ],
+        "source" : { "sourceType" : "PHYSICAL_OBJECT", "sourceId" : "CMN_FOOD_STATION" },
+        "acquisition" : { "type" : "EXPLORE", "locationId" : "COMMON_AREA", "characterId" : null, "requiredClueIds" : [ ], "queryTopics" : [ ] },
+        "revealsFactIds" : [ "FACT-JUNHO-CLAIM", "FACT-KASIM-CLAIM" ],
+        "playerText" : "공용 배급기의 시간표와 승무원 메모는 백준호와 카심의 야간 진술을 보조하지만 범행 수단과는 무관하다.",
+        "suspectEffects" : [ { "characterId" : "JUNHO", "effect" : "NEUTRAL" }, { "characterId" : "KASIM", "effect" : "NEUTRAL" } ]
       }, {
         "clueId" : "CLUE-TRIGGER-LOG",
         "title" : "02:05 안전 진단 감사 로그",
@@ -237,7 +360,7 @@
         } ]
       }, {
         "clueId" : "CLUE-ACCESS-HISTORY",
-        "title" : "제어실 출입·작업 권한 대조표",
+        "title" : "중앙 허브 환경 제어 패널 작업 권한 대조표",
         "clueType" : "OPPORTUNITY",
         "isCore" : true,
         "solutionRoles" : [ "OPPORTUNITY" ],
@@ -250,10 +373,10 @@
           "locationId" : null,
           "characterId" : null,
           "requiredClueIds" : [ ],
-          "queryTopics" : [ "제어실", "출입", "권한" ]
+          "queryTopics" : [ "중앙 허브", "환경 제어 패널", "권한" ]
         },
         "revealsFactIds" : [ "FACT-OPPORTUNITY", "FACT-MAYA-EXCLUSION" ],
-        "playerText" : "준비와 촉발 시각 모두 제어실 출입과 의료 안전 작업 권한을 함께 가진 사람은 소피아뿐이다.",
+        "playerText" : "준비와 촉발 시각 모두 중앙 허브 환경 제어 패널에서 의료 안전 작업 권한을 가진 사람은 소피아뿐이다.",
         "suspectEffects" : [ {
           "characterId" : "SOPHIA",
           "effect" : "SUPPORTS"
@@ -315,7 +438,7 @@
           "actorId" : "SOPHIA",
           "systemId" : "LIFE_SUPPORT",
           "operation" : "RUN_SAFETY_DIAGNOSTIC",
-          "locationId" : "LIFE_SUPPORT_CONTROL",
+          "locationId" : "CENTRAL_HUB",
           "result" : "COMPLETED",
           "characterId" : "",
           "messageType" : ""
@@ -327,19 +450,19 @@
         "recordId" : "RECORD-ACCESS",
         "recordType" : "ACCESS_LOG",
         "timestamp" : "01:37",
-        "title" : "생명 유지 제어실 출입 기록",
-        "body" : "소피아의 의료 안전 점검 인증으로 제어실 출입이 승인됐다. 같은 시각 마야는 지휘 갑판 감사 단말을 사용했다.",
+        "title" : "중앙 허브 환경 제어 패널 접근 기록",
+        "body" : "소피아의 의료 안전 점검 인증으로 중앙 허브 환경 제어 패널 접근이 승인됐다. 같은 시각 마야는 부사령관 집무실 감사 단말을 사용했다.",
         "metadata" : {
           "actorId" : "SOPHIA",
           "systemId" : "SECURITY_SYSTEM",
           "operation" : "READ_ACCESS_LOG",
-          "locationId" : "LIFE_SUPPORT_CONTROL",
+          "locationId" : "CENTRAL_HUB",
           "result" : "GRANTED",
           "characterId" : "MAYA",
           "messageType" : ""
         },
         "revealsClueIds" : [ "CLUE-ACCESS-HISTORY" ],
-        "searchTerms" : [ "소피아", "제어실", "출입", "권한", "마야", "01:37" ],
+        "searchTerms" : [ "소피아", "중앙 허브", "환경 제어 패널", "권한", "마야", "01:37" ],
         "visibility" : "SEARCHABLE"
       }, {
         "recordId" : "RECORD-MOTIVE",
@@ -351,7 +474,7 @@
           "actorId" : "VICTIM",
           "systemId" : "COMMAND_SYSTEM",
           "operation" : "REVIEW_STATION_AUDIT",
-          "locationId" : "COMMAND_DECK",
+          "locationId" : "COMMANDER_OFFICE",
           "result" : "DELIVERY_FAILED_EXTERNAL_COPY_SAVED",
           "characterId" : "SOPHIA",
           "messageType" : "AUDIT_NOTICE"
@@ -364,18 +487,18 @@
         "recordType" : "COMMAND_LOG",
         "timestamp" : "01:35",
         "title" : "마야의 심야 감사 열람",
-        "body" : "마야가 지휘 갑판에서 자원 배분 감사 기록을 열람했다. 생명 유지 시스템 작업은 실행하지 않았다.",
+        "body" : "마야가 부사령관 집무실에서 자원 배분 감사 기록을 열람했다. 생명 유지 시스템 작업은 실행하지 않았다.",
         "metadata" : {
           "actorId" : "MAYA",
           "systemId" : "COMMAND_SYSTEM",
           "operation" : "REVIEW_STATION_AUDIT",
-          "locationId" : "COMMAND_DECK",
+          "locationId" : "DEPUTY_COMMANDER_OFFICE",
           "result" : "READ_ONLY",
           "characterId" : "",
           "messageType" : ""
         },
         "revealsClueIds" : [ "CLUE-MAYA-LATE-AUDIT" ],
-        "searchTerms" : [ "마야", "심야", "감사", "지휘 갑판", "자원 배분" ],
+        "searchTerms" : [ "마야", "심야", "감사", "부사령관 집무실", "자원 배분" ],
         "visibility" : "SEARCHABLE"
       } ],
       "npcKnowledge" : [ {
@@ -398,6 +521,38 @@
         } ],
         "allowedLieFactIds" : [ "FACT-SOPHIA-CLAIM" ],
         "recommendedQuestionTopics" : [ "안전 점검 예약의 목적", "02:05 진단 실행 시각", "의료 연구 감사 면담" ]
+      }, {
+        "characterId" : "MAYA",
+        "knownFactIds" : [ "FACT-MAYA-CLAIM" ],
+        "initialClaimFactIds" : [ "FACT-MAYA-CLAIM" ],
+        "concealedFactIds" : [ ],
+        "revealPolicies" : [ ],
+        "allowedLieFactIds" : [ ],
+        "recommendedQuestionTopics" : [ "부사령관 집무실 감사 기록", "사건 준비 시각의 위치" ]
+      }, {
+        "characterId" : "JUNHO",
+        "knownFactIds" : [ "FACT-JUNHO-CLAIM" ],
+        "initialClaimFactIds" : [ "FACT-JUNHO-CLAIM" ],
+        "concealedFactIds" : [ ],
+        "revealPolicies" : [ ],
+        "allowedLieFactIds" : [ ],
+        "recommendedQuestionTopics" : [ "발전기 정비 자료", "의료 안전 진단 권한" ]
+      }, {
+        "characterId" : "KASIM",
+        "knownFactIds" : [ "FACT-KASIM-CLAIM" ],
+        "initialClaimFactIds" : [ "FACT-KASIM-CLAIM" ],
+        "concealedFactIds" : [ ],
+        "revealPolicies" : [ ],
+        "allowedLieFactIds" : [ ],
+        "recommendedQuestionTopics" : [ "통신실 근무 기록", "중앙 허브 환경 제어 패널 작업 권한" ]
+      }, {
+        "characterId" : "YUNA",
+        "knownFactIds" : [ "FACT-YUNA-CLAIM" ],
+        "initialClaimFactIds" : [ "FACT-YUNA-CLAIM" ],
+        "concealedFactIds" : [ ],
+        "revealPolicies" : [ ],
+        "allowedLieFactIds" : [ ],
+        "recommendedQuestionTopics" : [ "화물칸 재고 확인", "중앙 허브 이동 경로" ]
       } ],
       "redHerrings" : [ {
         "redHerringId" : "RED-MAYA-AUDIT",
@@ -425,7 +580,7 @@
         "nonCulpritExclusions" : [ {
           "characterId" : "MAYA",
           "excludedByClueIds" : [ "CLUE-SETUP-PANEL" ],
-          "reason" : "준비 시각 지휘 갑판에 있었고 의료 안전 점검 권한도 없다."
+          "reason" : "준비 시각 부사령관 집무실에 있었고 의료 안전 점검 권한도 없다."
         }, {
           "characterId" : "JUNHO",
           "excludedByClueIds" : [ "CLUE-TRIGGER-LOG" ],
@@ -433,11 +588,11 @@
         }, {
           "characterId" : "KASIM",
           "excludedByClueIds" : [ "CLUE-SETUP-PANEL" ],
-          "reason" : "생명 유지 제어실 출입과 작업 권한이 없다."
+          "reason" : "중앙 허브에 접근할 수 있지만 생명 유지 시스템 작업 권한이 없다."
         }, {
           "characterId" : "YUNA",
           "excludedByClueIds" : [ "CLUE-SETUP-PANEL" ],
-          "reason" : "생명 유지 제어실 출입과 작업 권한이 없다."
+          "reason" : "중앙 허브에 접근할 수 있지만 생명 유지 시스템 작업 권한이 없다."
         } ]
       }
     }

@@ -19,6 +19,7 @@ public record FrontendIntegrationContract(
     public record InvestigationObjectRoute(
             InspectionMode mode,
             String locationId,
-            String query
+            String query,
+            boolean clueRequired
     ) {}
 }

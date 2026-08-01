@@ -1,5 +1,6 @@
 package com.arcadia.station.ai.validation;
 
+import com.arcadia.station.ai.template.ArcadiaLocationRoster;
 import com.arcadia.station.ai.template.WorldTemplate;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,6 +30,14 @@ public class WorldTemplateValidator {
                 "$.locations",
                 issues
         );
+        if (!locationIds.equals(ArcadiaLocationRoster.ID_SET)) {
+            issues.add(ValidationIssue.of(
+                    "LOCATION_ROSTER_MISMATCH",
+                    "$.locations",
+                    "Expected exactly " + ArcadiaLocationRoster.IDS
+                            + " but found " + locationIds
+            ));
+        }
         Set<String> systemIds = unique(
                 world.systems().stream().map(WorldTemplate.StationSystemDefinition::id).toList(),
                 "$.systems",

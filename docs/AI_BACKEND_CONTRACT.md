@@ -81,7 +81,7 @@ X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
 - 전체 범행 수법의 준비·촉발 액션
 - 타임라인 4건
 - 사실 10건과 용의자 5명의 알리바이
-- 단서 5건과 획득 조건·선행 단서·용의자 효과
+- 단서 14건(`EXPLORE` 10건 + `RAG_QUERY` 4건)과 획득 조건·선행 단서·용의자 효과
 - RAG 확정 기록 4건과 metadata
 - NPC 지식·은폐·증거 제시 해금 정책
 - 미끼 단서와 해소 사실
@@ -103,17 +103,17 @@ X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
     "seed": "optional-replayable-seed",
     "worldTemplate": {
       "id": "ARCADIA_WORLD",
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     "ruleTemplate": {
       "id": "ARCADIA_MYSTERY_RULES",
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     "blueprintSha256": "64자리 SHA-256",
     "generationAttemptCount": 1,
     "generationSource": "AI",
     "model": "환경 변수로 선택된 모델",
-    "promptVersion": "case-generator-v1",
+    "promptVersion": "case-generator-v2",
     "createdAt": "2026-07-28T00:00:00Z",
     "frozenAt": "2026-07-28T00:00:08Z",
     "caseBlueprint": {
@@ -121,11 +121,11 @@ X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
       "seed": "optional-replayable-seed",
       "worldTemplate": {
         "id": "ARCADIA_WORLD",
-        "version": "1.0.0"
+        "version": "1.1.0"
       },
       "ruleTemplate": {
         "id": "ARCADIA_MYSTERY_RULES",
-        "version": "1.0.0"
+        "version": "1.1.0"
       },
       "culpritId": "SOPHIA",
       "title": "세션별 생성 제목",
@@ -184,6 +184,115 @@ X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
 `generationSource`가 `FALLBACK`이어도 사건은 모든 검증을 통과한 상태이며 `status`는
 `FAILED`가 아니라 `READY`입니다. 따라서 백엔드는 정상 게임을 시작하면 됩니다.
 
+### 2.1 NPC 심문 대상과 characterId 일관성
+
+백엔드는 `caseBlueprint.alibis[].characterId` 전체를 심문 가능한 용의자로 노출할 수
+있습니다. AI 서버는 다음 규칙을 사건 생성 후 의미 검증기에서 강제합니다.
+
+- `alibis`에 등장하는 모든 `characterId`에는 `npcKnowledge`가 존재합니다.
+- 각 `npcKnowledge.initialClaimFactIds`는 비어 있지 않고 해당 인물의
+  `alibis.supportingFactIds` 또는 `alibis.contradictingFactIds`에 연결됩니다.
+- 각 `npcKnowledge.recommendedQuestionTopics`는 비어 있지 않습니다.
+- 공개할 결정적 사실이 없는 인물은 `revealPolicies: []`일 수 있습니다.
+- `culpritId`, `alibis`, `npcKnowledge`, `solution.nonCulpritExclusions`,
+  `clues[].suspectEffects[]`의 인물 참조는 `worldTemplate.characters[].id`를
+  대소문자까지 동일하게 사용합니다.
+- `solution.nonCulpritExclusions`는 `alibis`의 인물 중 범인을 제외한 전원을 정확히
+  한 번씩 포함합니다.
+
+누락, 중복, 대소문자 차이 또는 잘못된 인물 참조가 있으면 사건을 동결하지 않고
+재생성하며, 재시도 후에도 실패하면 검증 완료 fallback 사건으로 전환합니다.
+
+### 2.2 탐사 장소 정식 로스터와 locationId 일관성
+
+`ARCADIA_WORLD:1.1.0`의 탐사 장소는 다음 8개로 고정됩니다. 배열 순서도 아래와
+같습니다.
+
+| 순서 | locationId | 표시 이름 | 주요 구성 |
+|---:|---|---|---|
+| 1 | `COMMANDER_OFFICE` | 사령관실 | 범행 현장, 출입 기록 |
+| 2 | `DEPUTY_COMMANDER_OFFICE` | 부사령관 집무실 | 헨드릭스 전용, 사령관실 직통 |
+| 3 | `CENTRAL_HUB` | 중앙 허브 | 복도, 환경 제어 패널 |
+| 4 | `MEDICAL_BAY` | 의무실 | 소피아 업무 구역 |
+| 5 | `ENGINEERING_BAY` | 엔지니어링 | 백준호 업무 구역 |
+| 6 | `COMMUNICATIONS_CENTER` | 통신실 | 카심 업무 구역 |
+| 7 | `CARGO_BAY` | 화물칸 | 유나 업무 구역, 에어록 |
+| 8 | `COMMON_AREA` | 공용구역 | 식당, 숙소 |
+
+다음 필드의 비어 있지 않은 모든 `locationId`는 위 로스터 안의 값을 대소문자까지
+동일하게 사용해야 합니다.
+
+- `method.setupAction.locationId`
+- `method.triggerAction.locationId`
+- `timeline[].locationId`
+- `clues[].acquisition.locationId`
+- `evidenceRecords[].metadata.locationId`
+- `POST /api/v1/sessions/{id}/explore` 요청의 `locationId`
+
+월드 템플릿 자체가 정확히 이 8개를 포함하지 않으면 `LOCATION_ROSTER_MISMATCH`,
+생성 사건이 로스터 밖의 장소를 참조하면 `NON_ROSTER_LOCATION_ID`로 거부됩니다.
+탐사 API도 로스터 밖 ID에 `400 INVALID_REQUEST`를 반환합니다. 로스터 안의 8개
+장소는 그 시점에 발견할 단서가 없어도 모두 정상 탐사할 수 있습니다.
+
+### 2.3 오브젝트 상호작용 단서 커버리지
+
+프론트 연동 계약은 `1.2.0`이며, 현재 화면에 있는 16개 조사 오브젝트를 모두
+`EXPLORE` 대상으로 등록합니다. 그중 다음 10개는 `clueRequired: true`이고 8개 장소
+전체를 적어도 한 번씩 커버합니다.
+
+| objectHint | locationId |
+|---|---|
+| `CO_BODY` | `COMMANDER_OFFICE` |
+| `CO_DOOR_LOG` | `COMMANDER_OFFICE` |
+| `CO_XO_PASSAGE` | `DEPUTY_COMMANDER_OFFICE` |
+| `CO_ENV_PANEL` | `CENTRAL_HUB` |
+| `CO_TERMINAL` | `COMMANDER_OFFICE` |
+| `MD_MEDICAL_STORAGE` | `MEDICAL_BAY` |
+| `EN_LIFE_SUPPORT` | `ENGINEERING_BAY` |
+| `CM_SECURITY_ARCHIVE` | `COMMUNICATIONS_CENTER` |
+| `CG_CARGO_MANIFEST` | `CARGO_BAY` |
+| `CMN_FOOD_STATION` | `COMMON_AREA` |
+
+나머지 정식 오브젝트 ID는 `CO_SCANNER`, `HB_MAINTENANCE`, `XO_RESOURCE_BOARD`,
+`MD_MEDICAL_TERMINAL`, `CG_AIRLOCK_LOG`, `QT_ACCESS_BUFFER`입니다. AI 생성 사건의
+모든 `EXPLORE` 단서는 다음 조건을 만족해야 합니다.
+
+- `source.sourceType`은 `PHYSICAL_OBJECT`입니다.
+- `source.sourceId`는 위 16개 정식 오브젝트 ID 중 하나입니다.
+- `acquisition.locationId`는 해당 오브젝트에 등록된 장소와 정확히 일치합니다.
+- `clueRequired: true`인 10개 오브젝트에는 각각 하나 이상의 `EXPLORE` 단서가
+  존재해야 합니다.
+
+`ARCADIA_MYSTERY_RULES:1.1.0`에서 허용하는 단서 획득 방식은 `EXPLORE`,
+`RAG_QUERY`, `CONNECT`입니다. 검증 완료 fallback 사건은 단서 14건으로 구성되며,
+이 중 10건이 위 필수 오브젝트에서 획득하는 `EXPLORE` 단서이고 4건은
+`RAG_QUERY` 단서입니다.
+
+오브젝트 단위 탐사는 다음처럼 `objectHint`를 선택적으로 받습니다.
+
+```http
+POST /api/v1/sessions/{sessionId}/explore
+Content-Type: application/json
+
+{
+  "locationId": "MEDICAL_BAY",
+  "objectHint": "MD_MEDICAL_STORAGE"
+}
+```
+
+- `objectHint`를 생략하면 기존 호환 동작으로 해당 `locationId`의 발견 가능한 단서를
+  장소 단위로 반환합니다.
+- `objectHint`를 제공하면 AI 서버는 ID가 16개 정식 로스터에 있는지, 오브젝트의 등록
+  장소가 요청 `locationId`와 같은지 검증합니다. 성공하면 동결된 CaseBlueprint에서
+  `clue.source.sourceId == objectHint`인 단서만 반환합니다.
+- 알 수 없는 오브젝트 또는 장소가 맞지 않는 조합은 `400 INVALID_REQUEST`입니다.
+
+프론트와 AI 서버가 별도 프로세스인 실제 배포에서는 **게임 백엔드가 프론트 요청의
+`objectHint`를 AI 탐사 요청에 그대로 전달해야 합니다.** AI 탐사 API를 호출하지 않고
+백엔드가 동결된 CaseBlueprint를 직접 해금하는 구조라면 동일하게
+`clue.source.sourceId == objectHint`로 필터해야 합니다. 이를 누락하면 같은 방의 첫
+오브젝트를 조사했을 때 그 방의 여러 오브젝트 단서가 한꺼번에 공개됩니다.
+
 ## 3. 백엔드 저장·공개 규칙
 
 백엔드는 완료 응답을 원문 JSON 또는 동일 구조로 저장하고 `blueprintSha256`도 함께
@@ -208,9 +317,9 @@ React에는 `caseBlueprint` 전체를 전달하면 안 됩니다. 게임 시작 
   ],
   "availableLocations": [
     {
-      "id": "LIFE_SUPPORT_CONTROL",
-      "displayName": "생명 유지 제어실",
-      "publicDescription": "환경 상태를 확인하는 통제 구역이다."
+      "id": "CENTRAL_HUB",
+      "displayName": "중앙 허브",
+      "publicDescription": "모든 주요 방을 연결하며 환경 제어 패널이 설치된 중앙 복도다."
     }
   ],
   "discoveredClues": []

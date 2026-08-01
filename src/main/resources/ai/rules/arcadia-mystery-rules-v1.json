@@ -1,6 +1,6 @@
 {
   "templateId": "ARCADIA_MYSTERY_RULES",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "culpritPolicy": {
     "type": "FIXED",
     "culpritId": "SOPHIA"
@@ -22,7 +22,7 @@
       "MOTIVE": 1,
       "OPPORTUNITY": 1
     },
-    "allowedAcquisitionTypes": ["EXPLORE", "INTERROGATE", "RAG_QUERY", "CONNECT", "AUTO"],
+    "allowedAcquisitionTypes": ["EXPLORE", "RAG_QUERY", "CONNECT"],
     "maxPrerequisiteDepth": 3,
     "mandatoryFactsRequireDeterministicPath": true
   },

@@ -41,12 +41,23 @@ class TemplateValidationTest {
 
     @Test
     void fixedTemplatesAndFallbackPassAllValidators() {
+        assertThat(templates.world().version()).isEqualTo("1.1.0");
+        assertThat(templates.rules().version()).isEqualTo("1.1.0");
+        assertThat(templates.world().locations())
+                .extracting(WorldTemplate.LocationDefinition::id)
+                .containsExactlyElementsOf(ArcadiaLocationRoster.IDS);
         assertThat(worldValidator.validate(templates.world())).isEmpty();
         assertThat(ruleValidator.validate(templates.world(), templates.rules())).isEmpty();
+        CaseBlueprint fallbackCase = fallback.forSession("test-session", "test-seed");
+        assertThat(fallbackCase.clues()).hasSize(14);
+        assertThat(fallbackCase.clues().stream()
+                .filter(clue -> clue.acquisition().type()
+                        == CaseBlueprint.AcquisitionType.EXPLORE)
+                .toList()).hasSize(10);
         assertThat(caseValidator.validate(
                 templates.world(),
                 templates.rules(),
-                fallback.forSession("test-session", "test-seed")
+                fallbackCase
         ).issues()).isEmpty();
     }
 
@@ -54,7 +65,7 @@ class TemplateValidationTest {
     void fakeGatewayProducesACompleteValidCaseWithoutAnApiKey() {
         CaseBlueprint generated = openAiGateway.generateStructured(
                 AiPurpose.CASE_GENERATION,
-                "case-generator-v1",
+                "case-generator-v2",
                 new StructuredPrompt(
                         "test",
                         "{\"sessionId\":\"fake-session\",\"seed\":\"fake-seed\"}"

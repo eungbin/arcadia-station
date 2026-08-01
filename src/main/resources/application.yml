@@ -31,7 +31,7 @@ arcadia:
     case-generation:
       timeout: ${AI_CASE_GENERATION_TIMEOUT:60s}
       max-retries: ${AI_CASE_GENERATION_MAX_RETRIES:2}
-      prompt-version: case-generator-v1
+      prompt-version: case-generator-v2
     npc:
       timeout: 8s
       max-history-turns: 8

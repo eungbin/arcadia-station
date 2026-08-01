@@ -64,6 +64,11 @@ mvn spring-boot:run
 5. `POST /api/v1/sessions/{id}/assistant/queries`로 확정 기록 검색
 6. `POST /api/v1/sessions/{id}/interrogations/SOPHIA/turns`로 증거 제시 심문
 7. `POST /api/v1/sessions/{id}/deductions`로 네 추리 축 제출
+
+탐사 `locationId`는 `ARCADIA_WORLD:1.1.0`의 8개 고정 로스터
+(`COMMANDER_OFFICE`, `DEPUTY_COMMANDER_OFFICE`, `CENTRAL_HUB`, `MEDICAL_BAY`,
+`ENGINEERING_BAY`, `COMMUNICATIONS_CENTER`, `CARGO_BAY`, `COMMON_AREA`)만
+사용합니다.
 8. `GET /api/v1/sessions/{id}/result`로 사건 재구성 조회
 
 프론트용 `GET /api/v1/sessions/{id}` 응답에는 범인, 진실 요약, 전체 해답,

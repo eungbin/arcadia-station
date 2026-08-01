@@ -8,7 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.arcadia.station.game.domain.GameSession;
 import com.arcadia.station.game.domain.SessionState;
+import com.arcadia.station.ai.template.ArcadiaLocationRoster;
 import com.arcadia.station.infrastructure.persistence.InMemoryGameSessionRepository;
+import com.arcadia.station.integration.FrontendIntegrationContract;
+import com.arcadia.station.integration.FrontendIntegrationContractRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -17,6 +20,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -41,6 +46,9 @@ class GameFlowIntegrationTest {
 
     @Autowired
     private InMemoryGameSessionRepository sessions;
+
+    @Autowired
+    private FrontendIntegrationContractRepository frontendContracts;
 
     @Test
     void completesOfflineVerticalSliceWithoutLeakingSecrets() throws Exception {
@@ -71,7 +79,7 @@ class GameFlowIntegrationTest {
 
         mockMvc.perform(post("/api/v1/sessions/{id}/explore", sessionId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"locationId\":\"LIFE_SUPPORT_CONTROL\"}"))
+                        .content("{\"locationId\":\"CENTRAL_HUB\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.newlyDiscoveredClues[0].clueId")
                         .value("CLUE-SETUP-PANEL"));
@@ -240,6 +248,129 @@ class GameFlowIntegrationTest {
                                 {
                                   "question": "존재하지 않는 단서를 확인해 주세요.",
                                   "presentedClueIds": ["CLUE-NOT-IN-FROZEN-CASE"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void interrogatesEveryCharacterExposedByAlibis() throws Exception {
+        String sessionId = "backend_all_suspects_001";
+        mockMvc.perform(post("/internal/v1/cases")
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "sessionId": "backend_all_suspects_001",
+                                  "seed": "backend-all-suspects"
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+        awaitState(sessionId, SessionState.READY);
+
+        String readyResponse = mockMvc.perform(get("/internal/v1/cases/{id}", sessionId)
+                        .header("X-Internal-AI-Key", INTERNAL_KEY))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        List<String> alibiCharacterIds = new ArrayList<>();
+        objectMapper.readTree(readyResponse)
+                .path("generation")
+                .path("caseBlueprint")
+                .path("alibis")
+                .forEach(alibi -> alibiCharacterIds.add(alibi.path("characterId").asText()));
+        assertThat(alibiCharacterIds)
+                .containsExactlyInAnyOrder("MAYA", "JUNHO", "SOPHIA", "KASIM", "YUNA");
+
+        for (String characterId : alibiCharacterIds) {
+            mockMvc.perform(post(
+                                    "/api/v1/sessions/{id}/interrogations/{characterId}/turns",
+                                    sessionId,
+                                    characterId
+                            )
+                            .header("X-Internal-AI-Key", INTERNAL_KEY)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "question": "사건 당시 어디에 있었는지 설명해 주세요.",
+                                      "presentedClueIds": []
+                                    }
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.recommendedQuestions.length()").value(2));
+        }
+    }
+
+    @Test
+    void exploresEveryRosterLocationAndRejectsUnknownLocation() throws Exception {
+        String sessionId = "backend_all_locations_001";
+        mockMvc.perform(post("/internal/v1/cases")
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "sessionId": "backend_all_locations_001",
+                                  "seed": "backend-all-locations"
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+        awaitState(sessionId, SessionState.READY);
+
+        for (String locationId : ArcadiaLocationRoster.IDS) {
+            mockMvc.perform(post("/api/v1/sessions/{id}/explore", sessionId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    java.util.Map.of("locationId", locationId)
+                            )))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.locationId").value(locationId));
+        }
+
+        mockMvc.perform(post("/api/v1/sessions/{id}/explore", sessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"locationId\":\"LIFE_SUPPORT_CONTROL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void discoversCluesForEveryRequiredFrontendObjectHint() throws Exception {
+        String sessionId = "backend_object_clues_001";
+        mockMvc.perform(post("/internal/v1/cases")
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "sessionId": "backend_object_clues_001",
+                                  "seed": "backend-object-clues"
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+        awaitState(sessionId, SessionState.READY);
+
+        for (var entry : frontendContracts.contract().investigationObjects().entrySet()) {
+            FrontendIntegrationContract.InvestigationObjectRoute route = entry.getValue();
+            if (!route.clueRequired()) {
+                continue;
+            }
+            mockMvc.perform(post("/api/v1/sessions/{id}/explore", sessionId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                    "locationId", route.locationId(),
+                                    "objectHint", entry.getKey()
+                            ))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.newlyDiscoveredClues").isNotEmpty());
+        }
+
+        mockMvc.perform(post("/api/v1/sessions/{id}/explore", sessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "locationId": "CENTRAL_HUB",
+                                  "objectHint": "CO_BODY"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())

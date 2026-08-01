@@ -71,6 +71,10 @@ AI 서버의 다음 공개 엔드포인트에서 버전이 지정된 변환표�
 GET /api/v1/integration/frontend-contract
 ```
 
+현재 연동 계약 버전은 `1.2.0`입니다. 사건 생성 계약은
+`ARCADIA_WORLD:1.1.0`, `ARCADIA_MYSTERY_RULES:1.1.0`, 프롬프트
+`case-generator-v2`를 사용합니다.
+
 핵심 인물 변환:
 
 | 프론트 NPC ID | 공통 인물 ID |
@@ -81,15 +85,75 @@ GET /api/v1/integration/frontend-contract
 | `NPC_KASIM` | `KASIM` |
 | `NPC_YUNA` | `YUNA` |
 
-프론트 오브젝트 ID는 화면과 수첩에서 계속 사용합니다. 백엔드는 변환표의 `mode`,
-`locationId`, `query`를 사용해 AI의 탐색 또는 RAG API를 호출하고, 반환된 실제
-AI 단서 ID를 다음과 같이 세션별로 연결해 저장합니다.
+장소는 `ARCADIA_WORLD:1.1.0`의 다음 8개 ID를 공통 계약으로 사용합니다.
+
+| locationId | 프론트 라벨 |
+|---|---|
+| `COMMANDER_OFFICE` | 사령관실 |
+| `DEPUTY_COMMANDER_OFFICE` | 부사령관 집무실 |
+| `CENTRAL_HUB` | 중앙 허브 |
+| `MEDICAL_BAY` | 의무실 |
+| `ENGINEERING_BAY` | 엔지니어링 |
+| `COMMUNICATIONS_CENTER` | 통신실 |
+| `CARGO_BAY` | 화물칸 |
+| `COMMON_AREA` | 공용구역 |
+
+백엔드는 이 목록을 세션의 `exploreLocationIds`로 프론트에 전달하고, 프론트는 자체
+좌표·라벨 테이블에 매핑합니다. AI 서버는 생성 사건의 모든 장소 참조와 탐사 API
+입력을 같은 목록으로 검증하므로 구형 ID나 임의 생성 ID는 사용할 수 없습니다.
+
+프론트의 16개 오브젝트 ID는 화면과 수첩에서 계속 사용하며, 연동 계약 `1.2.0`에서는
+모두 `EXPLORE` 모드입니다. 백엔드는 프론트가 보낸 `locationId`와 `objectHint`를 AI의
+탐사 API에 전달하고, 반환된 실제 AI 단서 ID를 다음과 같이 세션별로 연결해 저장합니다.
 
 ```text
 (sessionId, frontendObjectId) -> [aiClueId, ...]
 ```
 
 이 연결을 브라우저가 임의로 제출한 단서 ID로 다시 만들면 안 됩니다.
+
+### 오브젝트 단위 탐사
+
+프론트는 오브젝트 조사 시 다음 정보를 보냅니다.
+
+```json
+{
+  "locationId": "CARGO_BAY",
+  "objectHint": "CG_CARGO_MANIFEST"
+}
+```
+
+AI 탐사 요청의 `objectHint`는 선택 필드입니다.
+
+- 생략하면 기존 클라이언트를 위해 `locationId`만으로 그 장소의 단서를 찾습니다.
+- 제공하면 16개 정식 오브젝트 ID인지와 등록된 `locationId`가 일치하는지 검사한 뒤,
+  동결된 CaseBlueprint에서 `source.sourceId == objectHint`인 단서만 반환합니다.
+- 알 수 없는 ID나 장소가 맞지 않는 조합은 `400 INVALID_REQUEST`입니다.
+
+**분리 배포된 게임 백엔드는 프론트의 `objectHint`를 AI 서버에 반드시 전달해야
+합니다.** 백엔드가 AI 탐사 API 대신 저장된 CaseBlueprint에서 직접 단서를 해금한다면
+동일한 `source.sourceId == objectHint` 필터를 적용해야 합니다. `locationId`만 전달하거나
+장소만 필터하면 한 오브젝트 상호작용으로 같은 방의 다른 오브젝트 단서까지 동시에
+공개됩니다.
+
+사건 생성 시 모든 `EXPLORE` 단서는 `sourceType: PHYSICAL_OBJECT`, 정식 오브젝트
+`sourceId`, 그 오브젝트에 등록된 `locationId`를 사용합니다. 다음 10개
+`clueRequired` 오브젝트는 사건마다 각각 하나 이상의 단서를 가지며 8개 장소 전체를
+커버합니다.
+
+| locationId | 필수 단서 오브젝트 |
+|---|---|
+| `COMMANDER_OFFICE` | `CO_BODY`, `CO_DOOR_LOG`, `CO_TERMINAL` |
+| `DEPUTY_COMMANDER_OFFICE` | `CO_XO_PASSAGE` |
+| `CENTRAL_HUB` | `CO_ENV_PANEL` |
+| `MEDICAL_BAY` | `MD_MEDICAL_STORAGE` |
+| `ENGINEERING_BAY` | `EN_LIFE_SUPPORT` |
+| `COMMUNICATIONS_CENTER` | `CM_SECURITY_ARCHIVE` |
+| `CARGO_BAY` | `CG_CARGO_MANIFEST` |
+| `COMMON_AREA` | `CMN_FOOD_STATION` |
+
+허용되는 획득 방식은 `EXPLORE`, `RAG_QUERY`, `CONNECT`입니다. fallback 사건도 같은
+규칙을 따르며 단서 14건(`EXPLORE` 10건 + `RAG_QUERY` 4건)을 제공합니다.
 
 ## 프론트 API별 백엔드 어댑터
 
@@ -98,7 +162,7 @@ AI 단서 ID를 다음과 같이 세션별로 연결해 저장합니다.
 | `POST /api/sessions` | 세션 생성 및 준비 상태 반환 | `POST /internal/v1/cases` |
 | `GET /api/sessions/{id}` | AI 상태를 프론트 상태로 변환 | `GET /internal/v1/cases/{id}` |
 | `POST .../opening/complete` | 상태·버전 저장 | 없음 |
-| `POST .../objects/{objectId}/inspect` | 오브젝트와 실제 단서 연결 저장 | `explore` 또는 `assistant/queries` |
+| `POST .../objects/{objectId}/inspect` | 오브젝트와 실제 단서 연결 저장 | `explore` (`locationId` + `objectHint`) |
 | `POST .../interrogations` | 심문 ID 발급 | 없음 |
 | `POST /api/interrogations/{id}/messages` | NPC 별칭과 제시 단서 변환 | `interrogations/{characterId}/turns` |
 | `POST .../days/{day}/complete` | 일차·버전 저장 | 없음 |

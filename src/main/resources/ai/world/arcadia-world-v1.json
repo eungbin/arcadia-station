@@ -1,6 +1,6 @@
 {
   "templateId": "ARCADIA_WORLD",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "locale": "ko-KR",
   "setting": {
     "name": "아르카디아 스테이션",
@@ -39,7 +39,7 @@
       "publicProfile": "정거장 운영과 비상 지휘를 담당하는 차분한 부사령관이다.",
       "personalityTraits": ["협조적", "논리정연", "압박 시 과묵함"],
       "skills": ["COMMAND_AUTHORIZATION", "AUDIT_REVIEW"],
-      "physicalAccess": ["COMMAND_DECK", "SECURITY_HUB", "LIFE_SUPPORT_CONTROL", "COMMAND_CORRIDOR"],
+      "physicalAccess": ["COMMANDER_OFFICE", "DEPUTY_COMMANDER_OFFICE", "CENTRAL_HUB", "COMMON_AREA"],
       "systemPermissions": [
         {
           "systemId": "COMMAND_SYSTEM",
@@ -75,7 +75,7 @@
       "publicProfile": "생명 유지와 발전 설비의 정비를 총괄한다.",
       "personalityTraits": ["방어적", "기술 중심", "압박 시 침묵"],
       "skills": ["SYSTEM_DIAGNOSIS", "REPAIR_PLANNING"],
-      "physicalAccess": ["ENGINEERING_BAY", "LIFE_SUPPORT_CONTROL", "MAINTENANCE_CORRIDOR"],
+      "physicalAccess": ["ENGINEERING_BAY", "CENTRAL_HUB", "COMMON_AREA"],
       "systemPermissions": [
         {
           "systemId": "LIFE_SUPPORT",
@@ -106,7 +106,7 @@
       "publicProfile": "승무원 건강 관리와 환경 안전 점검을 담당하는 침착한 의무관이다.",
       "personalityTraits": ["침착함", "전문가적", "정보를 선택적으로 공개함"],
       "skills": ["MEDICAL_DIAGNOSIS", "SAFETY_INSPECTION"],
-      "physicalAccess": ["MEDICAL_BAY", "LIFE_SUPPORT_CONTROL", "COMMAND_CORRIDOR"],
+      "physicalAccess": ["MEDICAL_BAY", "CENTRAL_HUB", "COMMON_AREA"],
       "systemPermissions": [
         {
           "systemId": "MEDICAL_RECORDS",
@@ -142,7 +142,7 @@
       "publicProfile": "통신 상태와 보안 로그 전송을 담당한다.",
       "personalityTraits": ["말이 빠름", "논리적", "불리할 때 과잉 설명"],
       "skills": ["SIGNAL_ANALYSIS", "LOG_ROUTING"],
-      "physicalAccess": ["COMMUNICATIONS_CENTER", "SECURITY_HUB", "COMMAND_CORRIDOR"],
+      "physicalAccess": ["COMMUNICATIONS_CENTER", "CENTRAL_HUB", "COMMON_AREA"],
       "systemPermissions": [
         {
           "systemId": "COMMUNICATION_SYSTEM",
@@ -173,7 +173,7 @@
       "publicProfile": "화물창고와 도킹 물자 기록을 관리한다.",
       "personalityTraits": ["감정적", "억울함을 강하게 호소함", "사소한 거짓말을 먼저 인정함"],
       "skills": ["CARGO_ACCOUNTING", "DOCKING_COORDINATION"],
-      "physicalAccess": ["CARGO_BAY", "DOCKING_CONTROL", "COMMAND_CORRIDOR"],
+      "physicalAccess": ["CARGO_BAY", "CENTRAL_HUB", "COMMON_AREA"],
       "systemPermissions": [
         {
           "systemId": "CARGO_SYSTEM",
@@ -204,7 +204,7 @@
       "publicProfile": "정거장 내부 감사를 주도하던 사령관이다.",
       "personalityTraits": ["원칙주의", "신중함", "책임감"],
       "skills": ["COMMAND_AUTHORIZATION", "BASIC_SYSTEMS"],
-      "physicalAccess": ["COMMAND_DECK", "LIFE_SUPPORT_CONTROL", "COMMAND_CORRIDOR"],
+      "physicalAccess": ["COMMANDER_OFFICE", "CENTRAL_HUB", "COMMON_AREA"],
       "systemPermissions": [
         {
           "systemId": "COMMAND_SYSTEM",
@@ -230,103 +230,83 @@
   ],
   "locations": [
     {
-      "id": "COMMAND_DECK",
-      "displayName": "지휘 갑판",
-      "publicDescription": "사령부 업무와 정거장 운영 감사가 이뤄지는 구역이다.",
+      "id": "COMMANDER_OFFICE",
+      "displayName": "사령관실",
+      "publicDescription": "사령관 업무와 정거장 운영 감사가 이뤄지는 범행 현장이다.",
       "accessCondition": "지휘 계통 인증",
-      "connectedLocationIds": ["COMMAND_CORRIDOR", "SECURITY_HUB"],
+      "connectedLocationIds": ["DEPUTY_COMMANDER_OFFICE", "CENTRAL_HUB"],
+      "installedSystemIds": ["COMMAND_SYSTEM", "SECURITY_SYSTEM"],
+      "investigableObjectTypes": ["BODY", "DESK", "TERMINAL", "ACCESS_READER", "DOCUMENT_LOCKER"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "ACCESS_LOG", "MESSAGE", "COMMAND_LOG"]
+    },
+    {
+      "id": "DEPUTY_COMMANDER_OFFICE",
+      "displayName": "부사령관 집무실",
+      "publicDescription": "부사령관 전용 업무 공간이며 사령관실과 직통 통로로 연결된다.",
+      "accessCondition": "부사령관 또는 지휘 계통 인증",
+      "connectedLocationIds": ["COMMANDER_OFFICE", "CENTRAL_HUB"],
       "installedSystemIds": ["COMMAND_SYSTEM"],
-      "investigableObjectTypes": ["DESK", "TERMINAL", "DOCUMENT_LOCKER"],
+      "investigableObjectTypes": ["DESK", "RESOURCE_BOARD", "DOCUMENT_LOCKER"],
       "evidenceSourceTypes": ["PHYSICAL_OBJECT", "MESSAGE", "COMMAND_LOG"]
     },
     {
-      "id": "SECURITY_HUB",
-      "displayName": "보안 허브",
-      "publicDescription": "출입 인증 기록을 열람하는 보안 구역이다.",
-      "accessCondition": "보안 또는 지휘 인증",
-      "connectedLocationIds": ["COMMAND_DECK", "COMMUNICATIONS_CENTER"],
-      "installedSystemIds": ["SECURITY_SYSTEM"],
-      "investigableObjectTypes": ["SECURITY_TERMINAL", "ACCESS_READER"],
-      "evidenceSourceTypes": ["ACCESS_LOG", "PHYSICAL_OBJECT"]
-    },
-    {
-      "id": "ENGINEERING_BAY",
-      "displayName": "공학 작업실",
-      "publicDescription": "설비 진단과 부품 정비가 이뤄지는 작업 구역이다.",
-      "accessCondition": "공학 직군 인증",
-      "connectedLocationIds": ["MAINTENANCE_CORRIDOR"],
-      "installedSystemIds": ["MAINTENANCE_SYSTEM"],
-      "investigableObjectTypes": ["TOOL_CABINET", "WORKBENCH", "PARTS_RACK"],
-      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "MAINTENANCE_LOG"]
-    },
-    {
-      "id": "MAINTENANCE_CORRIDOR",
-      "displayName": "정비 통로",
-      "publicDescription": "공학 작업실과 생명 유지 제어실을 잇는 설비 통로다.",
-      "accessCondition": "정비 인증",
-      "connectedLocationIds": ["ENGINEERING_BAY", "LIFE_SUPPORT_CONTROL"],
-      "installedSystemIds": ["MAINTENANCE_SYSTEM"],
-      "investigableObjectTypes": ["SERVICE_PANEL", "TOOL_LOCKER"],
-      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "ACCESS_LOG"]
-    },
-    {
-      "id": "LIFE_SUPPORT_CONTROL",
-      "displayName": "생명 유지 제어실",
-      "publicDescription": "환경 상태를 확인하고 허용된 진단을 실행하는 통제 구역이다.",
-      "accessCondition": "승인된 공학·의료·지휘 인증",
-      "connectedLocationIds": ["MAINTENANCE_CORRIDOR", "COMMAND_CORRIDOR"],
-      "installedSystemIds": ["LIFE_SUPPORT"],
-      "investigableObjectTypes": ["CONTROL_PANEL", "SAFETY_SEAL", "SENSOR_ARRAY"],
-      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "COMMAND_LOG", "MAINTENANCE_LOG", "ACCESS_LOG"]
+      "id": "CENTRAL_HUB",
+      "displayName": "중앙 허브",
+      "publicDescription": "모든 주요 방을 연결하며 환경 제어 패널이 설치된 중앙 복도다.",
+      "accessCondition": "상주 승무원 인증",
+      "connectedLocationIds": ["COMMANDER_OFFICE", "DEPUTY_COMMANDER_OFFICE", "MEDICAL_BAY", "ENGINEERING_BAY", "COMMUNICATIONS_CENTER", "CARGO_BAY", "COMMON_AREA"],
+      "installedSystemIds": ["LIFE_SUPPORT", "MAINTENANCE_SYSTEM", "SECURITY_SYSTEM"],
+      "investigableObjectTypes": ["CONTROL_PANEL", "ACCESS_READER", "SERVICE_PANEL", "WALL_TERMINAL"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "ACCESS_LOG", "COMMAND_LOG", "MAINTENANCE_LOG"]
     },
     {
       "id": "MEDICAL_BAY",
       "displayName": "의무실",
       "publicDescription": "승무원 진료와 건강 기록 검토가 이뤄지는 구역이다.",
       "accessCondition": "의료 인증",
-      "connectedLocationIds": ["COMMAND_CORRIDOR"],
+      "connectedLocationIds": ["CENTRAL_HUB"],
       "installedSystemIds": ["MEDICAL_RECORDS"],
       "investigableObjectTypes": ["MEDICAL_TERMINAL", "LOCKED_CABINET", "DIAGNOSTIC_DESK"],
       "evidenceSourceTypes": ["PHYSICAL_OBJECT", "MEDICAL_LOG", "MESSAGE"]
     },
     {
+      "id": "ENGINEERING_BAY",
+      "displayName": "엔지니어링",
+      "publicDescription": "설비 진단과 부품 정비가 이뤄지는 백준호의 작업 구역이다.",
+      "accessCondition": "공학 직군 인증",
+      "connectedLocationIds": ["CENTRAL_HUB"],
+      "installedSystemIds": ["MAINTENANCE_SYSTEM"],
+      "investigableObjectTypes": ["TOOL_CABINET", "WORKBENCH", "PARTS_RACK"],
+      "evidenceSourceTypes": ["PHYSICAL_OBJECT", "MAINTENANCE_LOG"]
+    },
+    {
       "id": "COMMUNICATIONS_CENTER",
-      "displayName": "통신 센터",
+      "displayName": "통신실",
       "publicDescription": "태양풍과 외부 통신 상태를 감시하는 구역이다.",
       "accessCondition": "통신 또는 보안 인증",
-      "connectedLocationIds": ["SECURITY_HUB", "COMMAND_CORRIDOR"],
+      "connectedLocationIds": ["CENTRAL_HUB"],
       "installedSystemIds": ["COMMUNICATION_SYSTEM"],
       "investigableObjectTypes": ["SIGNAL_CONSOLE", "MESSAGE_QUEUE"],
       "evidenceSourceTypes": ["COMMUNICATION_LOG", "MESSAGE", "ACCESS_LOG"]
     },
     {
       "id": "CARGO_BAY",
-      "displayName": "화물창고",
-      "publicDescription": "보급품과 채굴 자원을 보관하는 구역이다.",
+      "displayName": "화물칸",
+      "publicDescription": "보급품과 채굴 자원을 보관하며 에어록과 연결되는 구역이다.",
       "accessCondition": "화물 인증",
-      "connectedLocationIds": ["DOCKING_CONTROL", "COMMAND_CORRIDOR"],
-      "installedSystemIds": ["CARGO_SYSTEM"],
-      "investigableObjectTypes": ["CARGO_CONTAINER", "MANIFEST_TERMINAL"],
+      "connectedLocationIds": ["CENTRAL_HUB"],
+      "installedSystemIds": ["CARGO_SYSTEM", "DOCKING_SYSTEM"],
+      "investigableObjectTypes": ["CARGO_CONTAINER", "MANIFEST_TERMINAL", "AIRLOCK_CONSOLE"],
       "evidenceSourceTypes": ["PHYSICAL_OBJECT", "CARGO_LOG", "ACCESS_LOG"]
     },
     {
-      "id": "DOCKING_CONTROL",
-      "displayName": "도킹 관제실",
-      "publicDescription": "도킹 일정과 보급선 접근 기록을 확인하는 구역이다.",
-      "accessCondition": "화물 또는 지휘 인증",
-      "connectedLocationIds": ["CARGO_BAY"],
-      "installedSystemIds": ["DOCKING_SYSTEM"],
-      "investigableObjectTypes": ["DOCKING_CONSOLE"],
-      "evidenceSourceTypes": ["CARGO_LOG", "ACCESS_LOG"]
-    },
-    {
-      "id": "COMMAND_CORRIDOR",
-      "displayName": "중앙 연결 통로",
-      "publicDescription": "주요 업무 구역을 연결하는 공용 감시 통로다.",
+      "id": "COMMON_AREA",
+      "displayName": "공용구역",
+      "publicDescription": "식당과 승무원 숙소가 함께 있는 공용 생활 구역이다.",
       "accessCondition": "상주 승무원 인증",
-      "connectedLocationIds": ["COMMAND_DECK", "LIFE_SUPPORT_CONTROL", "MEDICAL_BAY", "COMMUNICATIONS_CENTER", "CARGO_BAY"],
+      "connectedLocationIds": ["CENTRAL_HUB"],
       "installedSystemIds": ["SECURITY_SYSTEM"],
-      "investigableObjectTypes": ["ACCESS_READER", "WALL_TERMINAL"],
+      "investigableObjectTypes": ["FOOD_STATION", "QUARTERS_ACCESS_BUFFER", "COMMON_TERMINAL"],
       "evidenceSourceTypes": ["ACCESS_LOG", "PHYSICAL_OBJECT"]
     }
   ],
