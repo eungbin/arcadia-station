@@ -1,4 +1,9 @@
 * text=auto eol=lf
+
+# Maven 래퍼. Windows 배치 파일은 CRLF로 체크아웃해야 한다.
+mvnw text eol=lf
+mvnw.cmd text eol=crlf
+
 *.docx binary
 *.pdf binary
 *.zip binary
