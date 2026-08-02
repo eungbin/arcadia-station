@@ -1,0 +1,8 @@
+services:
+  app:
+    environment:
+      SPRING_PROFILES_ACTIVE: real-ai
+      AI_SERVER_BASE_URL: http://host.docker.internal:8081
+      AI_INTERNAL_API_KEY: arcadia-local-shared-key
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
