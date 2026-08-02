@@ -1,12 +1,12 @@
 # AI 서버 로컬 연동 테스트
 
-> 대상: `GAME_AI` + `kimyeongeuk/arcadia-station-backend`
+> 대상: 모노레포 `hackathon-yaho/arcadia-station`의 `ai-server/`와 `backend/`
 > 기본 주소: AI `http://127.0.0.1:8081`, 백엔드 `http://127.0.0.1:8080`
 
 ## 1. 준비 사항
 
-- AI 서버: JDK 21, Maven 3.9+
-- 백엔드: 백엔드 저장소의 Gradle Wrapper와 Docker
+- AI 서버: JDK 21 (Maven은 `ai-server/`의 `mvnw` 래퍼가 자동으로 내려받으므로 설치 불필요)
+- 백엔드: `backend/`의 Gradle Wrapper와 Docker
 - 두 서버에 동일한 `AI_INTERNAL_API_KEY`
 - 포트 8080/8081이 사용 중이 아닌지 확인
 
@@ -21,15 +21,15 @@
 새 PowerShell 창에서:
 
 ```powershell
-cd C:\Users\taeyoon\Desktop\GAME_AI
+cd <arcadia-station 클론 경로>\ai-server
 
 $env:PORT = '8081'
 $env:AI_INTERNAL_API_KEY = 'arcadia-local-shared-key'
 $env:AI_ENABLED = 'true'
 $env:AI_OFFLINE_MODE = 'true'
 
-mvn test
-mvn spring-boot:run
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
 ```
 
 오프라인 모드는 외부 API를 호출하지 않습니다.
@@ -94,7 +94,7 @@ errorCode=null
 AI 서버를 종료하지 않은 상태에서 새 PowerShell 창을 엽니다.
 
 ```powershell
-cd C:\Users\taeyoon\Desktop\arcadia-station-backend
+cd <arcadia-station 클론 경로>\backend
 
 docker compose up -d
 
@@ -121,7 +121,7 @@ AI:     http://127.0.0.1:8081/actuator/health
 오프라인 전체 연동이 먼저 성공한 후 AI 서버를 다시 실행합니다.
 
 ```powershell
-cd C:\Users\taeyoon\Desktop\GAME_AI
+cd <arcadia-station 클론 경로>\ai-server
 
 $env:PORT = '8081'
 $env:AI_INTERNAL_API_KEY = 'arcadia-local-shared-key'
@@ -134,7 +134,7 @@ $env:GEMINI_API_KEY = '<개인 Gemini API 키>'
 $env:AI_CASE_GENERATION_MAX_RETRIES = '0'
 $env:AI_CASE_GENERATION_TIMEOUT = '60s'
 
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 모델을 명시해야 할 때만 다음 변수를 추가합니다.

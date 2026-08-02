@@ -24,11 +24,12 @@ $env:GEMINI_API_KEY = '<Google AI Studio에서 복사한 키>'
 $env:GEMINI_TEXT_MODEL = 'gemini-3.6-flash'
 $env:GEMINI_EMBEDDING_MODEL = 'gemini-embedding-2'
 $env:AI_CASE_GENERATION_TIMEOUT = '60s'
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
-`mvn` 명령이 PATH에 없다면 프로젝트에서 사용 중인 Maven 실행 파일의 전체 경로로
-실행해도 됩니다. 서버가 시작되면 다음 명령으로 상태를 확인합니다.
+`ai-server/` 디렉터리에서 실행합니다. 래퍼가 Maven을 자동으로 내려받으므로 Maven을
+따로 설치하거나 PATH에 등록하지 않아도 됩니다. 서버가 시작되면 다음 명령으로 상태를
+확인합니다.
 
 ```powershell
 Invoke-RestMethod http://localhost:8080/actuator/health

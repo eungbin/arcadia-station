@@ -95,7 +95,7 @@ $env:OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small'
 [`docs/examples/internal-case-ready.response.json`](docs/examples/internal-case-ready.response.json)에
 있으며 통합 테스트가 현재 HTTP 응답과의 일치 여부를 검사합니다.
 
-`eungbin/arcadia-station` 프론트와 게임 백엔드까지 연결할 때는
+같은 모노레포의 `frontend/`와 `backend/`까지 연결할 때는
 [프론트-백엔드-AI 브리지 계약](docs/FRONTEND_BACKEND_AI_BRIDGE.md)을 사용하세요.
 공유 NPC·오브젝트·추리 필드 변환표는
 `GET /api/v1/integration/frontend-contract`에서 버전이 지정된 JSON으로 조회할 수
