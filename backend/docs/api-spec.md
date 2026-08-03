@@ -255,7 +255,7 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
 | key | 설명 | value 타입 | 필수 | 예시 |
 | --- | --- | --- | --- | --- |
 | locationId | 조사할 장소 ID. 3번 API 응답의 `exploreLocationIds` 목록(정식 로스터 8개, 모든 사건에서 동일)에서만 골라야 함 | String | Y | "MEDICAL_BAY" |
-| objectHint | 오브젝트 힌트(선택, 현재 백엔드 판정에 영향 없음) | String | N | null |
+| objectHint | 오브젝트 힌트(선택). 주어지면 해당 장소의 단서 중 `source.sourceId`가 이 값과 일치하는 단서만 해금 대상으로 필터링함. 생략하면 기존처럼 해당 장소의 해금 가능한 단서를 모두 반환(하위 호환). 장소와 맞지 않는 오브젝트를 보내도 에러 없이 빈 배열을 반환함 | String | N | null |
 
 **Request Example**
 

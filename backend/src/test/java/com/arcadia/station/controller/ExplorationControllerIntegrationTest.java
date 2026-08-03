@@ -34,7 +34,7 @@ class ExplorationControllerIntegrationTest {
         ResponseEntity<ApiResponse<List<PlayerClueView>>> exploreResponse = restTemplate.exchange(
                 "/api/v1/sessions/{id}/explore",
                 HttpMethod.POST,
-                new HttpEntity<>(new ExploreRequest("PERSONAL_QUARTERS", null)),
+                new HttpEntity<>(new ExploreRequest("COMMON_AREA", null)),
                 new ParameterizedTypeReference<ApiResponse<List<PlayerClueView>>>() {},
                 sessionId);
 
@@ -48,6 +48,29 @@ class ExplorationControllerIntegrationTest {
                 new ParameterizedTypeReference<ApiResponse<PlayerCaseView>>() {},
                 sessionId);
         assertThat(viewResponse.getBody().data().discoveredClues())
+                .extracting(PlayerClueView::clueId)
+                .containsExactly("CLUE-MOTIVE-MESSAGE");
+    }
+
+    @Test
+    void objectHint가_컨트롤러부터_서비스까지_전달되어_필터링된다() {
+        String sessionId = createSession();
+
+        ResponseEntity<ApiResponse<List<PlayerClueView>>> mismatchResponse = restTemplate.exchange(
+                "/api/v1/sessions/{id}/explore",
+                HttpMethod.POST,
+                new HttpEntity<>(new ExploreRequest("COMMON_AREA", "UNKNOWN_OBJECT")),
+                new ParameterizedTypeReference<ApiResponse<List<PlayerClueView>>>() {},
+                sessionId);
+        assertThat(mismatchResponse.getBody().data()).isEmpty();
+
+        ResponseEntity<ApiResponse<List<PlayerClueView>>> matchResponse = restTemplate.exchange(
+                "/api/v1/sessions/{id}/explore",
+                HttpMethod.POST,
+                new HttpEntity<>(new ExploreRequest("COMMON_AREA", "QT_ACCESS_BUFFER")),
+                new ParameterizedTypeReference<ApiResponse<List<PlayerClueView>>>() {},
+                sessionId);
+        assertThat(matchResponse.getBody().data())
                 .extracting(PlayerClueView::clueId)
                 .containsExactly("CLUE-MOTIVE-MESSAGE");
     }

@@ -39,9 +39,9 @@ class DeductionControllerIntegrationTest {
         String sessionId = createSession();
 
         explore(sessionId, "MEDICAL_BAY");
-        explore(sessionId, "PERSONAL_QUARTERS");
+        explore(sessionId, "COMMON_AREA");
         assistantQuery(sessionId, "02:05 안전 진단 기록을 보여줘");
-        explore(sessionId, "LIFE_SUPPORT_CORRIDOR");
+        explore(sessionId, "ENGINEERING_BAY");
 
         Map<String, String> evidence = new LinkedHashMap<>();
         evidence.put("SETUP", "CLUE-SETUP-LOG");

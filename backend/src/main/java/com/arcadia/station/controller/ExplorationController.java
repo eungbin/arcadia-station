@@ -24,6 +24,6 @@ public class ExplorationController {
     @PostMapping
     public ApiResponse<List<PlayerClueView>> explore(
             @PathVariable("id") String sessionId, @RequestBody ExploreRequest request) {
-        return ApiResponse.success(explorationService.explore(sessionId, request.locationId()));
+        return ApiResponse.success(explorationService.explore(sessionId, request.locationId(), request.objectHint()));
     }
 }

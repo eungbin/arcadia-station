@@ -18,11 +18,11 @@ public class ExplorationService {
         this.clueUnlockService = clueUnlockService;
     }
 
-    public List<PlayerClueView> explore(String sessionId, String locationId) {
+    public List<PlayerClueView> explore(String sessionId, String locationId, String objectHint) {
         if (locationId == null || locationId.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        List<Clue> newlyUnlocked = clueUnlockService.exploreLocation(sessionId, locationId);
+        List<Clue> newlyUnlocked = clueUnlockService.exploreLocation(sessionId, locationId, objectHint);
         return newlyUnlocked.stream()
                 .map(clue -> new PlayerClueView(clue.clueId(), clue.title(), clue.clueType(), clue.playerText()))
                 .toList();

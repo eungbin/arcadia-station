@@ -41,7 +41,7 @@ public class ClueUnlockServiceImpl implements ClueUnlockService {
     }
 
     @Override
-    public List<Clue> exploreLocation(String sessionId, String locationId) {
+    public List<Clue> exploreLocation(String sessionId, String locationId, String objectHint) {
         GameSession session = findSessionOrThrow(sessionId);
         enterInvestigationIfBriefing(session);
 
@@ -52,6 +52,7 @@ public class ClueUnlockServiceImpl implements ClueUnlockService {
         for (Clue clue : blueprint.clues()) {
             if (clue.acquisition().type() == AcquisitionType.EXPLORE
                     && locationId.equals(clue.acquisition().locationId())
+                    && (objectHint == null || objectHint.equals(clue.source().sourceId()))
                     && isUnlockable(clue, inventory)) {
                 unlock(clue, inventory);
                 newlyUnlocked.add(clue);

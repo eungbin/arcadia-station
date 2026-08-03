@@ -35,7 +35,7 @@ class ClueUnlockServiceImplTest {
     void 위치가_일치하고_선행조건을_만족하면_단서가_해금되고_INVESTIGATION으로_전환된다() throws IOException {
         String sessionId = seedSession();
 
-        List<Clue> unlocked = clueUnlockService.exploreLocation(sessionId, "MEDICAL_BAY");
+        List<Clue> unlocked = clueUnlockService.exploreLocation(sessionId, "MEDICAL_BAY", null);
 
         assertThat(unlocked).extracting(Clue::clueId).containsExactly("CLUE-SETUP-LOG");
         assertThat(gameSessionRepository.findById(sessionId).orElseThrow().getState())
@@ -49,7 +49,25 @@ class ClueUnlockServiceImplTest {
         String sessionId = seedSession();
 
         // CLUE-ACCESS-HISTORY는 CLUE-TRIGGER-LOG(RAG_QUERY 전용)를 선행조건으로 요구하므로 아직 해금될 수 없다.
-        List<Clue> unlocked = clueUnlockService.exploreLocation(sessionId, "LIFE_SUPPORT_CORRIDOR");
+        List<Clue> unlocked = clueUnlockService.exploreLocation(sessionId, "ENGINEERING_BAY", null);
+
+        assertThat(unlocked).isEmpty();
+    }
+
+    @Test
+    void objectHint가_주어지면_해당_오브젝트의_단서만_해금된다() throws IOException {
+        String sessionId = seedSession();
+
+        List<Clue> unlocked = clueUnlockService.exploreLocation(sessionId, "MEDICAL_BAY", "MD_MEDICAL_TERMINAL");
+
+        assertThat(unlocked).extracting(Clue::clueId).containsExactly("CLUE-SETUP-LOG");
+    }
+
+    @Test
+    void objectHint가_해당_장소의_단서와_맞지_않으면_빈_목록을_반환한다() throws IOException {
+        String sessionId = seedSession();
+
+        List<Clue> unlocked = clueUnlockService.exploreLocation(sessionId, "MEDICAL_BAY", "MD_MEDICAL_STORAGE");
 
         assertThat(unlocked).isEmpty();
     }

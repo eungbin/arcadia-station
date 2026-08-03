@@ -18,7 +18,7 @@
     },
     "triggerAction": {
       "actorId": "SOPHIA",
-      "locationId": "LIFE_SUPPORT_CORRIDOR",
+      "locationId": "ENGINEERING_BAY",
       "systemId": "LIFE_SUPPORT",
       "operation": "RUN_SAFETY_DIAGNOSTIC",
       "requiredCapabilityIds": ["MEDICAL_ACCESS"]
@@ -39,7 +39,7 @@
       "eventId": "EVENT-TRIGGER",
       "time": "02:05",
       "actorIds": ["SOPHIA"],
-      "locationId": "LIFE_SUPPORT_CORRIDOR",
+      "locationId": "ENGINEERING_BAY",
       "actionType": "SYSTEM_ACTION",
       "summary": "02:05 생명 유지 시스템에서 의료 안전 진단이 실행됐다.",
       "factIds": ["FACT-TRIGGER"]
@@ -79,7 +79,7 @@
     {
       "characterId": "SOPHIA",
       "initialClaim": "그 시간엔 자고 있었다.",
-      "actualWhereabouts": "LIFE_SUPPORT_CORRIDOR",
+      "actualWhereabouts": "ENGINEERING_BAY",
       "supportingFactIds": [],
       "contradictingFactIds": ["FACT-TRIGGER", "FACT-ACCESS"]
     }
@@ -91,7 +91,7 @@
       "clueType": "DIGITAL",
       "isCore": true,
       "solutionRoles": ["SETUP"],
-      "source": { "sourceType": "SYSTEM_LOG", "sourceId": "MEDICAL_BAY" },
+      "source": { "sourceType": "PHYSICAL_OBJECT", "sourceId": "MD_MEDICAL_TERMINAL" },
       "acquisition": {
         "type": "EXPLORE",
         "locationId": "MEDICAL_BAY",
@@ -131,10 +131,10 @@
       "clueType": "DIGITAL",
       "isCore": true,
       "solutionRoles": ["OPPORTUNITY"],
-      "source": { "sourceType": "ACCESS_LOG", "sourceId": "LIFE_SUPPORT_CORRIDOR" },
+      "source": { "sourceType": "PHYSICAL_OBJECT", "sourceId": "EN_LIFE_SUPPORT" },
       "acquisition": {
         "type": "EXPLORE",
-        "locationId": "LIFE_SUPPORT_CORRIDOR",
+        "locationId": "ENGINEERING_BAY",
         "characterId": null,
         "requiredClueIds": ["CLUE-TRIGGER-LOG"],
         "queryTopics": []
@@ -151,10 +151,10 @@
       "clueType": "MOTIVE",
       "isCore": true,
       "solutionRoles": ["MOTIVE"],
-      "source": { "sourceType": "PERSONAL_MESSAGE", "sourceId": "SOPHIA" },
+      "source": { "sourceType": "PHYSICAL_OBJECT", "sourceId": "QT_ACCESS_BUFFER" },
       "acquisition": {
         "type": "EXPLORE",
-        "locationId": "PERSONAL_QUARTERS",
+        "locationId": "COMMON_AREA",
         "characterId": null,
         "requiredClueIds": [],
         "queryTopics": []
