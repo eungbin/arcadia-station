@@ -96,14 +96,20 @@ AI 서버를 종료하지 않은 상태에서 새 PowerShell 창을 엽니다.
 ```powershell
 cd <arcadia-station 클론 경로>\backend
 
-docker compose up -d
-
-$env:SPRING_PROFILES_ACTIVE = 'real-ai'
-$env:AI_SERVER_BASE_URL = 'http://127.0.0.1:8081'
-$env:AI_INTERNAL_API_KEY = 'arcadia-local-shared-key'
-
-.\gradlew.bat bootRun
+docker compose `
+  -f docker-compose.yml `
+  -f compose.real-ai.yml `
+  up -d --build
 ```
+
+`compose.real-ai.yml`은 Compose가 자동으로 읽는 이름이 아니므로 위처럼 `-f`로 명시해야
+합니다. 이 파일이 `real-ai` 프로파일과 `AI_SERVER_BASE_URL`, `AI_INTERNAL_API_KEY`를
+함께 주입하므로 환경변수를 따로 설정하지 않습니다. 컨테이너에서 호스트의 AI 서버로
+나가는 경로도 `host.docker.internal`로 이 파일에 설정되어 있습니다.
+
+IDE에서 백엔드를 직접 디버깅하려면 DB만 띄우는 방법을 `backend/README.md`의
+"로컬 개발" 항목에서 확인하세요. 기본 compose는 `app`도 8080에 띄우므로
+`gradlew bootRun`을 함께 실행하면 포트가 충돌합니다.
 
 두 서버의 `AI_INTERNAL_API_KEY` 값은 반드시 같아야 합니다. 프론트나 브라우저에는 이
 키를 전달하지 않습니다.

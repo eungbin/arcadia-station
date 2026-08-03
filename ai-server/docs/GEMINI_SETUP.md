@@ -32,7 +32,7 @@ $env:AI_CASE_GENERATION_TIMEOUT = '60s'
 확인합니다.
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/actuator/health
+Invoke-RestMethod http://localhost:8081/actuator/health
 ```
 
 그 다음 사건 생성 API를 호출하면 Gemini가 사건 초안을 생성하고, 서버의 JSON Schema
