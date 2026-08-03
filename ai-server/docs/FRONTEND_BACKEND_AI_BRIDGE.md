@@ -2,11 +2,11 @@
 
 대상 저장소:
 
-- 프론트: `eungbin/arcadia-station`
-- AI 서버: `tyoonkk/GAME_AI`
+- 프론트: 모노레포 `hackathon-yaho/arcadia-station`의 `frontend/`
+- AI 서버: 같은 모노레포의 `ai-server/`
 
-두 저장소는 서로를 Git remote로 합치지 않습니다. 브라우저가 AI 서버를 직접 호출하지
-않고 게임 백엔드가 두 계약을 변환하는 구조로 연결합니다.
+세 프로젝트는 한 저장소에 있지만 서로 독립된 서비스로 실행·배포합니다. 브라우저가
+AI 서버를 직접 호출하지 않고 게임 백엔드가 두 계약을 변환하는 구조로 연결합니다.
 
 ```text
 React/Vite
@@ -31,7 +31,7 @@ AI 서버는 다음처럼 포트를 분리해 실행할 수 있습니다.
 ```powershell
 $env:SERVER_PORT = '8081'
 $env:AI_INTERNAL_API_KEY = '<shared-internal-secret>'
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 프론트의 개발 프록시는 `/api`를 게임 백엔드로 전달합니다.

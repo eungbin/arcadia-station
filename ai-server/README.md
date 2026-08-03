@@ -18,7 +18,8 @@ Gemini API로 테스트하려면 [Gemini API 테스트 설정](docs/GEMINI_SETUP
 ## 요구 환경
 
 - JDK 21
-- Maven 3.9+
+- Maven은 따로 설치하지 않아도 됩니다. 저장소에 포함된 래퍼(`mvnw`, `mvnw.cmd`)가
+  Maven 3.9.9를 자동으로 내려받아 사용합니다.
 
 ## 로컬 실행
 
@@ -26,9 +27,21 @@ Gemini API로 테스트하려면 [Gemini API 테스트 설정](docs/GEMINI_SETUP
 게임 백엔드와 함께 실행하는 전체 절차는
 [AI 서버 로컬 연동 테스트](docs/AI_SERVER_LOCAL_TEST.md)를 따르세요.
 
+모노레포 루트가 아니라 `ai-server/` 디렉터리에서 실행합니다.
+
 ```powershell
-mvn test
-mvn spring-boot:run
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
+```
+
+Git Bash, macOS, Linux에서는 `./mvnw`를 사용합니다.
+
+패키징한 jar로 실행하려면 먼저 `.\mvnw.cmd package`로 빌드해야 합니다.
+`target/`은 버전 관리 대상이 아니라 새로 클론한 직후에는 비어 있습니다.
+
+```powershell
+.\mvnw.cmd package
+java -jar target/station-ai-0.1.0-SNAPSHOT.jar
 ```
 
 헬스 체크:
@@ -45,7 +58,7 @@ $env:AI_ENABLED = 'true'
 $env:OPENAI_API_KEY = '<secret>'
 $env:OPENAI_TEXT_MODEL = 'gpt-5.6-terra'
 $env:OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small'
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 환경변수 전체 목록과 Gemini/오프라인 실행 예시는 [`.env.example`](.env.example)에
@@ -82,7 +95,7 @@ mvn spring-boot:run
 [`docs/examples/internal-case-ready.response.json`](docs/examples/internal-case-ready.response.json)에
 있으며 통합 테스트가 현재 HTTP 응답과의 일치 여부를 검사합니다.
 
-`eungbin/arcadia-station` 프론트와 게임 백엔드까지 연결할 때는
+같은 모노레포의 `frontend/`와 `backend/`까지 연결할 때는
 [프론트-백엔드-AI 브리지 계약](docs/FRONTEND_BACKEND_AI_BRIDGE.md)을 사용하세요.
 공유 NPC·오브젝트·추리 필드 변환표는
 `GET /api/v1/integration/frontend-contract`에서 버전이 지정된 JSON으로 조회할 수
