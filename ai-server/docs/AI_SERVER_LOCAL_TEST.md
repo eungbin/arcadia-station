@@ -208,6 +208,18 @@ cd <arcadia-station 클론 경로>\ai-server
 .\mvnw.cmd "-Dtest=FallbackHttpCaseGenerationLoggingTest,AiHttpCaseGenerationLoggingTest" test
 ```
 
+Maven/Spring 로그를 걷어내고 사건 모드와 단서 목록만 읽기 쉽게 보려면 다음 전용
+스크립트를 권장합니다.
+
+```powershell
+.\scripts\show-case-generation-logs.cmd
+```
+
+실제 Gemini/OpenAI 호출까지 포함해 AI 서버를 자동 시작·호출·종료하고 결과를 확인하려면
+다음 문서를 사용합니다.
+
+- [AI 외부 API 호출·단서 로그 확인 가이드](AI_API_LIVE_TEST.md)
+
 두 테스트 모두 실제 랜덤 포트의 `POST /internal/v1/cases`와 상태 조회를 사용합니다. API
 테스트는 비용과 네트워크 불안정을 피하기 위해 외부 공급자 호출만 테스트 더블로 대체하며,
 AI 서버 내부의 API 성공 처리·동결·HTTP 응답·로그 경로는 실제 코드로 검증합니다.

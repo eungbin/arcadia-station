@@ -1,6 +1,7 @@
 package com.arcadia.station.infrastructure.gemini;
 
 import com.arcadia.station.ai.common.AiPurpose;
+import com.arcadia.station.ai.common.AiProviderDiagnostics;
 import com.arcadia.station.ai.common.AiQuotaExceededException;
 import com.arcadia.station.ai.common.AiUsageRecorder;
 import com.arcadia.station.ai.common.ArcadiaAiProperties;
@@ -16,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
 public class GeminiInteractionsGateway implements OpenAiGateway {
@@ -99,21 +101,43 @@ public class GeminiInteractionsGateway implements OpenAiGateway {
         request.put("store", false);
 
         Instant startedAt = Instant.now();
+        int httpStatus = 0;
+        AiProviderDiagnostics.requestStarted(
+                "GEMINI",
+                "STRUCTURED_OUTPUT",
+                purpose,
+                properties.gemini().model(),
+                "/interactions"
+        );
         try {
-            JsonNode response = client.post()
+            ResponseEntity<JsonNode> responseEntity = client.post()
                     .uri("/interactions")
                     .body(request)
                     .retrieve()
-                    .body(JsonNode.class);
+                    .toEntity(JsonNode.class);
+            httpStatus = responseEntity.getStatusCode().value();
+            JsonNode response = responseEntity.getBody();
             String output = extractOutputText(response);
             schemaValidator.validateOrThrow(output, schema);
             T result = objectMapper.readValue(output, responseType);
+            long inputTokens = response.path("usage").path("total_input_tokens").asLong();
+            long outputTokens = response.path("usage").path("total_output_tokens").asLong();
             usageRecorder.recordCall(
                     purpose,
                     Duration.between(startedAt, Instant.now()),
                     true,
-                    response.path("usage").path("total_input_tokens").asLong(),
-                    response.path("usage").path("total_output_tokens").asLong()
+                    inputTokens,
+                    outputTokens
+            );
+            AiProviderDiagnostics.requestSucceeded(
+                    "GEMINI",
+                    "STRUCTURED_OUTPUT",
+                    purpose,
+                    properties.gemini().model(),
+                    httpStatus,
+                    startedAt,
+                    inputTokens,
+                    outputTokens
             );
             return result;
         } catch (Exception exception) {
@@ -123,6 +147,15 @@ public class GeminiInteractionsGateway implements OpenAiGateway {
                     false,
                     0,
                     0
+            );
+            AiProviderDiagnostics.requestFailed(
+                    "GEMINI",
+                    "STRUCTURED_OUTPUT",
+                    purpose,
+                    properties.gemini().model(),
+                    httpStatus,
+                    startedAt,
+                    exception
             );
             throw translateFailure(
                     "Gemini structured output could not be decoded",

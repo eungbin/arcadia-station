@@ -22,12 +22,16 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+@ExtendWith(OutputCaptureExtension.class)
 class GeminiInteractionsGatewayTest {
 
     private ObjectMapper objectMapper;
@@ -77,7 +81,9 @@ class GeminiInteractionsGatewayTest {
     }
 
     @Test
-    void decodesAndValidatesStructuredInteractionOutput() throws Exception {
+    void decodesAndValidatesStructuredInteractionOutput(
+            CapturedOutput output
+    ) throws Exception {
         JsonSchema schema = new JsonSchema(
                 "test_response",
                 objectMapper.readTree("""
@@ -132,6 +138,16 @@ class GeminiInteractionsGatewayTest {
         );
 
         assertThat(response.value()).isEqualTo("generated");
+        assertThat(output.getOut())
+                .contains("[AI-API][REQUEST] event=ai_provider_request_started "
+                        + "provider=gemini operation=structured_output "
+                        + "purpose=CASE_GENERATION model=gemini-3.6-flash "
+                        + "endpoint=/interactions")
+                .contains("[AI-API][SUCCESS] event=ai_provider_request_succeeded "
+                        + "provider=gemini operation=structured_output "
+                        + "purpose=CASE_GENERATION model=gemini-3.6-flash "
+                        + "httpStatus=200")
+                .doesNotContain("gemini-test-key");
         server.verify();
     }
 

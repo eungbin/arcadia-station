@@ -1,6 +1,7 @@
 package com.arcadia.station.infrastructure.openai;
 
 import com.arcadia.station.ai.common.AiPurpose;
+import com.arcadia.station.ai.common.AiProviderDiagnostics;
 import com.arcadia.station.ai.common.AiQuotaExceededException;
 import com.arcadia.station.ai.common.AiUsageRecorder;
 import com.arcadia.station.ai.common.ArcadiaAiProperties;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.time.Duration;
 import java.time.Instant;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
 public class OpenAiResponsesGateway implements OpenAiGateway {
@@ -78,21 +80,43 @@ public class OpenAiResponsesGateway implements OpenAiGateway {
                 )
         );
         Instant startedAt = Instant.now();
+        int httpStatus = 0;
+        AiProviderDiagnostics.requestStarted(
+                "OPENAI",
+                "STRUCTURED_OUTPUT",
+                purpose,
+                properties.openai().model(),
+                "/responses"
+        );
         try {
-            JsonNode response = client.post()
+            ResponseEntity<JsonNode> responseEntity = client.post()
                     .uri("/responses")
                     .body(request)
                     .retrieve()
-                    .body(JsonNode.class);
+                    .toEntity(JsonNode.class);
+            httpStatus = responseEntity.getStatusCode().value();
+            JsonNode response = responseEntity.getBody();
             String output = extractOutputText(response);
             schemaValidator.validateOrThrow(output, schema);
             T result = objectMapper.readValue(output, responseType);
+            long inputTokens = response.path("usage").path("input_tokens").asLong();
+            long outputTokens = response.path("usage").path("output_tokens").asLong();
             usageRecorder.recordCall(
                     purpose,
                     Duration.between(startedAt, Instant.now()),
                     true,
-                    response.path("usage").path("input_tokens").asLong(),
-                    response.path("usage").path("output_tokens").asLong()
+                    inputTokens,
+                    outputTokens
+            );
+            AiProviderDiagnostics.requestSucceeded(
+                    "OPENAI",
+                    "STRUCTURED_OUTPUT",
+                    purpose,
+                    properties.openai().model(),
+                    httpStatus,
+                    startedAt,
+                    inputTokens,
+                    outputTokens
             );
             return result;
         } catch (Exception exception) {
@@ -102,6 +126,15 @@ public class OpenAiResponsesGateway implements OpenAiGateway {
                     false,
                     0,
                     0
+            );
+            AiProviderDiagnostics.requestFailed(
+                    "OPENAI",
+                    "STRUCTURED_OUTPUT",
+                    purpose,
+                    properties.openai().model(),
+                    httpStatus,
+                    startedAt,
+                    exception
             );
             throw translateFailure(
                     "OpenAI structured output could not be decoded",

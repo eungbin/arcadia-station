@@ -26,6 +26,9 @@ Gemini API로 테스트하려면 [Gemini API 테스트 설정](docs/GEMINI_SETUP
 기본값은 API 키 없이 완주 가능한 오프라인 모드입니다.
 게임 백엔드와 함께 실행하는 전체 절차는
 [AI 서버 로컬 연동 테스트](docs/AI_SERVER_LOCAL_TEST.md)를 따르세요.
+Maven/Spring 출력에서 사건 모드와 단서 목록만 읽기 쉽게 확인하거나 실제 외부 API
+호출을 검증하려면 [AI 외부 API 호출·단서 로그 확인 가이드](docs/AI_API_LIVE_TEST.md)를
+사용하세요.
 
 모노레포 루트가 아니라 `ai-server/` 디렉터리에서 실행합니다.
 
