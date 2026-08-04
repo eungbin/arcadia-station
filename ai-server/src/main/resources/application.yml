@@ -11,6 +11,11 @@ management:
       exposure:
         include: health,info,metrics
 
+logging:
+  level:
+    ARC_AI_CASE_AUDIT: INFO
+    org.springframework.web: INFO
+
 arcadia:
   internal-api-key: ${AI_INTERNAL_API_KEY:}
   ai:

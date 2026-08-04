@@ -45,6 +45,45 @@ class CaseGenerationServiceRetryTest {
     private ObjectMapper objectMapper;
 
     @Test
+    void successfulAiGenerationLogsApiModeAndEveryClue(CapturedOutput output) {
+        CaseBlueprint generated = fallback.forSession(
+                "ai-success-test",
+                "ai-success-seed"
+        );
+        when(generator.generate(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(generated);
+        when(validator.validate(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(generated)
+        )).thenReturn(new CaseValidationResult(List.of()));
+
+        FrozenCaseBlueprint result = service.createCase(
+                "ai-success-test",
+                "ai-success-seed"
+        );
+
+        assertThat(result.generationSource()).isEqualTo(GenerationSource.AI);
+        assertThat(result.generationAttemptCount()).isEqualTo(1);
+        verify(generator, times(1)).generate(org.mockito.ArgumentMatchers.any());
+        String logs = output.getOut();
+        assertThat(logs)
+                .contains("[AI-CASE][START] event=ai_case_start "
+                        + "sessionId=ai-success-test configuredMode=API "
+                        + "fallbackReason=NONE")
+                .contains("[AI-CASE][RESULT] event=ai_case_result "
+                        + "sessionId=ai-success-test mode=API generationSource=AI "
+                        + "fallbackReason=NONE aiPathAttempted=true")
+                .contains("[AI-CASE][END] event=ai_case_clue_list_complete "
+                        + "sessionId=ai-success-test mode=API loggedClueCount=14 "
+                        + "totalClueCount=14 clueManifestTruncated=false");
+        assertThat(logs.lines()
+                .filter(line -> line.contains("[AI-CASE][CLUE]"))
+                .filter(line -> line.contains("sessionId=ai-success-test")))
+                .hasSize(14);
+    }
+
+    @Test
     void retriesTwiceThenUsesValidatedFallback(CapturedOutput output) throws Exception {
         ObjectNode invalidNode = objectMapper.valueToTree(
                 fallback.forSession("retry-test", "retry-seed")

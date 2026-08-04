@@ -2,6 +2,7 @@ package com.arcadia.station.game.application;
 
 import com.arcadia.station.ai.casegen.CaseGenerationService;
 import com.arcadia.station.ai.casegen.FrozenCaseBlueprint;
+import com.arcadia.station.ai.casegen.GenerationSource;
 import com.arcadia.station.ai.rag.RagIndexBuilder;
 import com.arcadia.station.game.domain.GameSession;
 import com.arcadia.station.infrastructure.persistence.InMemoryGameSessionRepository;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class GameSessionService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(GameSessionService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger("ARC_AI_CASE_AUDIT");
 
     private final InMemoryGameSessionRepository sessions;
     private final CaseGenerationService caseGenerationService;
@@ -54,7 +55,8 @@ public class GameSessionService {
         GameSession session = new GameSession(sessionId, seed);
         sessions.save(session);
         LOGGER.info(
-                "event=session_case_accepted sessionId={} clientProvidedSessionId={} "
+                "[GAME-SESSION][START] event=session_case_accepted sessionId={} "
+                        + "clientProvidedSessionId={} "
                         + "clientProvidedSeed={}",
                 sessionId,
                 clientProvidedSessionId,
@@ -79,7 +81,7 @@ public class GameSessionService {
 
     private void generateCase(GameSession session) {
         LOGGER.info(
-                "event=session_case_generation_started sessionId={}",
+                "[GAME-SESSION][GENERATING] event=session_case_generation_started sessionId={}",
                 session.sessionId()
         );
         try {
@@ -90,10 +92,15 @@ public class GameSessionService {
             );
             session.markReady(frozen);
             ragIndexBuilder.index(frozen);
+            String mode = frozen.generationSource() == GenerationSource.AI
+                    ? "API"
+                    : "FALLBACK";
             LOGGER.info(
-                    "event=session_case_ready sessionId={} generationSource={} attempts={} "
+                    "[GAME-SESSION][READY] event=session_case_ready sessionId={} mode={} "
+                            + "generationSource={} attempts={} "
                             + "clueCount={}",
                     session.sessionId(),
+                    mode,
                     frozen.generationSource(),
                     frozen.generationAttemptCount(),
                     frozen.blueprint().clues().size()
@@ -101,7 +108,8 @@ public class GameSessionService {
         } catch (RuntimeException exception) {
             session.fail("CASE_GENERATION_FAILED");
             LOGGER.error(
-                    "event=session_case_failed sessionId={} errorCode=CASE_GENERATION_FAILED "
+                    "[GAME-SESSION][FAILED] event=session_case_failed sessionId={} "
+                            + "errorCode=CASE_GENERATION_FAILED "
                             + "exceptionType={}",
                     session.sessionId(),
                     exception.getClass().getSimpleName()

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CaseGenerationDiagnostics {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CaseGenerationDiagnostics.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger("ARC_AI_CASE_AUDIT");
     private static final int MAX_LOGGED_CLUES = 50;
 
     private final ArcadiaAiProperties properties;
@@ -33,10 +33,12 @@ public class CaseGenerationDiagnostics {
     public void generationStarted(
             String sessionId,
             int maximumAttempts,
-            boolean externalAiEnabled
+            boolean externalAiEnabled,
+            CaseGenerationFallbackReason configurationReason
     ) {
         safely("case_generation_started", () -> LOGGER.info(
-                "event=case_generation_started sessionId={} provider={} configuredModel={} "
+                "event=case_generation_started sessionId={} configuredProvider={} "
+                        + "configuredModel={} "
                         + "promptVersion={} maxAttempts={} aiEnabled={} offlineMode={} "
                         + "apiKeyConfigured={} externalAiEnabled={}",
                 sessionId,
@@ -48,6 +50,20 @@ public class CaseGenerationDiagnostics {
                 properties.offlineMode(),
                 properties.hasActiveApiKey(),
                 externalAiEnabled
+        ));
+        safely("ai_case_start", () -> LOGGER.info(
+                "[AI-CASE][START] event=ai_case_start sessionId={} configuredMode={} "
+                        + "fallbackReason={} configuredProvider={} configuredModel={} "
+                        + "maxAttempts={} aiEnabled={} offlineMode={} apiKeyConfigured={}",
+                sessionId,
+                externalAiEnabled ? "API" : "FALLBACK",
+                configurationReason,
+                properties.activeProvider(),
+                safeValue(properties.activeModel()),
+                maximumAttempts,
+                properties.enabled(),
+                properties.offlineMode(),
+                properties.hasActiveApiKey()
         ));
     }
 
@@ -138,10 +154,10 @@ public class CaseGenerationDiagnostics {
         String clueSetSha256 = clueSetSha256(clues);
         String clueIdsJson = writeJson(loggedClues.stream()
                 .map(CaseBlueprint.Clue::clueId)
-                .map(this::safeValue)
+                .map(value -> safeGeneratedValue(value, frozen.seed()))
                 .toList());
         String manifestJson = writeJson(loggedClues.stream()
-                .map(this::toClueLogView)
+                .map(clue -> toClueLogView(clue, frozen.seed()))
                 .toList());
         long durationMillis = Math.max(
                 0,
@@ -151,7 +167,8 @@ public class CaseGenerationDiagnostics {
         LOGGER.info(
                 "event=case_generation_completed sessionId={} generationSource={} "
                         + "fallbackReason={} aiPathAttempted={} attempts={} durationMs={} "
-                        + "provider={} configuredModel={} promptVersion={} blueprintId={} "
+                        + "configuredProvider={} configuredModel={} promptVersion={} "
+                        + "blueprintId={} "
                         + "blueprintSha256={} clueSetSha256={} clueCount={} "
                         + "exploreClueCount={} objectClueCount={} loggedClueCount={} "
                         + "clueManifestTruncated={} clueIds={}",
@@ -164,7 +181,7 @@ public class CaseGenerationDiagnostics {
                 properties.activeProvider(),
                 safeValue(frozen.model()),
                 safeValue(frozen.promptVersion()),
-                safeValue(frozen.blueprintId()),
+                safeGeneratedValue(frozen.blueprintId(), frozen.seed()),
                 frozen.blueprintSha256(),
                 clueSetSha256,
                 clues.size(),
@@ -174,13 +191,82 @@ public class CaseGenerationDiagnostics {
                 clueManifestTruncated,
                 clueIdsJson
         );
-        LOGGER.info(
+        LOGGER.debug(
                 "event=case_generation_clues sessionId={} clueSetSha256={} "
                         + "clueManifestTruncated={} clues={}",
                 frozen.sessionId(),
                 clueSetSha256,
                 clueManifestTruncated,
                 manifestJson
+        );
+        logReadableClueList(
+                frozen,
+                fallbackReason,
+                aiPathAttempted,
+                loggedClues,
+                clueSetSha256,
+                clueManifestTruncated
+        );
+    }
+
+    private void logReadableClueList(
+            FrozenCaseBlueprint frozen,
+            CaseGenerationFallbackReason fallbackReason,
+            boolean aiPathAttempted,
+            List<CaseBlueprint.Clue> loggedClues,
+            String clueSetSha256,
+            boolean clueManifestTruncated
+    ) {
+        String mode = frozen.generationSource() == GenerationSource.AI
+                ? "API"
+                : "FALLBACK";
+        int totalClueCount = frozen.blueprint().clues().size();
+        LOGGER.info(
+                "[AI-CASE][RESULT] event=ai_case_result sessionId={} mode={} "
+                        + "generationSource={} fallbackReason={} aiPathAttempted={} "
+                        + "configuredProvider={} configuredModel={} attempts={} "
+                        + "clueCount={} clueSetSha256={}",
+                frozen.sessionId(),
+                mode,
+                frozen.generationSource(),
+                fallbackReason,
+                aiPathAttempted,
+                properties.activeProvider(),
+                safeGeneratedValue(frozen.model(), frozen.seed()),
+                frozen.generationAttemptCount(),
+                totalClueCount,
+                clueSetSha256
+        );
+        for (int index = 0; index < loggedClues.size(); index++) {
+            CaseBlueprint.Clue clue = loggedClues.get(index);
+            LOGGER.info(
+                    "[AI-CASE][CLUE] event=ai_case_clue sessionId={} number={}/{} "
+                            + "clueId={} title=\"{}\" clueType={} core={} "
+                            + "acquisitionType={} locationId={} sourceType={} sourceId={}",
+                    frozen.sessionId(),
+                    index + 1,
+                    totalClueCount,
+                    safeGeneratedLogValue(clue.clueId(), frozen.seed()),
+                    safeGeneratedLogValue(clue.title(), frozen.seed()),
+                    clue.clueType(),
+                    clue.isCore(),
+                    clue.acquisition().type(),
+                    safeGeneratedLogValue(
+                            clue.acquisition().locationId(),
+                            frozen.seed()
+                    ),
+                    safeGeneratedLogValue(clue.source().sourceType(), frozen.seed()),
+                    safeGeneratedLogValue(clue.source().sourceId(), frozen.seed())
+            );
+        }
+        LOGGER.info(
+                "[AI-CASE][END] event=ai_case_clue_list_complete sessionId={} mode={} "
+                        + "loggedClueCount={} totalClueCount={} clueManifestTruncated={}",
+                frozen.sessionId(),
+                mode,
+                loggedClues.size(),
+                totalClueCount,
+                clueManifestTruncated
         );
     }
 
@@ -225,11 +311,41 @@ public class CaseGenerationDiagnostics {
         if (value == null) {
             return "unknown";
         }
-        String normalized = value
-                .replace('\r', '_')
-                .replace('\n', '_')
-                .replace('\t', '_');
-        return normalized.substring(0, Math.min(normalized.length(), 128));
+        StringBuilder normalized = new StringBuilder();
+        value.codePoints().forEach(codePoint -> {
+            int characterType = Character.getType(codePoint);
+            if (Character.isISOControl(codePoint)
+                    || characterType == Character.FORMAT
+                    || characterType == Character.LINE_SEPARATOR
+                    || characterType == Character.PARAGRAPH_SEPARATOR) {
+                normalized.append('_');
+            } else {
+                normalized.appendCodePoint(codePoint);
+            }
+        });
+        String normalizedValue = normalized.toString();
+        int codePointCount = normalizedValue.codePointCount(0, normalizedValue.length());
+        int endIndex = normalizedValue.offsetByCodePoints(
+                0,
+                Math.min(codePointCount, 128)
+        );
+        return normalizedValue.substring(0, endIndex);
+    }
+
+    private String safeGeneratedValue(String value, String seed) {
+        if (value == null) {
+            return safeValue(null);
+        }
+        String redacted = seed == null || seed.isBlank()
+                ? value
+                : value.replace(seed, "[REDACTED_SEED]");
+        return safeValue(redacted);
+    }
+
+    private String safeGeneratedLogValue(String value, String seed) {
+        return safeGeneratedValue(value, seed)
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
     }
 
     private String rootCauseType(Throwable exception) {
@@ -243,18 +359,18 @@ public class CaseGenerationDiagnostics {
         return current.getClass().getSimpleName();
     }
 
-    private ClueLogView toClueLogView(CaseBlueprint.Clue clue) {
+    private ClueLogView toClueLogView(CaseBlueprint.Clue clue, String seed) {
         return new ClueLogView(
-                safeValue(clue.clueId()),
-                safeValue(clue.title()),
+                safeGeneratedValue(clue.clueId(), seed),
+                safeGeneratedValue(clue.title(), seed),
                 clue.clueType(),
                 clue.isCore(),
-                safeValue(clue.source().sourceType()),
-                safeValue(clue.source().sourceId()),
+                safeGeneratedValue(clue.source().sourceType(), seed),
+                safeGeneratedValue(clue.source().sourceId(), seed),
                 clue.acquisition().type(),
                 clue.acquisition().locationId() == null
                         ? null
-                        : safeValue(clue.acquisition().locationId())
+                        : safeGeneratedValue(clue.acquisition().locationId(), seed)
         );
     }
 

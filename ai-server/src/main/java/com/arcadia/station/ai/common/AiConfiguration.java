@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class AiConfiguration {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AiConfiguration.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger("ARC_AI_CASE_AUDIT");
 
     @Bean
     Jackson2ObjectMapperBuilderCustomizer strictJsonContracts() {
@@ -37,7 +37,8 @@ public class AiConfiguration {
                 || properties.offlineMode()
                 || !properties.hasActiveApiKey()) {
             LOGGER.info(
-                    "event=ai_runtime_configured selectedGateway=FALLBACK "
+                    "[AI-MODE] event=ai_runtime_configured configuredMode=FALLBACK "
+                            + "selectedGateway=FALLBACK "
                             + "externalAiEnabled=false fallbackReason={} provider={} "
                             + "configuredModel={} aiEnabled={} offlineMode={} "
                             + "apiKeyConfigured={} repeatedClueSetExpected=true",
@@ -67,7 +68,8 @@ public class AiConfiguration {
             );
         };
         LOGGER.info(
-                "event=ai_runtime_configured selectedGateway={} externalAiEnabled=true "
+                "[AI-MODE] event=ai_runtime_configured configuredMode=API "
+                        + "selectedGateway={} externalAiEnabled=true "
                         + "fallbackReason=NONE provider={} configuredModel={} aiEnabled={} "
                         + "offlineMode={} apiKeyConfigured={}",
                 properties.activeProvider(),

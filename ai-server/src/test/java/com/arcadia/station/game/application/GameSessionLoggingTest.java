@@ -33,10 +33,22 @@ class GameSessionLoggingTest {
 
         assertThat(session.state()).isEqualTo(SessionState.READY);
         assertThat(output.getOut())
-                .contains("event=session_case_accepted sessionId=" + session.sessionId())
-                .contains("event=session_case_generation_started sessionId=" + session.sessionId())
+                .contains("[GAME-SESSION][START] event=session_case_accepted "
+                        + "sessionId=" + session.sessionId())
+                .contains("[GAME-SESSION][GENERATING] "
+                        + "event=session_case_generation_started sessionId="
+                        + session.sessionId())
                 .contains(readyEvent)
+                .contains("[GAME-SESSION][READY] " + readyEvent + " mode=FALLBACK")
+                .contains("[AI-CASE][RESULT] event=ai_case_result "
+                        + "sessionId=" + session.sessionId() + " mode=FALLBACK")
+                .contains("[AI-CASE][END] event=ai_case_clue_list_complete "
+                        + "sessionId=" + session.sessionId())
                 .contains("generationSource=FALLBACK")
                 .doesNotContain("DO_NOT_LOG_SESSION_SEED");
+        assertThat(output.getOut().lines()
+                .filter(line -> line.contains("[AI-CASE][CLUE]"))
+                .filter(line -> line.contains("sessionId=" + session.sessionId())))
+                .hasSize(14);
     }
 }

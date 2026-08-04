@@ -41,16 +41,31 @@ class CaseGenerationLoggingTest {
         assertThat(logs)
                 .contains("event=case_generation_started sessionId=logging-session-one")
                 .contains("apiKeyConfigured=true externalAiEnabled=false")
+                .contains("[AI-CASE][START] event=ai_case_start "
+                        + "sessionId=logging-session-one configuredMode=FALLBACK "
+                        + "fallbackReason=OFFLINE_MODE")
                 .contains("event=case_generation_completed sessionId=logging-session-one")
                 .contains("generationSource=FALLBACK fallbackReason=OFFLINE_MODE")
                 .contains("aiPathAttempted=false")
                 .contains("clueCount=14 exploreClueCount=10 objectClueCount=10")
-                .contains("event=case_generation_clues sessionId=logging-session-one")
-                .contains("\"clueId\":\"CLUE-SETUP-PANEL\"")
-                .contains("\"title\":")
+                .contains("[AI-CASE][RESULT] event=ai_case_result "
+                        + "sessionId=logging-session-one mode=FALLBACK "
+                        + "generationSource=FALLBACK fallbackReason=OFFLINE_MODE "
+                        + "aiPathAttempted=false")
+                .contains("[AI-CASE][CLUE] event=ai_case_clue "
+                        + "sessionId=logging-session-one number=1/14")
+                .contains("[AI-CASE][END] event=ai_case_clue_list_complete "
+                        + "sessionId=logging-session-one mode=FALLBACK "
+                        + "loggedClueCount=14 totalClueCount=14 "
+                        + "clueManifestTruncated=false")
                 .doesNotContain("DO_NOT_LOG_API_KEY")
                 .doesNotContain("DO_NOT_LOG_SEED_ONE")
                 .doesNotContain("DO_NOT_LOG_SEED_TWO");
+
+        assertThat(logs.lines()
+                .filter(line -> line.contains("[AI-CASE][CLUE]"))
+                .filter(line -> line.contains("sessionId=logging-session-one")))
+                .hasSize(14);
 
         List<String> fingerprints = logs.lines()
                 .filter(line -> line.contains("event=case_generation_completed"))

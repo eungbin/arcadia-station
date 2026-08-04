@@ -154,33 +154,63 @@ API quota 초과, timeout, JSON 변환 실패 또는 게임 규칙 검증 실패
 가능한 경우 내장 fallback 사건으로 전환합니다. 이 경우에도 응답은
 `status=READY`, `generationSource=FALLBACK`입니다.
 
-## 6. 로그로 실제 AI 생성 여부 확인
+## 6. 로그로 실제 AI 생성 여부와 단서 목록 확인
 
-AI 서버 시작 시 선택된 실행 경로가 한 줄로 출력됩니다.
+AI 서버 로그는 백엔드 Docker 로그가 아니라 AI 서버를 실행한 PowerShell 또는 IDE Run
+콘솔에 출력됩니다. AI 서버는 현재 `docker-compose.yml`의 서비스가 아니므로
+`docker compose logs app`에서는 아래 로그를 볼 수 없습니다. 최신 코드를 받은 뒤에는 실행
+중인 AI 서버 프로세스도 반드시 다시 시작합니다.
+
+AI 서버 시작 시 선택된 실행 경로가 눈에 띄는 한 줄로 출력됩니다.
 
 ```text
-event=ai_runtime_configured selectedGateway=FALLBACK externalAiEnabled=false fallbackReason=OFFLINE_MODE ... repeatedClueSetExpected=true
+[AI-MODE] event=ai_runtime_configured configuredMode=FALLBACK selectedGateway=FALLBACK externalAiEnabled=false fallbackReason=OFFLINE_MODE ... repeatedClueSetExpected=true
 ```
 
 실제 공급자가 선택되면 `selectedGateway=GEMINI`, `externalAiEnabled=true`,
-`fallbackReason=NONE`으로 표시됩니다. API 키 원문은 로그에 출력하지 않고 설정 여부만
-`apiKeyConfigured=true|false`로 표시합니다.
+`configuredMode=API`, `fallbackReason=NONE`으로 표시됩니다. API 키 원문은 로그에 출력하지
+않고 설정 여부만 `apiKeyConfigured=true|false`로 표시합니다.
 
 세션 요청이 AI 서버에 도착하면 다음 이벤트가 순서대로 출력됩니다.
 
 ```text
-event=session_case_accepted sessionId=...
-event=case_generation_started sessionId=... externalAiEnabled=true
-event=case_generation_completed sessionId=... generationSource=AI fallbackReason=NONE ...
-event=case_generation_clues sessionId=... clueSetSha256=... clues=[...]
+[GAME-SESSION][START] event=session_case_accepted sessionId=...
+[AI-CASE][START] event=ai_case_start sessionId=... configuredMode=API fallbackReason=NONE ...
+[AI-CASE][RESULT] event=ai_case_result sessionId=... mode=API generationSource=AI fallbackReason=NONE aiPathAttempted=true ... clueCount=14 ...
+[AI-CASE][CLUE] event=ai_case_clue sessionId=... number=1/14 clueId=... title="..." clueType=... acquisitionType=... locationId=... sourceId=...
+[AI-CASE][CLUE] event=ai_case_clue sessionId=... number=2/14 ...
+[AI-CASE][END] event=ai_case_clue_list_complete sessionId=... mode=API loggedClueCount=14 totalClueCount=14 clueManifestTruncated=false
+[GAME-SESSION][READY] event=session_case_ready sessionId=... mode=API generationSource=AI ... clueCount=14
 ```
+
+`[AI-CASE][START]`의 `configuredMode`는 요청을 시작할 때 선택된 경로입니다. 공급자 오류나
+검증 실패가 발생하면 시작은 `API`였어도 최종 `[AI-CASE][RESULT]`는 `mode=FALLBACK`이 될
+수 있습니다. 실제 API 생성 성공 여부는 반드시 최종 결과의
+`mode=API generationSource=AI fallbackReason=NONE` 조합으로 판단합니다.
+
+각 단서는 `[AI-CASE][CLUE]` 한 줄씩 별도로 출력됩니다. 따라서 긴 JSON 한 줄이 콘솔 또는
+로그 수집기에서 잘리더라도 ID·제목·장소·오브젝트·획득 방식을 확인할 수 있습니다. 예를
+들어 단서가 14개인 사건은 `number=1/14`부터 `number=14/14`까지 출력됩니다.
 
 `case_generation_completed`에는 생성 출처, fallback 사유, 외부 AI 생성 경로 진입 여부,
 시도 횟수,
 전체 청사진 해시, 단서 집합 전용 `clueSetSha256`, 단서 개수가 기록됩니다.
-`case_generation_clues`에는 정답·전체 단서 본문 대신 단서 ID·제목·장소·오브젝트와 획득
-방식만 안전한 JSON 한 줄로 기록됩니다. 비정상적으로 큰 응답이 로그를 과도하게 차지하지
-않도록 상세 목록은 최대 50개까지만 기록하며 전체 단서 수와 지문은 그대로 남깁니다.
+DEBUG 로그의 `case_generation_clues`에는 정답·전체 단서 본문 대신 단서 ID·제목·장소·
+오브젝트와 획득 방식만 안전한 JSON 한 줄로 기록됩니다. 기본 INFO 로그에서는 중복되는 긴
+JSON을 생략하고 `[AI-CASE][CLUE]`를 단서별로 출력합니다. 비정상적으로 큰 응답이 로그를
+과도하게 차지하지 않도록 상세 목록은 최대 50개까지만 기록하며 전체 단서 수와 지문은
+그대로 남깁니다.
+
+실제 HTTP 사건 생성 경로의 API/FALLBACK 및 단서별 로그 테스트만 다시 실행하려면:
+
+```powershell
+cd <arcadia-station 클론 경로>\ai-server
+.\mvnw.cmd "-Dtest=FallbackHttpCaseGenerationLoggingTest,AiHttpCaseGenerationLoggingTest" test
+```
+
+두 테스트 모두 실제 랜덤 포트의 `POST /internal/v1/cases`와 상태 조회를 사용합니다. API
+테스트는 비용과 네트워크 불안정을 피하기 위해 외부 공급자 호출만 테스트 더블로 대체하며,
+AI 서버 내부의 API 성공 처리·동결·HTTP 응답·로그 경로는 실제 코드로 검증합니다.
 
 서로 다른 세션에서 `clueSetSha256`가 같고 `generationSource=FALLBACK`이면 동일한 내장
 fallback 단서가 사용된 정상 동작입니다. fallback은 세션 ID와 seed만 바꾸고 단서 내용은

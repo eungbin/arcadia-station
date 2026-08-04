@@ -48,7 +48,12 @@ public class CaseGenerationService {
         int maximumAttempts = 1 + properties.caseGeneration().maxRetries();
         CaseGenerationFallbackReason configurationReason = configurationFallbackReason();
         boolean externalAiEnabled = configurationReason == CaseGenerationFallbackReason.NONE;
-        diagnostics.generationStarted(sessionId, maximumAttempts, externalAiEnabled);
+        diagnostics.generationStarted(
+                sessionId,
+                maximumAttempts,
+                externalAiEnabled,
+                configurationReason
+        );
         if (!externalAiEnabled) {
             return validatedFallback(
                     sessionId,
