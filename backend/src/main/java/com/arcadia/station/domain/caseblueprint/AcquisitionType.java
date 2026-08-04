@@ -1,3 +1,3 @@
 package com.arcadia.station.domain.caseblueprint;
 
-public enum AcquisitionType { EXPLORE, INTERROGATE, RAG_QUERY, CONNECT, AUTO }
+public enum AcquisitionType { EXPLORE, RAG_QUERY, CONNECT }
