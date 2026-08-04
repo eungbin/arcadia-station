@@ -21,6 +21,7 @@ public class CaseGenerationService {
     private final SessionCaseFreezer freezer;
     private final ArcadiaAiProperties properties;
     private final AiUsageRecorder usageRecorder;
+    private final CaseGenerationDiagnostics diagnostics;
 
     public CaseGenerationService(
             TemplateRepository templates,
@@ -29,7 +30,8 @@ public class CaseGenerationService {
             FallbackCaseProvider fallback,
             SessionCaseFreezer freezer,
             ArcadiaAiProperties properties,
-            AiUsageRecorder usageRecorder
+            AiUsageRecorder usageRecorder,
+            CaseGenerationDiagnostics diagnostics
     ) {
         this.templates = templates;
         this.generator = generator;
@@ -38,19 +40,39 @@ public class CaseGenerationService {
         this.freezer = freezer;
         this.properties = properties;
         this.usageRecorder = usageRecorder;
+        this.diagnostics = diagnostics;
     }
 
     public FrozenCaseBlueprint createCase(String sessionId, String seed) {
         Instant createdAt = Instant.now();
-        if (!properties.enabled() || properties.offlineMode()
-                || !properties.hasActiveApiKey()) {
-            return validatedFallback(sessionId, seed, 0, createdAt);
+        int maximumAttempts = 1 + properties.caseGeneration().maxRetries();
+        CaseGenerationFallbackReason configurationReason = configurationFallbackReason();
+        boolean externalAiEnabled = configurationReason == CaseGenerationFallbackReason.NONE;
+        diagnostics.generationStarted(sessionId, maximumAttempts, externalAiEnabled);
+        if (!externalAiEnabled) {
+            return validatedFallback(
+                    sessionId,
+                    seed,
+                    0,
+                    configurationReason,
+                    false,
+                    createdAt
+            );
         }
 
         List<ValidationIssue> previousIssues = List.of();
-        int maximumAttempts = 1 + properties.caseGeneration().maxRetries();
+        CaseGenerationFallbackReason exhaustedReason =
+                CaseGenerationFallbackReason.VALIDATION_EXHAUSTED;
+        boolean aiPathAttempted = false;
         for (int attempt = 1; attempt <= maximumAttempts; attempt++) {
+            diagnostics.attemptStarted(
+                    sessionId,
+                    attempt,
+                    maximumAttempts,
+                    previousIssues
+            );
             try {
+                aiPathAttempted = true;
                 CaseBlueprint blueprint = generator.generate(new CaseGenerationRequest(
                         sessionId,
                         seed,
@@ -70,6 +92,8 @@ public class CaseGenerationService {
                             "Generated seed does not match the server seed"
                     ));
                     usageRecorder.recordValidationIssue("SEED_MISMATCH");
+                    diagnostics.attemptRejected(sessionId, attempt, previousIssues);
+                    exhaustedReason = CaseGenerationFallbackReason.VALIDATION_EXHAUSTED;
                     continue;
                 }
                 if (result.valid()) {
@@ -83,27 +107,65 @@ public class CaseGenerationService {
                             createdAt
                     );
                     usageRecorder.recordGenerationSource(GenerationSource.AI.name());
+                    diagnostics.generationCompleted(
+                            frozen,
+                            CaseGenerationFallbackReason.NONE,
+                            true,
+                            createdAt
+                    );
                     return frozen;
                 }
                 previousIssues = result.issues();
                 previousIssues.forEach(issue -> usageRecorder.recordValidationIssue(issue.code()));
+                diagnostics.attemptRejected(sessionId, attempt, previousIssues);
+                exhaustedReason = CaseGenerationFallbackReason.VALIDATION_EXHAUSTED;
             } catch (AiQuotaExceededException exception) {
-                return validatedFallback(sessionId, seed, attempt, createdAt);
+                diagnostics.attemptFailed(
+                        sessionId,
+                        attempt,
+                        CaseGenerationFallbackReason.QUOTA_EXCEEDED,
+                        exception
+                );
+                return validatedFallback(
+                        sessionId,
+                        seed,
+                        attempt,
+                        CaseGenerationFallbackReason.QUOTA_EXCEEDED,
+                        true,
+                        createdAt
+                );
             } catch (RuntimeException exception) {
                 previousIssues = List.of(ValidationIssue.of(
                         "AI_GENERATION_FAILURE",
                         "$",
                         exception.getClass().getSimpleName()
                 ));
+                usageRecorder.recordValidationIssue("AI_GENERATION_FAILURE");
+                diagnostics.attemptFailed(
+                        sessionId,
+                        attempt,
+                        CaseGenerationFallbackReason.GENERATION_FAILURE,
+                        exception
+                );
+                exhaustedReason = CaseGenerationFallbackReason.GENERATION_FAILURE;
             }
         }
-        return validatedFallback(sessionId, seed, maximumAttempts, createdAt);
+        return validatedFallback(
+                sessionId,
+                seed,
+                maximumAttempts,
+                exhaustedReason,
+                aiPathAttempted,
+                createdAt
+        );
     }
 
     private FrozenCaseBlueprint validatedFallback(
             String sessionId,
             String seed,
             int attempts,
+            CaseGenerationFallbackReason fallbackReason,
+            boolean aiPathAttempted,
             Instant createdAt
     ) {
         CaseBlueprint blueprint = fallback.forSession(sessionId, seed);
@@ -125,6 +187,25 @@ public class CaseGenerationService {
                 createdAt
         );
         usageRecorder.recordGenerationSource(GenerationSource.FALLBACK.name());
+        diagnostics.generationCompleted(
+                frozen,
+                fallbackReason,
+                aiPathAttempted,
+                createdAt
+        );
         return frozen;
+    }
+
+    private CaseGenerationFallbackReason configurationFallbackReason() {
+        if (!properties.enabled()) {
+            return CaseGenerationFallbackReason.AI_DISABLED;
+        }
+        if (properties.offlineMode()) {
+            return CaseGenerationFallbackReason.OFFLINE_MODE;
+        }
+        if (!properties.hasActiveApiKey()) {
+            return CaseGenerationFallbackReason.MISSING_API_KEY;
+        }
+        return CaseGenerationFallbackReason.NONE;
     }
 }

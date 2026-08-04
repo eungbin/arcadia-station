@@ -13,9 +13,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 @SpringBootTest(properties = {
         "arcadia.ai.enabled=true",
@@ -23,6 +26,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
         "arcadia.ai.provider=openai",
         "arcadia.ai.openai.api-key=test-only-key"
 })
+@ExtendWith(OutputCaptureExtension.class)
 class CaseGenerationServiceRetryTest {
 
     @MockBean
@@ -41,7 +45,7 @@ class CaseGenerationServiceRetryTest {
     private ObjectMapper objectMapper;
 
     @Test
-    void retriesTwiceThenUsesValidatedFallback() throws Exception {
+    void retriesTwiceThenUsesValidatedFallback(CapturedOutput output) throws Exception {
         ObjectNode invalidNode = objectMapper.valueToTree(
                 fallback.forSession("retry-test", "retry-seed")
         );
@@ -69,12 +73,19 @@ class CaseGenerationServiceRetryTest {
         assertThat(result.generationSource()).isEqualTo(GenerationSource.FALLBACK);
         assertThat(result.generationAttemptCount()).isEqualTo(3);
         verify(generator, times(3)).generate(org.mockito.ArgumentMatchers.any());
+        assertThat(output.getOut())
+                .contains("reason=VALIDATION_FAILED")
+                .contains("validationCodes=[\"UNKNOWN_WORLD_ID\"]")
+                .contains("generationSource=FALLBACK fallbackReason=VALIDATION_EXHAUSTED")
+                .doesNotContain("UNKNOWN_ROOM");
     }
 
     @Test
-    void quotaFailureUsesFallbackWithoutRetryingProvider() {
+    void quotaFailureUsesFallbackWithoutRetryingProvider(CapturedOutput output) {
         when(generator.generate(org.mockito.ArgumentMatchers.any()))
-                .thenThrow(new AiQuotaExceededException("quota exhausted"));
+                .thenThrow(new AiQuotaExceededException(
+                        "quota exhausted DO_NOT_LOG_PROVIDER_PAYLOAD"
+                ));
         when(validator.validate(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
@@ -88,5 +99,37 @@ class CaseGenerationServiceRetryTest {
         assertThat(result.generationSource()).isEqualTo(GenerationSource.FALLBACK);
         assertThat(result.generationAttemptCount()).isEqualTo(1);
         verify(generator, times(1)).generate(org.mockito.ArgumentMatchers.any());
+        assertThat(output.getOut())
+                .contains("reason=QUOTA_EXCEEDED exceptionType=AiQuotaExceededException")
+                .contains("generationSource=FALLBACK fallbackReason=QUOTA_EXCEEDED")
+                .doesNotContain("DO_NOT_LOG_PROVIDER_PAYLOAD");
+    }
+
+    @Test
+    void providerFailureIsRetriedAndLoggedWithoutProviderPayload(CapturedOutput output) {
+        when(generator.generate(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new IllegalStateException(
+                        "DO_NOT_LOG_RAW_PROVIDER_RESPONSE"
+                ));
+        when(validator.validate(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.argThat(
+                        blueprint -> "provider-seed".equals(blueprint.seed())
+                )
+        )).thenReturn(new CaseValidationResult(List.of()));
+
+        FrozenCaseBlueprint result = service.createCase(
+                "provider-test",
+                "provider-seed"
+        );
+
+        assertThat(result.generationSource()).isEqualTo(GenerationSource.FALLBACK);
+        assertThat(result.generationAttemptCount()).isEqualTo(3);
+        verify(generator, times(3)).generate(org.mockito.ArgumentMatchers.any());
+        assertThat(output.getOut())
+                .contains("reason=GENERATION_FAILURE exceptionType=IllegalStateException")
+                .contains("generationSource=FALLBACK fallbackReason=GENERATION_FAILURE")
+                .doesNotContain("DO_NOT_LOG_RAW_PROVIDER_RESPONSE");
     }
 }

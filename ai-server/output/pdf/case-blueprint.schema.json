@@ -339,7 +339,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["EXPLORE", "INTERROGATE", "RAG_QUERY", "CONNECT", "AUTO"]
+          "enum": ["EXPLORE", "RAG_QUERY", "CONNECT"]
         },
         "locationId": {
           "$ref": "#/$defs/nullableString"

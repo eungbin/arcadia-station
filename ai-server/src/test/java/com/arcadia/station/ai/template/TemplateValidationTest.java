@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.arcadia.station.ai.casegen.FallbackCaseProvider;
 import com.arcadia.station.ai.casegen.CaseBlueprint;
+import com.arcadia.station.ai.casegen.CaseGenerationRequest;
+import com.arcadia.station.ai.casegen.CasePromptAssembler;
 import com.arcadia.station.ai.common.AiPurpose;
 import com.arcadia.station.ai.common.JsonSchemaRepository;
 import com.arcadia.station.ai.common.OpenAiGateway;
@@ -11,6 +13,7 @@ import com.arcadia.station.ai.common.StructuredPrompt;
 import com.arcadia.station.ai.validation.CaseBlueprintValidator;
 import com.arcadia.station.ai.validation.MysteryRuleTemplateValidator;
 import com.arcadia.station.ai.validation.WorldTemplateValidator;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -38,6 +41,9 @@ class TemplateValidationTest {
 
     @Autowired
     private JsonSchemaRepository schemas;
+
+    @Autowired
+    private CasePromptAssembler promptAssembler;
 
     @Test
     void fixedTemplatesAndFallbackPassAllValidators() {
@@ -80,5 +86,21 @@ class TemplateValidationTest {
                 templates.rules(),
                 generated
         ).issues()).isEmpty();
+    }
+
+    @Test
+    void casePromptOnlyRequestsRuntimeSupportedAcquisitionTypes() {
+        StructuredPrompt prompt = promptAssembler.assemble(new CaseGenerationRequest(
+                "prompt-test",
+                "prompt-seed",
+                templates.world(),
+                templates.rules(),
+                List.of()
+        ));
+
+        assertThat(prompt.system())
+                .contains("EXPLORE, RAG_QUERY 또는 CONNECT")
+                .doesNotContain("INTERROGATE")
+                .doesNotContain("AUTO");
     }
 }

@@ -8,12 +8,16 @@ import com.arcadia.station.infrastructure.persistence.InMemoryGameSessionReposit
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
 @Service
 public class GameSessionService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GameSessionService.class);
 
     private final InMemoryGameSessionRepository sessions;
     private final CaseGenerationService caseGenerationService;
@@ -38,6 +42,9 @@ public class GameSessionService {
     }
 
     public GameSession createSession(String requestedSessionId, String requestedSeed) {
+        boolean clientProvidedSessionId = requestedSessionId != null
+                && !requestedSessionId.isBlank();
+        boolean clientProvidedSeed = requestedSeed != null && !requestedSeed.isBlank();
         String sessionId = requestedSessionId == null || requestedSessionId.isBlank()
                 ? UUID.randomUUID().toString()
                 : validateSessionId(requestedSessionId);
@@ -46,6 +53,13 @@ public class GameSessionService {
                 : requestedSeed;
         GameSession session = new GameSession(sessionId, seed);
         sessions.save(session);
+        LOGGER.info(
+                "event=session_case_accepted sessionId={} clientProvidedSessionId={} "
+                        + "clientProvidedSeed={}",
+                sessionId,
+                clientProvidedSessionId,
+                clientProvidedSeed
+        );
         executor.execute(() -> generateCase(session));
         return session;
     }
@@ -64,6 +78,10 @@ public class GameSessionService {
     }
 
     private void generateCase(GameSession session) {
+        LOGGER.info(
+                "event=session_case_generation_started sessionId={}",
+                session.sessionId()
+        );
         try {
             session.markValidating();
             FrozenCaseBlueprint frozen = caseGenerationService.createCase(
@@ -72,8 +90,22 @@ public class GameSessionService {
             );
             session.markReady(frozen);
             ragIndexBuilder.index(frozen);
+            LOGGER.info(
+                    "event=session_case_ready sessionId={} generationSource={} attempts={} "
+                            + "clueCount={}",
+                    session.sessionId(),
+                    frozen.generationSource(),
+                    frozen.generationAttemptCount(),
+                    frozen.blueprint().clues().size()
+            );
         } catch (RuntimeException exception) {
             session.fail("CASE_GENERATION_FAILED");
+            LOGGER.error(
+                    "event=session_case_failed sessionId={} errorCode=CASE_GENERATION_FAILED "
+                            + "exceptionType={}",
+                    session.sessionId(),
+                    exception.getClass().getSimpleName()
+            );
         }
     }
 

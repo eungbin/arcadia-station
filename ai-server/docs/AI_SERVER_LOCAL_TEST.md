@@ -154,7 +154,59 @@ API quota 초과, timeout, JSON 변환 실패 또는 게임 규칙 검증 실패
 가능한 경우 내장 fallback 사건으로 전환합니다. 이 경우에도 응답은
 `status=READY`, `generationSource=FALLBACK`입니다.
 
-## 6. 현재 로컬 테스트 범위와 제약
+## 6. 로그로 실제 AI 생성 여부 확인
+
+AI 서버 시작 시 선택된 실행 경로가 한 줄로 출력됩니다.
+
+```text
+event=ai_runtime_configured selectedGateway=FALLBACK externalAiEnabled=false fallbackReason=OFFLINE_MODE ... repeatedClueSetExpected=true
+```
+
+실제 공급자가 선택되면 `selectedGateway=GEMINI`, `externalAiEnabled=true`,
+`fallbackReason=NONE`으로 표시됩니다. API 키 원문은 로그에 출력하지 않고 설정 여부만
+`apiKeyConfigured=true|false`로 표시합니다.
+
+세션 요청이 AI 서버에 도착하면 다음 이벤트가 순서대로 출력됩니다.
+
+```text
+event=session_case_accepted sessionId=...
+event=case_generation_started sessionId=... externalAiEnabled=true
+event=case_generation_completed sessionId=... generationSource=AI fallbackReason=NONE ...
+event=case_generation_clues sessionId=... clueSetSha256=... clues=[...]
+```
+
+`case_generation_completed`에는 생성 출처, fallback 사유, 외부 AI 생성 경로 진입 여부,
+시도 횟수,
+전체 청사진 해시, 단서 집합 전용 `clueSetSha256`, 단서 개수가 기록됩니다.
+`case_generation_clues`에는 정답·전체 단서 본문 대신 단서 ID·제목·장소·오브젝트와 획득
+방식만 안전한 JSON 한 줄로 기록됩니다. 비정상적으로 큰 응답이 로그를 과도하게 차지하지
+않도록 상세 목록은 최대 50개까지만 기록하며 전체 단서 수와 지문은 그대로 남깁니다.
+
+서로 다른 세션에서 `clueSetSha256`가 같고 `generationSource=FALLBACK`이면 동일한 내장
+fallback 단서가 사용된 정상 동작입니다. fallback은 세션 ID와 seed만 바꾸고 단서 내용은
+고정합니다. 대표 fallback 사유는 다음과 같습니다.
+
+- `AI_DISABLED`: `AI_ENABLED=false`
+- `OFFLINE_MODE`: `AI_OFFLINE_MODE=true`
+- `MISSING_API_KEY`: 선택한 공급자의 키가 없음
+- `QUOTA_EXCEEDED`: 429 또는 quota cooldown
+- `GENERATION_FAILURE`: 프롬프트 구성·공급자 호출·응답 변환 등 생성 경로 실패
+- `VALIDATION_EXHAUSTED`: 모든 AI 생성 시도가 게임 규칙 검증에 실패
+
+프론트에서 세션을 시작했는데 AI 콘솔에 `session_case_accepted`가 전혀 없다면 요청이 AI
+서버까지 오지 않은 것입니다. 프론트가 HTTP 모드인지, 백엔드가 `real-ai` 프로파일로
+실행됐는지 확인합니다. 실제 AI 생성은 아래 조건이 모두 필요합니다.
+
+```text
+VITE_API_MODE=http
+SPRING_PROFILES_ACTIVE=real-ai
+AI_ENABLED=true
+AI_OFFLINE_MODE=false
+AI_PROVIDER=gemini
+GEMINI_API_KEY=<유효한 키>
+```
+
+## 7. 현재 로컬 테스트 범위와 제약
 
 - 사건 생성·조회, NPC, RAG는 동일한 `X-Internal-AI-Key`를 검사합니다.
 - AI 세션과 RAG 인덱스는 메모리 기반이라 AI 서버 재시작 시 사라집니다.
@@ -163,12 +215,10 @@ API quota 초과, timeout, JSON 변환 실패 또는 게임 규칙 검증 실패
 - 백엔드가 EXPLORE/CONNECT로 발견한 단서도 `presentedClueIds`로 제시할 수 있습니다.
   AI 서버는 동결된 CaseBlueprint에 존재하는 ID인지 확인하고, 발견 여부는 백엔드의
   `EvidenceInventory` 검증을 신뢰합니다.
-- staging 생성에서는 `INTERROGATE`와 `AUTO` 획득 타입을 배제하는 AI 수정이 남아 있습니다.
+- 생성 스키마와 프롬프트는 백엔드가 지원하는 `EXPLORE`, `RAG_QUERY`, `CONNECT` 획득
+  타입만 허용합니다.
 
-위 제약은 로컬 단일 프로세스 연동 확인에는 영향을 주지 않지만, staging/production
-배포 전에는 P0 작업으로 해결해야 합니다.
-
-## 7. 백엔드 개발자에게 전달할 설정
+## 8. 백엔드 개발자에게 전달할 설정
 
 ```text
 AI_SERVER_BASE_URL=http://127.0.0.1:8081

@@ -47,6 +47,17 @@ class SchemaContractTest {
         }
     }
 
+    @Test
+    void generatedCaseSchemaOnlyAllowsRuntimeSupportedAcquisitionTypes() {
+        JsonNode acquisitionTypes = schemas.get("case_blueprint")
+                .schema()
+                .at("/$defs/acquisition/properties/type/enum");
+
+        assertThat(acquisitionTypes)
+                .extracting(JsonNode::asText)
+                .containsExactly("EXPLORE", "RAG_QUERY", "CONNECT");
+    }
+
     private void assertObjectsAreClosed(JsonNode node, String path) {
         if (node.isObject() && "object".equals(node.path("type").asText())) {
             assertThat(node.has("additionalProperties"))

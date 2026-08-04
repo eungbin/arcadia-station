@@ -17,8 +17,7 @@ public class CasePromptAssembler {
             구체 수법, 시간표, 알리바이, 단서 문구와 로그는 이번 seed에 맞게 새로 설계하라.
             살해 방법 템플릿에서 고르지 말고 등록된 세계 요소의 새로운 조합을 작성하라.
             모든 필수 추리 축에 증거를 배치하고 전체 핵심 단서로 범인이 한 명만 남게 하라.
-            핵심 단서는 EXPLORE, RAG_QUERY, CONNECT 또는 증거 제시 기반 INTERROGATE로
-            결정적으로 획득 가능해야 한다.
+            핵심 단서는 EXPLORE, RAG_QUERY 또는 CONNECT로 결정적으로 획득 가능해야 한다.
             alibis에는 모든 용의자를 정확히 한 번씩 포함하고, alibis의 모든 characterId에
             대해 npcKnowledge를 생성하라. 각 npcKnowledge의 initialClaimFactIds에는 해당
             알리바이의 supportingFactIds 또는 contradictingFactIds에 연결된 사실을 하나 이상,
