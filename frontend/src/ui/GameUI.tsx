@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   INVESTIGATION_OBJECTS,
   NPC_DIALOGUE,
@@ -24,6 +24,7 @@ import {
   useSubmitVerdict,
 } from "../api/hooks";
 import { validateTheory } from "../domain/theoryValidation";
+import { GuideTour } from "./GuideTour";
 import type { DiscoveredEvidence, EvidenceType } from "../api/contracts";
 
 /** 3D 소품의 종류. 물리 계층 표시에만 쓴다. */
@@ -69,6 +70,7 @@ function OpeningOverlay() {
   const syncCaseState = useGameStore((state) => state.syncCaseState);
   const caseBriefing = useGameStore((state) => state.caseBriefing);
   const createSession = useCreateSession();
+
   const enterStation = () => {
     createSession.mutate(undefined, {
       onSuccess: ({ session, caseState }) => {
@@ -132,6 +134,9 @@ function OpeningOverlay() {
           <span>{createSession.isPending ? "격리 채널 동기화 중" : "보안 권한으로 현장 진입"}</span>
           <kbd>{createSession.isPending ? "..." : "ENTER"}</kbd>
         </button>
+        <p className="opening-guide-note">
+          현장에 진입하면 화면 요소를 하나씩 짚어 주는 안내가 시작됩니다.
+        </p>
         {createSession.isError && (
           <div className="opening-error" role="alert">
             <span>CONNECTION REFUSED</span>
@@ -160,6 +165,7 @@ function OpeningOverlay() {
 
 function MissionHud() {
   const openSettings = useSettingsStore((state) => state.setOpen);
+  const openGuide = useSettingsStore((state) => state.setGuideOpen);
   const focusedId = useGameStore((state) => state.focusedId);
   const discoveredIds = useGameStore((state) => state.discoveredIds);
   const hasMoved = useGameStore((state) => state.hasMoved);
@@ -188,7 +194,7 @@ function MissionHud() {
         </div>
       </div>
 
-      <aside className="objective-panel">
+      <aside className="objective-panel" data-tour="objective">
         <header>
           <span>PRIMARY OBJECTIVE</span>
           <em>{phase}</em>
@@ -224,7 +230,7 @@ function MissionHud() {
         )}
       </aside>
 
-      <div className={`crosshair ${focused ? "is-focused" : ""}`}>
+      <div className={`crosshair ${focused ? "is-focused" : ""}`} data-tour="crosshair">
         <i />
         <i />
         <i />
@@ -243,20 +249,37 @@ function MissionHud() {
 
       <div className="hud-controls">
         {!hasMoved && <span><kbd>WASD</kbd> 이동</span>}
-        <button type="button" onClick={activateScan}><kbd>Q</kbd> 조사 스캔</button>
-        <button className="notebook-trigger" type="button" onClick={toggleNotebook}>
+        <button type="button" data-tour="scan" onClick={activateScan}>
+          <kbd>Q</kbd> 조사 스캔
+        </button>
+        <button
+          className="notebook-trigger"
+          type="button"
+          data-tour="notebook"
+          onClick={toggleNotebook}
+        >
           <kbd>TAB</kbd> 사건 수첩
         </button>
       </div>
 
-      <button
-        className="settings-trigger"
-        type="button"
-        aria-label="설정 열기"
-        onClick={() => openSettings(true)}
-      >
-        SYS <kbd>ESC</kbd>
-      </button>
+      <div className="hud-system-actions" data-tour="system">
+        <button
+          className="guide-trigger"
+          type="button"
+          aria-label="플레이 안내 열기"
+          onClick={() => openGuide(true)}
+        >
+          안내 <kbd>?</kbd>
+        </button>
+        <button
+          className="settings-trigger"
+          type="button"
+          aria-label="설정 열기"
+          onClick={() => openSettings(true)}
+        >
+          SYS <kbd>ESC</kbd>
+        </button>
+      </div>
 
       <div className="signal-meter">
         <span>EXTERNAL LINK</span>
@@ -722,6 +745,14 @@ function TheoryTab() {
   );
 }
 
+/** 심문 한 번의 문답. `answer`가 null이면 응답을 기다리는 중이다. */
+type InterrogationTurn = {
+  id: number;
+  kind: "choice" | "free" | "evidence";
+  question: string;
+  answer: string | null;
+};
+
 function InterrogationPanel() {
   const subtitles = useSettingsStore((state) => state.subtitles);
   const sessionId = useGameStore((state) => state.sessionId);
@@ -730,11 +761,12 @@ function InterrogationPanel() {
   const closeOverlay = useGameStore((state) => state.closeOverlay);
   const markInterviewed = useGameStore((state) => state.markInterviewed);
   const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
-  const [response, setResponse] = useState<string | null>(null);
+  const [turns, setTurns] = useState<InterrogationTurn[]>([]);
   const [activeChoice, setActiveChoice] = useState<string | null>(null);
   const [showEvidence, setShowEvidence] = useState(false);
   const [freeQuestion, setFreeQuestion] = useState("");
-  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
+  const turnIdRef = useRef(0);
+  const logRef = useRef<HTMLDivElement>(null);
 
   const target = selectedId ? INVESTIGATION_OBJECTS[selectedId] : null;
   const dialogue = selectedId ? NPC_DIALOGUE[selectedId] : null;
@@ -744,111 +776,101 @@ function InterrogationPanel() {
   );
 
   useEffect(() => {
-    setResponse(null);
+    setTurns([]);
     setActiveChoice(null);
     setShowEvidence(false);
     setFreeQuestion("");
-    setLastQuestion(null);
+    turnIdRef.current = 0;
   }, [selectedId]);
+
+  // 새 답변이 도착하면 대화 기록의 끝으로 따라간다.
+  useEffect(() => {
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  }, [turns]);
 
   if (!target || !dialogue || !selectedId) return null;
 
-  const ask = (choiceId: string) => {
-    if (!selectedId) return;
-    setActiveChoice(choiceId);
-    setShowEvidence(false);
-    const selectedChoice = dialogue.choices.find(
-      (choice) => choice.id === choiceId,
+  const npcId = selectedId;
+
+  /** 질문을 기록에 먼저 남기고, 답변이 오면 그 자리를 채운다. */
+  const openTurn = (kind: InterrogationTurn["kind"], question: string) => {
+    turnIdRef.current += 1;
+    const turnId = turnIdRef.current;
+    setTurns((current) => [...current, { id: turnId, kind, question, answer: null }]);
+    return turnId;
+  };
+
+  const closeTurn = (turnId: number, answer: string) => {
+    setTurns((current) =>
+      current.map((turn) => (turn.id === turnId ? { ...turn, answer } : turn)),
     );
-    setLastQuestion(selectedChoice?.label ?? null);
-    const fallbackResponse = selectedChoice?.response;
+    setActiveChoice(null);
+    markInterviewed(npcId);
+  };
+
+  const send = (
+    payload: Parameters<typeof sendMessage.mutate>[0],
+    turnId: number,
+    fallbackResponse: string,
+  ) => {
     if (interrogation.isError) {
-      setResponse(fallbackResponse ?? "지금은 답변할 수 없습니다.");
-      markInterviewed(selectedId);
+      closeTurn(turnId, fallbackResponse);
       return;
     }
-    sendMessage.mutate(
-      { npcId: selectedId, choiceId },
-      {
-        onSuccess: (message) => {
-          setResponse(message.response);
-          updateSessionVersion(message.version);
-          markInterviewed(selectedId);
-        },
-        onError: () => {
-          setResponse(fallbackResponse ?? "지금은 답변할 수 없습니다.");
-          markInterviewed(selectedId);
-        },
+    sendMessage.mutate(payload, {
+      onSuccess: (message) => {
+        closeTurn(turnId, message.response);
+        updateSessionVersion(message.version);
       },
+      onError: () => closeTurn(turnId, fallbackResponse),
+    });
+  };
+
+  const ask = (choiceId: string) => {
+    const selectedChoice = dialogue.choices.find((choice) => choice.id === choiceId);
+    setActiveChoice(choiceId);
+    setShowEvidence(false);
+    const turnId = openTurn("choice", selectedChoice?.label ?? "질문");
+    send(
+      { npcId, choiceId },
+      turnId,
+      selectedChoice?.response ?? "지금은 답변할 수 없습니다.",
     );
   };
 
   const presentEvidence = (evidenceId: string) => {
-    if (!selectedId) return;
     setActiveChoice(`evidence-${evidenceId}`);
-    setLastQuestion(
-      `증거 제시 · ${evidence.find((record) => record.clueId === evidenceId)?.title ?? evidenceId}`,
-    );
-    const fallbackResponse =
-      "해당 기록은 확인하겠습니다. 다만 그 자료만으로 제 행동과 사망을 직접 연결할 수는 없습니다.";
-    if (interrogation.isError) {
-      setResponse(fallbackResponse);
-      setShowEvidence(false);
-      markInterviewed(selectedId);
-      return;
-    }
-    sendMessage.mutate(
-      { npcId: selectedId, evidenceId },
-      {
-        onSuccess: (message) => {
-          setResponse(message.response);
-          updateSessionVersion(message.version);
-          markInterviewed(selectedId);
-        },
-        onError: () => {
-          setResponse(fallbackResponse);
-          markInterviewed(selectedId);
-        },
-      },
-    );
     setShowEvidence(false);
+    const title =
+      evidence.find((record) => record.clueId === evidenceId)?.title ?? evidenceId;
+    const turnId = openTurn("evidence", `증거 제시 · ${title}`);
+    send(
+      { npcId, evidenceId },
+      turnId,
+      "해당 기록은 확인하겠습니다. 다만 그 자료만으로 제 행동과 사망을 직접 연결할 수는 없습니다.",
+    );
   };
 
   const askFreeQuestion = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = freeQuestion.trim();
-    if (!selectedId || !query) return;
+    if (!query) return;
 
     setActiveChoice("free-question");
     setShowEvidence(false);
-    setLastQuestion(query);
-    const fallbackResponse =
-      `“${query}”에 대해선 당시 보안 기록과 제 동선으로 판단해 주십시오. 추측으로 답하지 않겠습니다.`;
-
-    if (interrogation.isError) {
-      setResponse(fallbackResponse);
-      setFreeQuestion("");
-      markInterviewed(selectedId);
-      return;
-    }
-
-    sendMessage.mutate(
-      { npcId: selectedId, query },
-      {
-        onSuccess: (message) => {
-          setResponse(message.response);
-          setFreeQuestion("");
-          updateSessionVersion(message.version);
-          markInterviewed(selectedId);
-        },
-        onError: () => {
-          setResponse(fallbackResponse);
-          setFreeQuestion("");
-          markInterviewed(selectedId);
-        },
-      },
+    setFreeQuestion("");
+    const turnId = openTurn("free", query);
+    send(
+      { npcId, query },
+      turnId,
+      `“${query}”에 대해선 당시 보안 기록과 제 동선으로 판단해 주십시오. 추측으로 답하지 않겠습니다.`,
     );
   };
+
+  const askedLabels = new Set(
+    turns.filter((turn) => turn.kind === "choice").map((turn) => turn.question),
+  );
 
   return (
     <section className="interrogation-shell" aria-label={`${target.title} 심문`}>
@@ -884,19 +906,38 @@ function InterrogationPanel() {
           <div className="dialogue-transcript">
             <div className="speaker-line">
               <span>{dialogue.callSign}</span>
-              <time>LIVE · 00:0{response ? "2" : "1"}</time>
+              <time>LIVE · {String(turns.length + 1).padStart(2, "0")}</time>
             </div>
-            {lastQuestion && (
-              <div className="interrogator-query">
-                <span>INVESTIGATOR // QUERY</span>
-                <p>{lastQuestion}</p>
-              </div>
-            )}
-            <blockquote className={subtitles ? "is-subtitled" : ""} aria-live="polite">
+            {/* 첫 진술은 위에 남겨 두고, 주고받은 문답은 아래에 계속 쌓는다. */}
+            <blockquote
+              className={`${subtitles ? "is-subtitled" : ""} ${
+                turns.length > 0 ? "is-compact" : ""
+              }`.trim()}
+            >
               {interrogation.isPending
                 ? "보안 음성 채널을 동기화하고 있습니다…"
-                : response ?? interrogation.data?.opening ?? dialogue.opening}
+                : interrogation.data?.opening ?? dialogue.opening}
             </blockquote>
+            {turns.length > 0 && (
+              <div className="dialogue-log" ref={logRef} aria-live="polite">
+                {turns.map((turn) => (
+                  <article
+                    key={turn.id}
+                    className={`transcript-turn${turn.answer === null ? " is-pending" : ""}`}
+                  >
+                    <div className="interrogator-query">
+                      <span>
+                        {turn.kind === "evidence" ? "INVESTIGATOR // EVIDENCE" : "INVESTIGATOR // QUERY"}
+                      </span>
+                      <p>{turn.question}</p>
+                    </div>
+                    <blockquote className={subtitles ? "is-subtitled" : ""}>
+                      {turn.answer ?? "응답을 수신하고 있습니다…"}
+                    </blockquote>
+                  </article>
+                ))}
+              </div>
+            )}
             {(interrogation.isError || sendMessage.isError) && (
               <div className="inline-api-error" role="alert">
                 <span>
@@ -909,37 +950,34 @@ function InterrogationPanel() {
                 )}
               </div>
             )}
-            {response && (
-              <button
-                className="reset-question"
-                type="button"
-                onClick={() => {
-                  setResponse(null);
-                  setActiveChoice(null);
-                  setLastQuestion(null);
-                }}
-              >
-                다른 질문 선택
-              </button>
-            )}
           </div>
 
-          {!response && !showEvidence && (
+          {!showEvidence && (
             <div className="question-list">
-              <span className="question-label">질문 선택</span>
-              {dialogue.choices.map((choice, index) => (
-                <button
-                  key={choice.id}
-                  type="button"
-                  className={activeChoice === choice.id ? "is-active" : ""}
-                  disabled={interrogation.isPending || sendMessage.isPending}
-                  onClick={() => ask(choice.id)}
-                >
-                  <em>{String(index + 1).padStart(2, "0")}</em>
-                  <span>{choice.label}</span>
-                  <i>→</i>
-                </button>
-              ))}
+              <span className="question-label">
+                {turns.length > 0 ? "이어서 질문" : "질문 선택"}
+              </span>
+              {dialogue.choices.map((choice, index) => {
+                const asked = askedLabels.has(choice.label);
+                return (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    className={[
+                      activeChoice === choice.id ? "is-active" : "",
+                      asked ? "is-asked" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    disabled={interrogation.isPending || sendMessage.isPending}
+                    onClick={() => ask(choice.id)}
+                  >
+                    <em>{String(index + 1).padStart(2, "0")}</em>
+                    <span>{choice.label}</span>
+                    <i>{asked ? "✓" : "→"}</i>
+                  </button>
+                );
+              })}
               <form className="free-question-form" onSubmit={askFreeQuestion}>
                 <label htmlFor="free-interrogation-question">
                   <span>FREE QUESTION</span>
@@ -1490,6 +1528,7 @@ function ResultScreen() {
 export function GameUI() {
   const layer = useGameStore((state) => state.layer);
   const selectedId = useGameStore((state) => state.selectedId);
+  const guideOpen = useSettingsStore((state) => state.guideOpen);
   const title = useMemo(
     () => (selectedId ? INVESTIGATION_OBJECTS[selectedId]?.title : null),
     [selectedId],
@@ -1499,18 +1538,23 @@ export function GameUI() {
     document.title = title ? `${title} // ARCADIA` : "ARCADIA // INCIDENT 72";
   }, [title]);
 
-  if (layer === "opening") return <OpeningOverlay />;
-
   return (
     <>
-      <MissionHud />
-      <ScanEffect />
-      {layer === "inspection" && <InspectionPanel />}
-      {layer === "interrogation" && <InterrogationPanel />}
-      {layer === "notebook" && <Notebook />}
-      {layer === "dayReview" && <DayReview />}
-      {layer === "trial" && <TrialScreen />}
-      {layer === "result" && <ResultScreen />}
+      {layer === "opening" ? (
+        <OpeningOverlay />
+      ) : (
+        <>
+          <MissionHud />
+          <ScanEffect />
+          {layer === "inspection" && <InspectionPanel />}
+          {layer === "interrogation" && <InterrogationPanel />}
+          {layer === "notebook" && <Notebook />}
+          {layer === "dayReview" && <DayReview />}
+          {layer === "trial" && <TrialScreen />}
+          {layer === "result" && <ResultScreen />}
+        </>
+      )}
+      {guideOpen && layer !== "opening" && <GuideTour />}
     </>
   );
 }
