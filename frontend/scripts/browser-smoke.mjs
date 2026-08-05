@@ -103,6 +103,7 @@ try {
     timeout: 5_000,
   });
   await page.waitForTimeout(2_500);
+
   await page.screenshot({
     path: path.join(outputDir, "02-hub.png"),
     fullPage: true,
@@ -180,14 +181,32 @@ try {
   await page.waitForFunction(
     () =>
       document
-        .querySelector(".dialogue-transcript blockquote")
+        .querySelector(".dialogue-log .transcript-turn:last-child blockquote")
         ?.textContent?.includes("사망 추정 시각"),
     undefined,
     { timeout: 5_000 },
   );
   const freeQuestionResponse = await page
-    .locator(".dialogue-transcript blockquote")
+    .locator(".dialogue-log .transcript-turn:last-child blockquote")
     .innerText();
+
+  // 답변을 받은 뒤에도 질문 목록이 그대로 있어야 한다. 별도의 "다른 질문 선택" 없이
+  // 이어서 물을 수 있고, 앞선 문답은 기록에 남아야 한다.
+  await page.locator(".question-list > button").first().waitFor({ state: "visible" });
+  await page.locator(".question-list > button").first().click();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".dialogue-log .transcript-turn").length === 2,
+    undefined,
+    { timeout: 5_000 },
+  );
+  const transcriptTurnCount = await page.locator(".dialogue-log .transcript-turn").count();
+  const firstTurnRetained = await page
+    .locator(".dialogue-log .transcript-turn")
+    .first()
+    .innerText();
+  if (!firstTurnRetained.includes("사망 추정 시각")) {
+    throw new Error(`Earlier interrogation turn was cleared: ${firstTurnRetained}`);
+  }
   await page.screenshot({
     path: path.join(outputDir, "05-interrogation-free-question.png"),
     fullPage: true,
@@ -289,6 +308,7 @@ try {
     interrogation: {
       suggestedQuestionCount,
       freeQuestionResponse,
+      transcriptTurnCount,
     },
     stableCameraPosition,
     consoleErrors,

@@ -2293,15 +2293,47 @@ html[data-reduced-motion="true"] *::after {
   font: 300 40px/1 serif;
 }
 
-.reset-question {
-  height: 34px;
-  margin-left: 0;
-  padding: 0 14px;
-  border: 1px solid var(--line);
+/* 첫 진술은 문답이 쌓이기 시작하면 자리를 양보한다. */
+.dialogue-transcript blockquote.is-compact {
+  min-height: 0;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  font-size: clamp(13px, 1.15vw, 16px);
+  line-height: 1.8;
+}
+
+/* 주고받은 문답 기록. 답변 후에도 지우지 않고 아래로 이어 붙인다. */
+.dialogue-log {
+  display: grid;
+  gap: 16px;
+  max-height: min(42vh, 380px);
+  margin-top: 16px;
+  padding: 14px 10px 2px 0;
+  border-top: 1px solid var(--line);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.dialogue-log .interrogator-query {
+  margin-top: 0;
+}
+
+.dialogue-log blockquote {
+  min-height: 0;
+  margin: 8px 0 0;
+  padding: 12px 0 12px 22px;
+  font-size: clamp(13px, 1.1vw, 16px);
+  line-height: 1.8;
+}
+
+.dialogue-log blockquote::before {
+  top: -2px;
+  left: 6px;
+  font-size: 30px;
+}
+
+.transcript-turn.is-pending blockquote {
   color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-  font-size: 10px;
 }
 
 .question-list {
@@ -2380,6 +2412,17 @@ html[data-reduced-motion="true"] *::after {
   color: var(--mint);
   font-style: normal;
   text-align: center;
+}
+
+/* 이미 물어본 질문. 다시 물을 수는 있지만 무엇을 확인했는지 구분되게 둔다. */
+.question-list > button.is-asked {
+  color: var(--muted);
+  border-color: rgba(190, 211, 204, 0.1);
+  background: rgba(11, 16, 17, 0.55);
+}
+
+.question-list > button.is-asked i {
+  color: rgba(140, 224, 200, 0.55);
 }
 
 .question-list > button.present-evidence {
