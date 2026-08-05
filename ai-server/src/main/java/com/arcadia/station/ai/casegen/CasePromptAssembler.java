@@ -18,6 +18,19 @@ public class CasePromptAssembler {
             살해 방법 템플릿에서 고르지 말고 등록된 세계 요소의 새로운 조합을 작성하라.
             모든 필수 추리 축에 증거를 배치하고 전체 핵심 단서로 범인이 한 명만 남게 하라.
             핵심 단서는 EXPLORE, RAG_QUERY 또는 CONNECT로 결정적으로 획득 가능해야 한다.
+            JSON을 출력하기 전에 다음 검증표를 내부적으로 모두 확인하라.
+            1) method.setupAction과 method.triggerAction의 actorId는 SOPHIA로 두고, 각
+            locationId는 SOPHIA의 physicalAccess에, systemId와 operation은 SOPHIA의
+            systemPermissions에, requiredCapabilityIds는 SOPHIA의 skills에 있는 값만 사용하라.
+            2) SETUP, TRIGGER, OPPORTUNITY, MOTIVE 각각에 대해 solution.requiredEvidenceByRole에
+            넣는 clueId는 반드시 core=true이고 해당 역할을 solutionRoles에 포함해야 한다.
+            네 역할의 핵심 단서 전체에는 PHYSICAL, DIGITAL, MOTIVE, OPPORTUNITY clueType이
+            각각 최소 하나씩 있어야 한다.
+            3) solution.requiredEvidenceByRole이 가리키는 핵심 단서들의 suspectEffects에는
+            MAYA, JUNHO, KASIM, YUNA 각각을 EXCLUDES로 만드는 효과가 하나 이상 있어야 한다.
+            SOPHIA를 EXCLUDES로 만들면 안 된다. solution.nonCulpritExclusions에는 위 네 사람을
+            각각 정확히 한 번 넣고, 각 excludedByClueIds는 해당 인물을 실제 EXCLUDES한 핵심
+            단서 ID만 참조하게 하라.
             alibis에는 모든 용의자를 정확히 한 번씩 포함하고, alibis의 모든 characterId에
             대해 npcKnowledge를 생성하라. 각 npcKnowledge의 initialClaimFactIds에는 해당
             알리바이의 supportingFactIds 또는 contradictingFactIds에 연결된 사실을 하나 이상,
@@ -37,6 +50,8 @@ public class CasePromptAssembler {
             있지만 등록되지 않은 sourceId를 새로 만들지 말라.
             현실에서 재현 가능한 유해 절차, 수치, 실행 가능한 코드나 명령을 쓰지 말라.
             사실·단서·기록·이벤트 ID는 사건 안에서 유일해야 한다.
+            previousValidationIssues가 비어 있지 않으면 이전 시도의 code, path, message를 모두
+            수정한 새 사건을 작성하라. 이전 응답을 그대로 반복하지 말라.
             한국어로 작성하고 주어진 JSON Schema 외 필드를 출력하지 말라.
             """;
 
@@ -65,6 +80,7 @@ public class CasePromptAssembler {
                 "previousValidationErrorCodes",
                 request.previousIssues().stream().map(issue -> issue.code()).distinct().toList()
         );
+        context.put("previousValidationIssues", request.previousIssues());
         try {
             return new StructuredPrompt(
                     SYSTEM_PROMPT,

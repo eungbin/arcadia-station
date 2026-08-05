@@ -68,6 +68,8 @@ PASS: 외부 호출 없이 FALLBACK 사건과 단서 로그를 확인했습니�
 기본 제한시간은 240초입니다. 느린 응답을 추가로 확인해야 하면
 `-TimeoutSeconds 300`처럼 조정할 수 있습니다. 이 값은 스크립트가 시작한 AI 서버의
 `AI_CASE_GENERATION_TIMEOUT`에도 같은 값으로 적용됩니다.
+기본적으로 검증 실패 시 한 번 더 생성하며, 필요하면 `-MaxRetries 0` 또는
+`-MaxRetries 2`로 조정할 수 있습니다.
 
 `GEMINI_API_KEY`가 현재 PowerShell 환경에 없으면 스크립트가 키를 숨김 입력으로 요청합니다.
 키는 화면·명령 기록·로그에 출력하지 않으며, 스크립트 종료 후 프로세스 환경도 원래 값으로
@@ -125,7 +127,7 @@ $env:AI_ENABLED='true'
 $env:AI_OFFLINE_MODE='false'
 $env:AI_PROVIDER='gemini'
 $env:GEMINI_API_KEY='<개인 키>'
-$env:AI_CASE_GENERATION_MAX_RETRIES='0'
+$env:AI_CASE_GENERATION_MAX_RETRIES='1'
 .\mvnw.cmd spring-boot:run
 ```
 

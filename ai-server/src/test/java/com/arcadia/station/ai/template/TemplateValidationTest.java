@@ -71,7 +71,7 @@ class TemplateValidationTest {
     void fakeGatewayProducesACompleteValidCaseWithoutAnApiKey() {
         CaseBlueprint generated = openAiGateway.generateStructured(
                 AiPurpose.CASE_GENERATION,
-                "case-generator-v2",
+                "case-generator-v3",
                 new StructuredPrompt(
                         "test",
                         "{\"sessionId\":\"fake-session\",\"seed\":\"fake-seed\"}"
@@ -100,7 +100,10 @@ class TemplateValidationTest {
 
         assertThat(prompt.system())
                 .contains("EXPLORE, RAG_QUERY 또는 CONNECT")
+                .contains("JSON을 출력하기 전에 다음 검증표를 내부적으로 모두 확인하라")
                 .doesNotContain("INTERROGATE")
                 .doesNotContain("AUTO");
+        assertThat(prompt.user())
+                .contains("\"previousValidationIssues\":[]");
     }
 }

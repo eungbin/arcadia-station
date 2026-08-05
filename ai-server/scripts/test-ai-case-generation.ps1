@@ -9,6 +9,9 @@ param(
     [ValidateRange(30, 600)]
     [int]$TimeoutSeconds = 240,
 
+    [ValidateRange(0, 2)]
+    [int]$MaxRetries = 1,
+
     [switch]$SkipBuild
 )
 
@@ -261,7 +264,7 @@ try {
     }
     [Environment]::SetEnvironmentVariable(
         'AI_CASE_GENERATION_MAX_RETRIES',
-        '0',
+        "$MaxRetries",
         'Process'
     )
     [Environment]::SetEnvironmentVariable(
@@ -344,7 +347,9 @@ try {
     $result = Wait-ForCase `
         -Uri "http://127.0.0.1:$Port/internal/v1/cases/$sessionId" `
         -Headers $headers `
-        -Deadline ((Get-Date).AddSeconds($TimeoutSeconds + 15))
+        -Deadline ((Get-Date).AddSeconds(
+            ($TimeoutSeconds * ($MaxRetries + 1)) + 15
+        ))
     Write-Host '[4/4] 사건 생성 결과 수신 완료.'
 } catch {
     $failure = $_

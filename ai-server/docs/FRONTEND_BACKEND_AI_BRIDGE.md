@@ -73,7 +73,7 @@ GET /api/v1/integration/frontend-contract
 
 현재 연동 계약 버전은 `1.2.0`입니다. 사건 생성 계약은
 `ARCADIA_WORLD:1.1.0`, `ARCADIA_MYSTERY_RULES:1.1.0`, 프롬프트
-`case-generator-v2`를 사용합니다.
+`case-generator-v3`를 사용합니다.
 
 핵심 인물 변환:
 

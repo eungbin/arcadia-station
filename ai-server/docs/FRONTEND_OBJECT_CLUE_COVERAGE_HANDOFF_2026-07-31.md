@@ -52,7 +52,7 @@
 | 계약 | 버전 |
 |---|---|
 | 추리 규칙 템플릿 | `ARCADIA_MYSTERY_RULES:1.1.0` |
-| 사건 생성 프롬프트 | `case-generator-v2` |
+| 사건 생성 프롬프트 | `case-generator-v3` |
 | 프론트 통합 계약 | `1.2.0` |
 
 규칙 템플릿의 허용 단서 획득 방식은 실제 런타임 경로가 있는 `EXPLORE`, `RAG_QUERY`, `CONNECT`로 제한했습니다.
@@ -236,7 +236,7 @@ CMN_FOOD_STATION / COMMON_AREA
 
 objectHint는 하위 호환을 위해 선택 필드지만, 오브젝트별 단서 분리를 위해 게임 백엔드는 프론트가 보낸 값을 AI 서버까지 그대로 전달해 주세요. 게임 백엔드가 동결된 CaseBlueprint를 직접 처리한다면 locationId와 source.sourceId(objectHint)를 함께 필터링해야 합니다. 위치와 오브젝트가 맞지 않으면 AI 서버는 400 INVALID_REQUEST를 반환합니다.
 
-안전 폴백도 총 14개 단서(EXPLORE 10 + RAG_QUERY 4)로 확장했습니다. 적용 버전은 규칙 ARCADIA_MYSTERY_RULES:1.1.0, 프롬프트 case-generator-v2, 프론트 통합 계약 1.2.0입니다.
+안전 폴백도 총 14개 단서(EXPLORE 10 + RAG_QUERY 4)로 확장했습니다. 적용 버전은 규칙 ARCADIA_MYSTERY_RULES:1.1.0, 프롬프트 case-generator-v3, 프론트 통합 계약 1.2.0입니다.
 
 특히 분리 배포 환경에서 게임 백엔드 DTO/AI 클라이언트가 objectHint를 버리지 않는지 확인 부탁드립니다. 이 값이 전달되지 않으면 생성 단서 수는 늘어도 오브젝트별 상호작용 분리는 적용되지 않습니다.
 ```
