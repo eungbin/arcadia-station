@@ -7,7 +7,7 @@ param(
     [int]$Port = 8081,
 
     [ValidateRange(30, 600)]
-    [int]$TimeoutSeconds = 180,
+    [int]$TimeoutSeconds = 240,
 
     [switch]$SkipBuild
 )
@@ -207,6 +207,7 @@ New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 
 try {
     Write-Section "Arcadia AI 사건 생성 스모크 테스트: $($Mode.ToUpperInvariant())"
+    Write-Host "외부 API 사건 생성 제한: $TimeoutSeconds 초"
     $javaExecutable = Require-Java
     if (-not (Test-Path $mavenWrapper)) {
         throw "Maven Wrapper를 찾지 못했습니다: $mavenWrapper"
@@ -265,7 +266,7 @@ try {
     )
     [Environment]::SetEnvironmentVariable(
         'AI_CASE_GENERATION_TIMEOUT',
-        '90s',
+        "${TimeoutSeconds}s",
         'Process'
     )
     [Environment]::SetEnvironmentVariable('AI_QUOTA_COOLDOWN', '0s', 'Process')
@@ -318,10 +319,12 @@ try {
         -WindowStyle Hidden `
         -PassThru
 
-    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $healthDeadline = (Get-Date).AddSeconds(
+        [Math]::Min(60, $TimeoutSeconds)
+    )
     Wait-ForHealth `
         -Uri "http://127.0.0.1:$Port/actuator/health" `
-        -Deadline $deadline
+        -Deadline $healthDeadline
 
     Write-Host '[3/4] 내부 사건 생성 API 호출 중...'
     $sessionId = 'live-smoke-' + [Guid]::NewGuid().ToString('N').Substring(0, 12)
@@ -341,7 +344,7 @@ try {
     $result = Wait-ForCase `
         -Uri "http://127.0.0.1:$Port/internal/v1/cases/$sessionId" `
         -Headers $headers `
-        -Deadline $deadline
+        -Deadline ((Get-Date).AddSeconds($TimeoutSeconds + 15))
     Write-Host '[4/4] 사건 생성 결과 수신 완료.'
 } catch {
     $failure = $_

@@ -23,7 +23,7 @@ $env:AI_ENABLED = 'true'
 $env:GEMINI_API_KEY = '<Google AI Studio에서 복사한 키>'
 $env:GEMINI_TEXT_MODEL = 'gemini-3.6-flash'
 $env:GEMINI_EMBEDDING_MODEL = 'gemini-embedding-2'
-$env:AI_CASE_GENERATION_TIMEOUT = '60s'
+$env:AI_CASE_GENERATION_TIMEOUT = '180s'
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -70,7 +70,7 @@ API 키를 넣지 마세요.
 | `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-2` | 증거 검색 임베딩 모델 |
 | `GEMINI_BASE_URL` | Google Generative Language v1beta | 테스트 프록시가 있을 때만 변경 |
 | `AI_QUOTA_COOLDOWN` | `10m` | HTTP 429/쿼터 초과 후 외부 API 호출을 막는 시간 |
-| `AI_CASE_GENERATION_TIMEOUT` | `60s` | 큰 사건 JSON 구조화 출력 제한 시간 |
+| `AI_CASE_GENERATION_TIMEOUT` | `180s` | 큰 사건 JSON 구조화 출력 제한 시간 |
 | `AI_CASE_GENERATION_MAX_RETRIES` | `2` | 최초 시도 이후 추가 재시도 횟수 |
 
 ## 쿼터 초과 시 동작

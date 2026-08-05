@@ -138,7 +138,7 @@ $env:GEMINI_API_KEY = '<개인 Gemini API 키>'
 
 # 최초 smoke test에서는 긴 재시도를 피하기 위해 0을 권장
 $env:AI_CASE_GENERATION_MAX_RETRIES = '0'
-$env:AI_CASE_GENERATION_TIMEOUT = '60s'
+$env:AI_CASE_GENERATION_TIMEOUT = '180s'
 
 .\mvnw.cmd spring-boot:run
 ```

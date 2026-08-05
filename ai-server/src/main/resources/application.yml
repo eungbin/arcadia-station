@@ -34,7 +34,7 @@ arcadia:
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
     quota-cooldown: ${AI_QUOTA_COOLDOWN:10m}
     case-generation:
-      timeout: ${AI_CASE_GENERATION_TIMEOUT:60s}
+      timeout: ${AI_CASE_GENERATION_TIMEOUT:180s}
       max-retries: ${AI_CASE_GENERATION_MAX_RETRIES:2}
       prompt-version: case-generator-v2
     npc:

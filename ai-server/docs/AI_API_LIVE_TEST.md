@@ -65,6 +65,10 @@ PASS: 외부 호출 없이 FALLBACK 사건과 단서 로그를 확인했습니�
 .\scripts\test-ai-case-generation.cmd -Mode gemini
 ```
 
+기본 제한시간은 240초입니다. 느린 응답을 추가로 확인해야 하면
+`-TimeoutSeconds 300`처럼 조정할 수 있습니다. 이 값은 스크립트가 시작한 AI 서버의
+`AI_CASE_GENERATION_TIMEOUT`에도 같은 값으로 적용됩니다.
+
 `GEMINI_API_KEY`가 현재 PowerShell 환경에 없으면 스크립트가 키를 숨김 입력으로 요청합니다.
 키는 화면·명령 기록·로그에 출력하지 않으며, 스크립트 종료 후 프로세스 환경도 원래 값으로
 복구합니다. 실제 공급자 검증이 로컬 test double이나 프록시로 바뀌지 않도록 이 스크립트는
