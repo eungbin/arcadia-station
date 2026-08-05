@@ -11,6 +11,10 @@ const rightVector = new Vector3();
 const movementVector = new Vector3();
 const upVector = new Vector3(0, 1, 0);
 const velocityEpsilon = 0.0001;
+// 걷기 속도는 고정값 하나로 유지한다. 입력이 없을 때는 아래에서 수평 속도를 직접
+// 0으로 만들기 때문에 감쇠가 필요하지 않다. linearDamping을 0으로 두어야 이 값이
+// 실제 이동 속도와 같아진다.
+const moveSpeed = 5;
 
 export function PlayerController() {
   const body = useRef<RapierRigidBody>(null);
@@ -114,7 +118,7 @@ export function PlayerController() {
       movementVector
         .addScaledVector(forwardVector, zAxis)
         .addScaledVector(rightVector, xAxis);
-      movementVector.normalize().multiplyScalar(3.25);
+      movementVector.normalize().multiplyScalar(moveSpeed);
       markMoved();
     }
 
@@ -139,7 +143,7 @@ export function PlayerController() {
         enabledRotations={[false, false, false]}
         position={[0, 1.05, 6]}
         friction={0}
-        linearDamping={8}
+        linearDamping={0}
         ccd
       >
         <CapsuleCollider args={[0.52, 0.34]} />

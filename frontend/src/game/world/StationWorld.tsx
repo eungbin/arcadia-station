@@ -1,12 +1,13 @@
 import { createInstances, RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { CuboidCollider, RigidBody } from "@react-three/rapier";
+import { CuboidCollider, CylinderCollider, RigidBody } from "@react-three/rapier";
 import {
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   type PropsWithChildren,
+  type ReactNode,
 } from "react";
 import {
   AdditiveBlending,
@@ -194,6 +195,47 @@ function StaticBox({
         ))}
     </RigidBody>
   );
+}
+
+// 오브젝트 충돌체. 배경 장식(천장 조명, 파이프, 벽 스크린, 바닥 패드)에는 붙이지 않고
+// 플레이어가 실제로 부딪히는 가구·설비·인물에만 붙인다.
+// PropBox / PropColumn은 눈에 보이는 지오메트리와 같은 단위(전체 크기)를 받는다.
+function SolidProp({ children }: PropsWithChildren) {
+  return (
+    <RigidBody type="fixed" colliders={false}>
+      {children}
+    </RigidBody>
+  );
+}
+
+function PropBox({
+  size,
+  position = [0, 0, 0],
+  rotation = [0, 0, 0],
+}: {
+  size: Vector3Tuple;
+  position?: Vector3Tuple;
+  rotation?: Vector3Tuple;
+}) {
+  return (
+    <CuboidCollider
+      args={[size[0] / 2, size[1] / 2, size[2] / 2]}
+      position={position}
+      rotation={rotation}
+    />
+  );
+}
+
+function PropColumn({
+  radius,
+  height,
+  position = [0, 0, 0],
+}: {
+  radius: number;
+  height: number;
+  position?: Vector3Tuple;
+}) {
+  return <CylinderCollider args={[height / 2, radius]} position={position} />;
 }
 
 function FloorPlate({
@@ -632,11 +674,14 @@ function OpenPortal({
 function InteractiveGroup({
   id,
   children,
+  solid,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
   markerPosition = [0, 1.4, 0],
 }: PropsWithChildren<{
   id: string;
+  // 이 오브젝트의 충돌체. 오브젝트와 같은 로컬 좌표계를 쓴다.
+  solid?: ReactNode;
   position?: Vector3Tuple;
   rotation?: Vector3Tuple;
   markerPosition?: Vector3Tuple;
@@ -649,6 +694,7 @@ function InteractiveGroup({
       rotation={rotation}
       userData={{ interactionId: id, interactionMarker: markerPosition }}
     >
+      {solid && <SolidProp>{solid}</SolidProp>}
       {children}
       <pointLight
         position={markerPosition}
@@ -906,7 +952,13 @@ function CrewMember({
   });
 
   return (
-    <InteractiveGroup id={id} position={position} rotation={rotation} markerPosition={[0, 2.55, 0]}>
+    <InteractiveGroup
+      id={id}
+      position={position}
+      rotation={rotation}
+      markerPosition={[0, 2.55, 0]}
+      solid={<PropColumn radius={0.42} height={1.8} position={[0, 0.9, 0]} />}
+    >
       <group ref={body} userData={{ dynamicTransform: true }}>
         <mesh position={[-0.18, 0.48, 0]} castShadow>
           <capsuleGeometry args={[0.14, 0.62, 7, 12]} />
@@ -1145,6 +1197,10 @@ function HubArchitecture() {
       />
 
       <group position={[0, 0, 0.2]}>
+        <SolidProp>
+          <PropColumn radius={2.35} height={0.6} position={[0, 0.3, 0]} />
+          <PropColumn radius={0.8} height={3.15} position={[0, 1.75, 0]} />
+        </SolidProp>
         <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[2.1, 2.35, 0.6, 12]} />
           <meshStandardMaterial color="#273236" roughness={0.48} metalness={0.58} />
@@ -1163,7 +1219,11 @@ function HubArchitecture() {
             opacity={0.78}
           />
         </mesh>
-        <InteractiveGroup id="HB_MAINTENANCE" position={[0.67, 1.12, 0]}>
+        <InteractiveGroup
+          id="HB_MAINTENANCE"
+          position={[0.67, 1.12, 0]}
+          solid={<PropBox size={[0.9, 1.2, 0.18]} />}
+        >
           <RoundedBox args={[0.9, 1.2, 0.18]} radius={0.06} smoothness={3} castShadow>
             <meshStandardMaterial color="#303c3f" metalness={0.58} roughness={0.44} />
           </RoundedBox>
@@ -1254,6 +1314,9 @@ function CommandRoom() {
         rotation={[0, Math.PI, 0]}
       />
 
+      <SolidProp>
+        <PropBox size={[5.2, 0.83, 1.65]} position={[0, 0.415, -25.5]} />
+      </SolidProp>
       <mesh position={[0, 0.72, -25.5]} castShadow receiveShadow>
         <boxGeometry args={[5.2, 0.22, 1.65]} />
         <meshStandardMaterial color="#30383a" roughness={0.42} metalness={0.72} />
@@ -1272,6 +1335,7 @@ function CommandRoom() {
         position={[0.65, 1.23, -25.55]}
         rotation={[-0.18, 0, 0]}
         markerPosition={[0, 1, 0]}
+        solid={<PropBox size={[2.15, 1.18, 0.12]} />}
       >
         <RoundedBox args={[2.15, 1.18, 0.12]} radius={0.08} smoothness={4} castShadow>
           <meshStandardMaterial color="#1b2426" metalness={0.65} roughness={0.4} />
@@ -1279,7 +1343,12 @@ function CommandRoom() {
         <Screen position={[0, 0, 0.08]} size={[1.85, 0.9]} color="#e58f78" />
       </InteractiveGroup>
 
-      <InteractiveGroup id="CO_BODY" position={[2.2, 0.16, -22.1]} markerPosition={[0, 1.25, 0]}>
+      <InteractiveGroup
+        id="CO_BODY"
+        position={[2.2, 0.16, -22.1]}
+        markerPosition={[0, 1.25, 0]}
+        solid={<PropBox size={[2.1, 0.9, 1]} position={[0, 0.29, 0]} />}
+      >
         <BodyModel />
       </InteractiveGroup>
 
@@ -1287,6 +1356,7 @@ function CommandRoom() {
         id="CO_DOOR_LOG"
         position={[-1.9, 1.48, -18.18]}
         rotation={[0, Math.PI, 0]}
+        solid={<PropBox size={[0.74, 1.16, 0.18]} />}
       >
         <RoundedBox args={[0.74, 1.16, 0.18]} radius={0.06} smoothness={3} castShadow>
           <meshStandardMaterial color="#20282a" metalness={0.72} roughness={0.43} />
@@ -1303,6 +1373,7 @@ function CommandRoom() {
         position={[-7.2, 1.56, -23.4]}
         rotation={[0, Math.PI / 2, 0]}
         markerPosition={[0, 1.3, 0]}
+        solid={<PropBox size={[2.6, 2.5, 0.24]} />}
       >
         <RoundedBox args={[2.6, 2.5, 0.24]} radius={0.08} smoothness={3} castShadow>
           <meshStandardMaterial color="#1d282a" metalness={0.7} roughness={0.45} />
@@ -1320,7 +1391,12 @@ function CommandRoom() {
         ))}
       </InteractiveGroup>
 
-      <InteractiveGroup id="CO_SCANNER" position={[5.25, 0, -25.7]} markerPosition={[0, 2.2, 0]}>
+      <InteractiveGroup
+        id="CO_SCANNER"
+        position={[5.25, 0, -25.7]}
+        markerPosition={[0, 2.2, 0]}
+        solid={<PropColumn radius={0.82} height={0.9} position={[0, 0.45, 0]} />}
+      >
         <mesh position={[0, 0.65, 0]} castShadow>
           <cylinderGeometry args={[0.68, 0.82, 0.42, 10]} />
           <meshStandardMaterial color="#242d30" metalness={0.76} roughness={0.43} />
@@ -1342,6 +1418,7 @@ function CommandRoom() {
         position={[7.32, 1.45, -23.4]}
         rotation={[0, Math.PI / 2, 0]}
         markerPosition={[0, 1.5, 0]}
+        solid={<PropBox size={[2.5, 2.82, 0.12]} />}
       >
         <mesh>
           <boxGeometry args={[2.5, 2.82, 0.12]} />
@@ -1389,6 +1466,9 @@ function ExecutiveOffice() {
         rotation={[0, Math.PI, 0]}
       />
 
+      <SolidProp>
+        <PropBox size={[4.25, 0.85, 1.45]} position={[14.4, 0.425, -24.8]} />
+      </SolidProp>
       <mesh position={[14.4, 0.76, -24.8]} castShadow receiveShadow>
         <boxGeometry args={[4.25, 0.18, 1.45]} />
         <meshStandardMaterial color="#343a39" metalness={0.58} roughness={0.5} />
@@ -1407,6 +1487,7 @@ function ExecutiveOffice() {
         position={[18.76, 2.25, -23.5]}
         rotation={[0, -Math.PI / 2, 0]}
         markerPosition={[0, 1, 0]}
+        solid={<PropBox size={[3.6, 2.35, 0.16]} />}
       >
         <RoundedBox args={[3.6, 2.35, 0.16]} radius={0.06} smoothness={3}>
           <meshStandardMaterial color="#222b2d" metalness={0.62} roughness={0.46} />
@@ -1536,6 +1617,9 @@ function MedicalBay() {
 
       {[-21.6, -17.8].map((x) => (
         <group key={x} position={[x, 0, -6.4]}>
+          <SolidProp>
+            <PropBox size={[2.3, 1.08, 1.05]} position={[0, 0.54, 0]} />
+          </SolidProp>
           <RoundedBox
             args={[2.3, 0.28, 1.05]}
             radius={0.08}
@@ -1589,7 +1673,12 @@ function MedicalBay() {
         </group>
       ))}
 
-      <InteractiveGroup id="MD_MEDICAL_STORAGE" position={[-22.7, 0, -2.7]} markerPosition={[0, 2.8, 0]}>
+      <InteractiveGroup
+        id="MD_MEDICAL_STORAGE"
+        position={[-22.7, 0, -2.7]}
+        markerPosition={[0, 2.8, 0]}
+        solid={<PropBox size={[2.2, 2.75, 0.52]} position={[0, 1.38, 0]} />}
+      >
         <RoundedBox args={[2.2, 2.75, 0.52]} radius={0.08} smoothness={3} position={[0, 1.38, 0]} castShadow>
           <meshStandardMaterial color="#d2d4cd" metalness={0.35} roughness={0.62} />
         </RoundedBox>
@@ -1600,7 +1689,12 @@ function MedicalBay() {
         </mesh>
       </InteractiveGroup>
 
-      <InteractiveGroup id="MD_MEDICAL_TERMINAL" position={[-16, 0, -2.65]} markerPosition={[0, 2.45, 0]}>
+      <InteractiveGroup
+        id="MD_MEDICAL_TERMINAL"
+        position={[-16, 0, -2.65]}
+        markerPosition={[0, 2.45, 0]}
+        solid={<PropColumn radius={0.9} height={1.16} position={[0, 0.58, 0]} />}
+      >
         <mesh position={[0, 0.58, 0]} castShadow>
           <cylinderGeometry args={[0.75, 0.9, 1.16, 12]} />
           <meshStandardMaterial color="#d7d9d3" roughness={0.58} metalness={0.42} />
@@ -1633,6 +1727,9 @@ function EngineeringBay() {
 
       {[-24.2, -20.5, -16.8].map((x, index) => (
         <group key={x} position={[x, 0, 4.5]}>
+          <SolidProp>
+            <PropColumn radius={1.02} height={2.95} position={[0, 1.48, 0]} />
+          </SolidProp>
           <mesh position={[0, 1.48, 0]} castShadow>
             <cylinderGeometry args={[0.86, 1.02, 2.95, 14]} />
             <meshStandardMaterial color="#2d3739" metalness={0.76} roughness={0.42} />
@@ -1651,6 +1748,9 @@ function EngineeringBay() {
 
       {[-24, -22.4, -20.8].map((x) => (
         <group key={x} position={[x, 0, 8.1]}>
+          <SolidProp>
+            <PropColumn radius={0.64} height={1.6} position={[0, 0.8, 0]} />
+          </SolidProp>
           <mesh position={[0, 0.8, 0]} castShadow>
             <cylinderGeometry args={[0.55, 0.64, 1.6, 12]} />
             <meshStandardMaterial color="#7d8d89" metalness={0.62} roughness={0.45} />
@@ -1663,7 +1763,12 @@ function EngineeringBay() {
       ))}
       <PipeBank position={[-20.5, 3.65, 8.95]} length={8.6} accent={palette.amber} />
 
-      <InteractiveGroup id="EN_LIFE_SUPPORT" position={[-16.7, 0, 7.75]} markerPosition={[0, 1.85, 0]}>
+      <InteractiveGroup
+        id="EN_LIFE_SUPPORT"
+        position={[-16.7, 0, 7.75]}
+        markerPosition={[0, 1.85, 0]}
+        solid={<PropBox size={[3.2, 0.86, 1.1]} position={[0, 0.43, 0]} />}
+      >
         <mesh position={[0, 0.76, 0]} castShadow>
           <boxGeometry args={[3.2, 0.2, 1.1]} />
           <meshStandardMaterial color="#3b3d38" metalness={0.64} roughness={0.52} />
@@ -1695,6 +1800,9 @@ function CommunicationsRoom() {
 
       {[-8.8, -6.5, -4.2].map((x, index) => (
         <group key={x} position={[x, 0, 17.85]}>
+          <SolidProp>
+            <PropBox size={[1.55, 3.4, 0.65]} position={[0, 1.7, 0]} />
+          </SolidProp>
           <mesh position={[0, 1.7, 0]} castShadow>
             <boxGeometry args={[1.55, 3.4, 0.65]} />
             <meshStandardMaterial color="#20272c" metalness={0.74} roughness={0.4} />
@@ -1712,7 +1820,12 @@ function CommunicationsRoom() {
         </group>
       ))}
 
-      <InteractiveGroup id="CM_SECURITY_ARCHIVE" position={[-6.5, 0, 13.7]} markerPosition={[0, 2.1, 0]}>
+      <InteractiveGroup
+        id="CM_SECURITY_ARCHIVE"
+        position={[-6.5, 0, 13.7]}
+        markerPosition={[0, 2.1, 0]}
+        solid={<PropBox size={[4.7, 0.87, 1.25]} position={[0, 0.435, 0]} />}
+      >
         <mesh position={[0, 0.78, 0]} castShadow>
           <boxGeometry args={[4.7, 0.18, 1.25]} />
           <meshStandardMaterial color="#30343a" metalness={0.68} roughness={0.46} />
@@ -1734,13 +1847,27 @@ function CommunicationsRoom() {
   );
 }
 
+const cratePositions: Vector3Tuple[] = [
+  [-2.8, 0.65, 14.2],
+  [-2.5, 0.65, 17],
+  [-2.4, 1.35, 17],
+  [-1.8, 0.65, 19.5],
+];
+
 function CargoDock() {
   return (
     <group>
       <FloorPlate position={[0, 0, 10]} size={[3.4, 2]} accent={palette.magenta} />
       <RoomShell center={[0, 17]} size={[9, 12]} accent={palette.magenta} entrance="north" code="CG · 05" name="화물·도킹" />
 
-      <InteractiveGroup id="CG_AIRLOCK_LOG" position={[0, 0, 22.75]} markerPosition={[0, 3.55, 0]}>
+      {/* 에어록은 벽면에 붙어 있다. 방 안쪽으로 떠 있는 원판까지 막으면 접근 자체가
+          불가능하므로 문틀 두께만 충돌체로 쓴다. */}
+      <InteractiveGroup
+        id="CG_AIRLOCK_LOG"
+        position={[0, 0, 22.75]}
+        markerPosition={[0, 3.55, 0]}
+        solid={<PropBox size={[5.5, 3.3, 0.42]} position={[0, 1.65, 0]} />}
+      >
         <DoorFrame position={[0, 0, 0]} width={5.2} accent={palette.magenta} />
         <mesh position={[0, 1.58, 0.08]} castShadow>
           <cylinderGeometry args={[2.25, 2.25, 0.28, 28]} />
@@ -1769,14 +1896,15 @@ function CargoDock() {
         <meshStandardMaterial color={palette.magenta} emissive={palette.magenta} emissiveIntensity={0.7} />
       </mesh>
 
-      <InteractiveGroup id="CG_CARGO_MANIFEST" markerPosition={[-2.4, 2.6, 17]}>
-        {[
-          [-2.8, 0.65, 14.2],
-          [-2.5, 0.65, 17],
-          [-2.4, 1.35, 17],
-          [-1.8, 0.65, 19.5],
-        ].map(([x, y, z], index) => (
-          <group key={index} position={[x, y, z]}>
+      <InteractiveGroup
+        id="CG_CARGO_MANIFEST"
+        markerPosition={[-2.4, 2.6, 17]}
+        solid={cratePositions.map((position, index) => (
+          <PropBox key={index} size={[1.55, 1.25, 1.45]} position={position} />
+        ))}
+      >
+        {cratePositions.map((position, index) => (
+          <group key={index} position={position}>
             <RoundedBox
               args={[1.55, 1.25, 1.45]}
               radius={0.08}
@@ -1808,6 +1936,9 @@ function CargoDock() {
       </InteractiveGroup>
 
       <group position={[3.25, 0, 14]}>
+        <SolidProp>
+          <PropBox size={[0.34, 3.6, 0.5]} position={[0, 1.8, 0]} rotation={[0, 0, -0.32]} />
+        </SolidProp>
         <mesh position={[0, 1.8, 0]} rotation={[0, 0, -0.32]} castShadow>
           <boxGeometry args={[0.34, 3.6, 0.5]} />
           <meshStandardMaterial color="#c5a15d" metalness={0.66} roughness={0.48} />
@@ -1846,6 +1977,9 @@ function CommonModule() {
 
       {[-0.95, 1.15].map((zOffset) => (
         <group key={zOffset} position={[6.1, 0, 15 + zOffset]}>
+          <SolidProp>
+            <PropColumn radius={1.05} height={0.81} position={[0, 0.405, 0]} />
+          </SolidProp>
           <mesh position={[0, 0.75, 0]} castShadow>
             <cylinderGeometry args={[1.05, 1.05, 0.12, 18]} />
             <meshStandardMaterial color="#aaa79d" roughness={0.66} metalness={0.35} />
@@ -1856,6 +1990,9 @@ function CommonModule() {
           </mesh>
           {[-1.38, 1.38].map((x, index) => (
             <group key={x} position={[x, 0, 0]} rotation={[0, index === 0 ? -Math.PI / 2 : Math.PI / 2, 0]}>
+              <SolidProp>
+                <PropColumn radius={0.38} height={0.53} position={[0, 0.265, 0]} />
+              </SolidProp>
               <mesh position={[0, 0.47, 0]} castShadow>
                 <cylinderGeometry args={[0.38, 0.38, 0.12, 14]} />
                 <meshStandardMaterial color="#606866" roughness={0.66} metalness={0.36} />
@@ -1869,7 +2006,12 @@ function CommonModule() {
         </group>
       ))}
 
-      <InteractiveGroup id="CMN_FOOD_STATION" position={[8.6, 0, 17.6]} markerPosition={[0, 2.7, 0]}>
+      <InteractiveGroup
+        id="CMN_FOOD_STATION"
+        position={[8.6, 0, 17.6]}
+        markerPosition={[0, 2.7, 0]}
+        solid={<PropBox size={[2.6, 2.45, 0.6]} position={[0, 1.23, 0]} />}
+      >
         <RoundedBox args={[2.6, 2.45, 0.6]} radius={0.08} smoothness={3} position={[0, 1.23, 0]} castShadow>
           <meshStandardMaterial color="#b9b7ae" metalness={0.28} roughness={0.64} />
         </RoundedBox>
@@ -1914,6 +2056,7 @@ function CrewQuarters() {
         position={[10.72, 1.45, 13.4]}
         rotation={[0, -Math.PI / 2, 0]}
         markerPosition={[0, 1.2, 0]}
+        solid={<PropBox size={[0.84, 1.25, 0.18]} />}
       >
         <RoundedBox args={[0.84, 1.25, 0.18]} radius={0.05} smoothness={3}>
           <meshStandardMaterial color="#252d2f" metalness={0.68} roughness={0.46} />
