@@ -21,6 +21,17 @@ const parsePosition = (value) => value?.split(",").map(Number) ?? [];
 const positionDistance = (from, to) =>
   Math.hypot(...from.map((value, index) => value - (to[index] ?? value)));
 
+/**
+ * 첫 실행에서는 정거장에 진입한 직후 단계별 플레이 안내가 HUD 위에 열린다. 안내가 게임
+ * 조작을 막으므로 새 브라우저 컨텍스트마다 한 번씩 건너뛴다.
+ */
+async function dismissTour(target) {
+  const tour = target.locator(".tour-layer");
+  await tour.waitFor({ state: "visible" });
+  await target.locator(".tour-skip").click();
+  await tour.waitFor({ state: "hidden" });
+}
+
 async function waitForServer(url, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
 
@@ -103,6 +114,44 @@ try {
     timeout: 5_000,
   });
   await page.waitForTimeout(2_500);
+
+  // 첫 진입에서는 단계별 안내가 열려야 한다. 대상 요소를 짚는 하이라이트까지 확인한다.
+  stage("stepping through the first-run guide tour");
+  const tour = page.locator(".tour-layer");
+  await tour.waitFor({ state: "visible" });
+  const tourStepCount = await page.locator(".tour-dots i").count();
+  const tourFirstStep = await page.locator(".tour-count").innerText();
+  if (!(await page.locator(".tour-highlight").isVisible())) {
+    throw new Error("Guide tour did not highlight the first target element.");
+  }
+  await page.screenshot({
+    path: path.join(outputDir, "00-guide-tour-01.png"),
+    fullPage: true,
+  });
+  await page.locator(".tour-next").click();
+  await page.waitForFunction(
+    () => document.querySelector(".tour-layer")?.getAttribute("data-tour-step") === "2",
+    undefined,
+    { timeout: 3_000 },
+  );
+  await page.locator(".tour-next").click();
+  await page.waitForFunction(
+    () => document.querySelector(".tour-layer")?.getAttribute("data-tour-step") === "3",
+    undefined,
+    { timeout: 3_000 },
+  );
+  const tourThirdStep = await page.locator(".tour-count").innerText();
+  await page.screenshot({
+    path: path.join(outputDir, "00-guide-tour-03.png"),
+    fullPage: true,
+  });
+  await page.locator(".tour-back").click();
+  await page.waitForFunction(
+    () => document.querySelector(".tour-layer")?.getAttribute("data-tour-step") === "2",
+    undefined,
+    { timeout: 3_000 },
+  );
+  await dismissTour(page);
 
   await page.screenshot({
     path: path.join(outputDir, "02-hub.png"),
@@ -310,6 +359,11 @@ try {
       freeQuestionResponse,
       transcriptTurnCount,
     },
+    guideTour: {
+      stepCount: tourStepCount,
+      firstStep: tourFirstStep,
+      thirdStep: tourThirdStep,
+    },
     stableCameraPosition,
     consoleErrors,
     pageErrors,
@@ -360,6 +414,11 @@ try {
     () => Boolean(document.querySelector("canvas")?.dataset.cameraPosition),
   );
   await mobilePage.waitForTimeout(2_500);
+  await mobilePage.screenshot({
+    path: path.join(outputDir, "13-mobile-guide-tour.png"),
+    fullPage: true,
+  });
+  await dismissTour(mobilePage);
   await mobilePage.screenshot({
     path: path.join(outputDir, "14-mobile-hud.png"),
     fullPage: true,

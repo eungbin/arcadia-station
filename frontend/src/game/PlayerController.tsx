@@ -25,6 +25,7 @@ export function PlayerController() {
   const scene = useThree((state) => state.scene);
   const layer = useGameStore((state) => state.layer);
   const settingsOpen = useSettingsStore((state) => state.open);
+  const guideOpen = useSettingsStore((state) => state.guideOpen);
   const mouseSensitivity = useSettingsStore((state) => state.mouseSensitivity);
   const markMoved = useGameStore((state) => state.markMoved);
 
@@ -41,7 +42,7 @@ export function PlayerController() {
       else pressedKeys.current.delete(code);
     };
     const virtualLook = (event: Event) => {
-      if (layer !== "playing" || settingsOpen) return;
+      if (layer !== "playing" || settingsOpen || guideOpen) return;
       const { x, y } = (event as CustomEvent<{ x: number; y: number }>).detail;
       camera.rotation.order = "YXZ";
       camera.rotation.y -= x * 0.003 * mouseSensitivity;
@@ -64,7 +65,7 @@ export function PlayerController() {
       window.removeEventListener("arcadia:move", virtualMove);
       window.removeEventListener("arcadia:look", virtualLook);
     };
-  }, [camera, layer, mouseSensitivity, settingsOpen]);
+  }, [camera, guideOpen, layer, mouseSensitivity, settingsOpen]);
 
   useFrame(() => {
     if (!body.current) return;
@@ -93,7 +94,8 @@ export function PlayerController() {
       });
     }
 
-    if (layer !== "playing") {
+    // 안내를 읽는 동안 플레이어가 밀려 나가지 않도록 이동을 멈춘다.
+    if (layer !== "playing" || guideOpen) {
       const velocity = body.current.linvel();
       if (Math.abs(velocity.x) > velocityEpsilon || Math.abs(velocity.z) > velocityEpsilon) {
         body.current.setLinvel({ x: 0, y: velocity.y, z: 0 }, true);
@@ -149,7 +151,7 @@ export function PlayerController() {
         <CapsuleCollider args={[0.52, 0.34]} />
       </RigidBody>
       <PointerLockControls
-        enabled={layer === "playing" && !settingsOpen}
+        enabled={layer === "playing" && !settingsOpen && !guideOpen}
         pointerSpeed={mouseSensitivity}
         selector=".scene-canvas"
       />

@@ -34,10 +34,23 @@ export default function App() {
     if (layer === "opening") setSceneReady(false);
   }, [layer]);
 
+  // 안내는 HUD 요소를 하나씩 짚어 주므로 정거장이 실제로 떠 있을 때만 시작한다.
+  useEffect(() => {
+    if (!sceneReady || layer !== "playing") return;
+    const settings = useSettingsStore.getState();
+    if (!settings.guideSeen) settings.setGuideOpen(true);
+  }, [layer, sceneReady]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const state = useGameStore.getState();
       const settings = useSettingsStore.getState();
+
+      // 안내가 열려 있으면 게임 조작을 받지 않는다. 단계 이동과 ESC는 GuideTour가 처리한다.
+      if (settings.guideOpen) {
+        if (event.code === "Tab") event.preventDefault();
+        return;
+      }
 
       if (event.code === "Escape" && settings.open) {
         settings.setOpen(false);
@@ -67,6 +80,12 @@ export default function App() {
       }
 
       if (state.layer !== "playing") return;
+
+      // HUD의 안내 버튼에 표기한 단축키.
+      if (event.key === "?") {
+        settings.setGuideOpen(true);
+        return;
+      }
 
       if (event.code === "KeyE" && state.focusedId) {
         state.openInspection(state.focusedId);

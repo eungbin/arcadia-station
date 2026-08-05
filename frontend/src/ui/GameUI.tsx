@@ -24,6 +24,7 @@ import {
   useSubmitVerdict,
 } from "../api/hooks";
 import { validateTheory } from "../domain/theoryValidation";
+import { GuideTour } from "./GuideTour";
 import type { DiscoveredEvidence, EvidenceType } from "../api/contracts";
 
 /** 3D 소품의 종류. 물리 계층 표시에만 쓴다. */
@@ -133,6 +134,9 @@ function OpeningOverlay() {
           <span>{createSession.isPending ? "격리 채널 동기화 중" : "보안 권한으로 현장 진입"}</span>
           <kbd>{createSession.isPending ? "..." : "ENTER"}</kbd>
         </button>
+        <p className="opening-guide-note">
+          현장에 진입하면 화면 요소를 하나씩 짚어 주는 안내가 시작됩니다.
+        </p>
         {createSession.isError && (
           <div className="opening-error" role="alert">
             <span>CONNECTION REFUSED</span>
@@ -161,6 +165,7 @@ function OpeningOverlay() {
 
 function MissionHud() {
   const openSettings = useSettingsStore((state) => state.setOpen);
+  const openGuide = useSettingsStore((state) => state.setGuideOpen);
   const focusedId = useGameStore((state) => state.focusedId);
   const discoveredIds = useGameStore((state) => state.discoveredIds);
   const hasMoved = useGameStore((state) => state.hasMoved);
@@ -189,7 +194,7 @@ function MissionHud() {
         </div>
       </div>
 
-      <aside className="objective-panel">
+      <aside className="objective-panel" data-tour="objective">
         <header>
           <span>PRIMARY OBJECTIVE</span>
           <em>{phase}</em>
@@ -225,7 +230,7 @@ function MissionHud() {
         )}
       </aside>
 
-      <div className={`crosshair ${focused ? "is-focused" : ""}`}>
+      <div className={`crosshair ${focused ? "is-focused" : ""}`} data-tour="crosshair">
         <i />
         <i />
         <i />
@@ -244,20 +249,37 @@ function MissionHud() {
 
       <div className="hud-controls">
         {!hasMoved && <span><kbd>WASD</kbd> 이동</span>}
-        <button type="button" onClick={activateScan}><kbd>Q</kbd> 조사 스캔</button>
-        <button className="notebook-trigger" type="button" onClick={toggleNotebook}>
+        <button type="button" data-tour="scan" onClick={activateScan}>
+          <kbd>Q</kbd> 조사 스캔
+        </button>
+        <button
+          className="notebook-trigger"
+          type="button"
+          data-tour="notebook"
+          onClick={toggleNotebook}
+        >
           <kbd>TAB</kbd> 사건 수첩
         </button>
       </div>
 
-      <button
-        className="settings-trigger"
-        type="button"
-        aria-label="설정 열기"
-        onClick={() => openSettings(true)}
-      >
-        SYS <kbd>ESC</kbd>
-      </button>
+      <div className="hud-system-actions" data-tour="system">
+        <button
+          className="guide-trigger"
+          type="button"
+          aria-label="플레이 안내 열기"
+          onClick={() => openGuide(true)}
+        >
+          안내 <kbd>?</kbd>
+        </button>
+        <button
+          className="settings-trigger"
+          type="button"
+          aria-label="설정 열기"
+          onClick={() => openSettings(true)}
+        >
+          SYS <kbd>ESC</kbd>
+        </button>
+      </div>
 
       <div className="signal-meter">
         <span>EXTERNAL LINK</span>
@@ -1506,6 +1528,7 @@ function ResultScreen() {
 export function GameUI() {
   const layer = useGameStore((state) => state.layer);
   const selectedId = useGameStore((state) => state.selectedId);
+  const guideOpen = useSettingsStore((state) => state.guideOpen);
   const title = useMemo(
     () => (selectedId ? INVESTIGATION_OBJECTS[selectedId]?.title : null),
     [selectedId],
@@ -1515,18 +1538,23 @@ export function GameUI() {
     document.title = title ? `${title} // ARCADIA` : "ARCADIA // INCIDENT 72";
   }, [title]);
 
-  if (layer === "opening") return <OpeningOverlay />;
-
   return (
     <>
-      <MissionHud />
-      <ScanEffect />
-      {layer === "inspection" && <InspectionPanel />}
-      {layer === "interrogation" && <InterrogationPanel />}
-      {layer === "notebook" && <Notebook />}
-      {layer === "dayReview" && <DayReview />}
-      {layer === "trial" && <TrialScreen />}
-      {layer === "result" && <ResultScreen />}
+      {layer === "opening" ? (
+        <OpeningOverlay />
+      ) : (
+        <>
+          <MissionHud />
+          <ScanEffect />
+          {layer === "inspection" && <InspectionPanel />}
+          {layer === "interrogation" && <InterrogationPanel />}
+          {layer === "notebook" && <Notebook />}
+          {layer === "dayReview" && <DayReview />}
+          {layer === "trial" && <TrialScreen />}
+          {layer === "result" && <ResultScreen />}
+        </>
+      )}
+      {guideOpen && layer !== "opening" && <GuideTour />}
     </>
   );
 }
