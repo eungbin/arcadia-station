@@ -1891,10 +1891,6 @@ function CargoDock() {
         <boxGeometry args={[3.4, 0.06, 5.5]} />
         <meshStandardMaterial color="#111517" roughness={0.82} metalness={0.52} />
       </mesh>
-      <mesh position={[1.9, 0.12, 16.8]}>
-        <ringGeometry args={[1.25, 1.44, 4]} />
-        <meshStandardMaterial color={palette.magenta} emissive={palette.magenta} emissiveIntensity={0.7} />
-      </mesh>
 
       <InteractiveGroup
         id="CG_CARGO_MANIFEST"
