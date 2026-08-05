@@ -1,6 +1,7 @@
 # Arcadia Station AI
 
-Gemini API로 테스트하려면 [Gemini API 테스트 설정](docs/GEMINI_SETUP.md)을 따르세요.
+실제 Gemini와 프론트·백엔드 전체 연동 실행은
+[저장소 루트 실행 가이드](../README.md)를 따르세요.
 
 아르카디아 스테이션의 세션별 추리 사건을 생성하고, 서버 규칙으로 검증·동결한 뒤
 탐색/RAG/심문/최종 추리 API를 제공하는 Spring Boot 서비스입니다.
@@ -22,6 +23,21 @@ Gemini API로 테스트하려면 [Gemini API 테스트 설정](docs/GEMINI_SETUP
   Maven 3.9.9를 자동으로 내려받아 사용합니다.
 
 ## 로컬 실행
+
+### 실제 Gemini 빠른 시작
+
+아래 한 명령이 `ai-server/.env`에서 키를 읽고 실제 Gemini 모드로 서버를 시작합니다.
+처음 실행할 때만 숨김 입력으로 키를 묻고 `.env`를 만듭니다. `.env`는 Git에 포함되지 않습니다.
+
+```powershell
+.\scripts\run-real-ai.cmd
+```
+
+AI 서버만 실제 API로 검증하고 자동 종료하려면 다음을 사용합니다.
+
+```powershell
+.\scripts\test-ai-case-generation.cmd -Mode gemini
+```
 
 기본값은 API 키 없이 완주 가능한 오프라인 모드입니다.
 게임 백엔드와 함께 실행하는 전체 절차는
@@ -64,9 +80,10 @@ $env:OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small'
 .\mvnw.cmd spring-boot:run
 ```
 
-환경변수 전체 목록과 Gemini/오프라인 실행 예시는 [`.env.example`](.env.example)에
-정리되어 있습니다. Spring Boot가 `.env` 파일을 자동으로 읽는 구성은 아니므로,
-실제 실행 시에는 문서 예시처럼 현재 셸이나 배포 환경의 환경변수로 주입해야 합니다.
+환경변수 전체 목록과 Gemini 실행 예시는 [`.env.example`](.env.example)에 정리되어 있습니다.
+Spring Boot가 `.env` 파일을 자동으로 읽지는 않지만, `run-real-ai.cmd`와 실API 스모크
+스크립트는 `.env`를 읽어 현재 프로세스 환경변수로 주입합니다. 배포 환경에서는 기존처럼
+배포 플랫폼의 환경변수·시크릿을 사용합니다.
 
 `OPENAI_API_KEY`와 원본 프롬프트는 응답이나 일반 로그에 기록하지 않습니다. 모델명은
 환경 변수로 교체할 수 있으며 코드에 고정하지 않습니다.

@@ -21,6 +21,8 @@ $ErrorActionPreference = 'Stop'
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $aiServerDirectory = (Resolve-Path (Join-Path $scriptDirectory '..')).Path
 $mavenWrapper = Join-Path $aiServerDirectory 'mvnw.cmd'
+$dotenvScript = Join-Path $scriptDirectory 'dotenv.ps1'
+$dotenvPath = Join-Path $aiServerDirectory '.env'
 $targetDirectory = Join-Path $aiServerDirectory 'target'
 $runId = Get-Date -Format 'yyyyMMdd-HHmmss'
 $logDirectory = Join-Path $targetDirectory "live-smoke-$runId"
@@ -40,6 +42,8 @@ $managedEnvironment = @(
     'AI_PROVIDER',
     'GEMINI_API_KEY',
     'GEMINI_BASE_URL',
+    'GEMINI_TEXT_MODEL',
+    'GEMINI_EMBEDDING_MODEL',
     'OPENAI_API_KEY',
     'OPENAI_BASE_URL',
     'AI_CASE_GENERATION_MAX_RETRIES',
@@ -211,6 +215,11 @@ New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 try {
     Write-Section "Arcadia AI 사건 생성 스모크 테스트: $($Mode.ToUpperInvariant())"
     Write-Host "외부 API 사건 생성 제한: $TimeoutSeconds 초"
+    if (Test-Path -LiteralPath $dotenvPath) {
+        . $dotenvScript
+        Import-ArcadiaDotEnv -Path $dotenvPath | Out-Null
+        Write-Host '로컬 .env 설정을 불러왔습니다 (API 키 값은 출력하지 않음).'
+    }
     $javaExecutable = Require-Java
     if (-not (Test-Path $mavenWrapper)) {
         throw "Maven Wrapper를 찾지 못했습니다: $mavenWrapper"
