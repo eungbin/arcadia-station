@@ -572,6 +572,7 @@ export const httpApi: ArcadiaApi = {
       // 백엔드가 돌려주는 revealedFactIds는 내부 사실 ID라 프런트엔드 증거와 대응하지 않는다.
       revealedEvidenceIds: [],
       response: turn.dialogue,
+      recommendedQuestions: turn.recommendedQuestions,
       version: nextVersion(sessionId),
     };
   },

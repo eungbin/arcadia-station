@@ -55,11 +55,24 @@ export type InspectObjectResponse = {
   version: number;
 };
 
+/**
+ * 서버가 제안한 다음 질문.
+ *
+ * 심문이 한 번 오가면 이어지는 선택지는 이 목록으로 바뀐다. 정적 질문 목록은 사건과 무관하게
+ * 고정돼 있어서, 대화가 진행된 뒤에는 방금 들은 답변과 이어지지 않는다.
+ */
+export type RecommendedQuestion = {
+  topicId: string;
+  label: string;
+};
+
 export type InterrogationMessage = {
   interrogationId: string;
   npcId: string;
   response: string;
   revealedEvidenceIds: string[];
+  /** 이 답변에 이어서 물을 수 있는 질문. 비어 있을 수 있다. */
+  recommendedQuestions: RecommendedQuestion[];
   version: number;
 };
 

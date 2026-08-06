@@ -4,15 +4,20 @@ import { persist } from "zustand/middleware";
 export type GraphicsQuality = "LOW" | "MEDIUM" | "HIGH";
 
 /**
- * 이 기기에 권장할 그래픽 품질.
+ * 처음 실행할 때의 그래픽 품질.
  *
- * 정거장은 물리·그림자·실시간 조명을 함께 돌리기 때문에 저사양 기기에서 첫 진입부터 프레임이
- * 무너진다. 처음 실행하는 사람은 설정을 열어 볼 기회도 없이 그 화면을 보게 되므로, 기본값을
- * 무조건 시네마틱으로 두지 않고 기기 성능을 추정해서 정한다.
+ * 정거장은 물리·그림자·실시간 조명을 함께 돌려서, 어떤 기기인지 모르는 채로 높은 품질에서
+ * 시작하면 첫 화면부터 프레임이 무너질 수 있다. 잘못 낮추면 설정에서 바로 올릴 수 있지만
+ * 잘못 높이면 첫인상을 잃으므로, 모두 성능 우선에서 시작한다.
+ */
+export const DEFAULT_QUALITY: GraphicsQuality = "LOW";
+
+/**
+ * 이 기기가 감당할 수 있는 그래픽 품질.
  *
- * 판단 근거는 브라우저가 알려주는 것만 쓴다. `deviceMemory`는 크로미움 계열에만 있고
+ * 기본값을 정하는 데는 쓰지 않는다. 성능에 여유가 있는 기기에 "더 올려도 된다"고 알려 주는
+ * 용도다. 판단 근거는 브라우저가 알려주는 것만 쓴다. `deviceMemory`는 크로미움 계열에만 있고
  * `hardwareConcurrency`도 값이 부정확할 수 있어, 하나라도 낮게 나오면 낮은 쪽을 택한다.
- * 잘못 낮춰도 설정에서 바로 올릴 수 있지만, 잘못 높이면 첫인상을 잃는다.
  */
 export function recommendedQuality(): GraphicsQuality {
   if (typeof navigator === "undefined") return "MEDIUM";
@@ -68,7 +73,7 @@ export const useSettingsStore = create<SettingsState>()(
       guideSeen: false,
       notebookGuideOpen: false,
       notebookGuideSeen: false,
-      graphicsQuality: recommendedQuality(),
+      graphicsQuality: DEFAULT_QUALITY,
       graphicsQualityChosen: false,
       mouseSensitivity: 1,
       masterVolume: 0.42,
@@ -96,6 +101,16 @@ export const useSettingsStore = create<SettingsState>()(
         notebookGuideOpen: _notebookGuideOpen,
         ...settings
       }) => settings,
+      version: 1,
+      migrate: (persistedState, fromVersion) => {
+        const settings = persistedState as Partial<SettingsState>;
+        // v0은 기기 성능을 추정해서 기본값을 정했다. 직접 고른 적이 없다면 성능 우선으로 되돌린다.
+        return (
+          fromVersion < 1 && !settings.graphicsQualityChosen
+            ? { ...settings, graphicsQuality: DEFAULT_QUALITY }
+            : settings
+        ) as SettingsState;
+      },
     },
   ),
 );

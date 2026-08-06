@@ -12,6 +12,7 @@ import {
   type NotebookTab,
 } from "../store/gameStore";
 import {
+  DEFAULT_QUALITY,
   recommendedQuality,
   useSettingsStore,
   type GraphicsQuality,
@@ -32,6 +33,7 @@ import { GuideTour, NOTEBOOK_TOUR_STEPS, PLAY_TOUR_STEPS } from "./GuideTour";
 import type {
   DiscoveredEvidence,
   EvidenceType,
+  RecommendedQuestion,
   SessionPrepStage,
 } from "../api/contracts";
 
@@ -148,6 +150,9 @@ const QUALITY_CHOICES: Array<{
  *
  * 설정 창은 정거장에 들어간 뒤에만 열 수 있어서, 저사양 기기는 이미 프레임이 무너진 화면을
  * 본 다음에야 품질을 내릴 수 있었다. 처음 만나는 화면에서 미리 고르게 한다.
+ *
+ * 모두 성능 우선에서 시작하고, 여유가 있는 기기에는 더 올려도 된다고 알려 준다. 낮게 시작해서
+ * 올리는 쪽이 높게 시작해서 첫인상을 잃는 것보다 낫다.
  */
 function QualityPicker() {
   const graphicsQuality = useSettingsStore((state) => state.graphicsQuality);
@@ -155,6 +160,11 @@ function QualityPicker() {
   const chosen = useSettingsStore((state) => state.graphicsQualityChosen);
   const recommended = useMemo(() => recommendedQuality(), []);
   const selected = QUALITY_CHOICES.find((choice) => choice.id === graphicsQuality);
+  const defaultLabel = QUALITY_CHOICES.find((choice) => choice.id === DEFAULT_QUALITY)?.label;
+  const headroomLabel =
+    recommended === DEFAULT_QUALITY
+      ? null
+      : QUALITY_CHOICES.find((choice) => choice.id === recommended)?.label;
 
   return (
     <div className="opening-quality" role="group" aria-label="그래픽 품질">
@@ -171,16 +181,16 @@ function QualityPicker() {
             onClick={() => setGraphicsQuality(choice.id)}
           >
             <span>{choice.label}</span>
-            <small>{choice.id === recommended ? "권장" : choice.id}</small>
+            <small>{choice.id === DEFAULT_QUALITY ? "기본" : choice.id}</small>
           </button>
         ))}
       </div>
       <small>
         {chosen
           ? selected?.detail
-          : `이 기기에는 ${
-              QUALITY_CHOICES.find((choice) => choice.id === recommended)?.label
-            }을 권장합니다. ${selected?.detail ?? ""}`}
+          : `안정적인 프레임을 위해 ${defaultLabel}으로 시작합니다.${
+              headroomLabel ? ` 이 기기는 ${headroomLabel}까지 올려도 됩니다.` : ""
+            }`}
       </small>
     </div>
   );
@@ -1072,6 +1082,8 @@ function InterrogationPanel() {
   const markInterviewed = useGameStore((state) => state.markInterviewed);
   const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
   const [turns, setTurns] = useState<InterrogationTurn[]>([]);
+  /** 서버가 방금 답변에 이어 제안한 질문. 두 번째 질문부터는 이 목록을 선택지로 쓴다. */
+  const [followUps, setFollowUps] = useState<RecommendedQuestion[]>([]);
   const [activeChoice, setActiveChoice] = useState<string | null>(null);
   const [showEvidence, setShowEvidence] = useState(false);
   const [freeQuestion, setFreeQuestion] = useState("");
@@ -1087,6 +1099,7 @@ function InterrogationPanel() {
 
   useEffect(() => {
     setTurns([]);
+    setFollowUps([]);
     setActiveChoice(null);
     setShowEvidence(false);
     setFreeQuestion("");
@@ -1131,6 +1144,7 @@ function InterrogationPanel() {
     sendMessage.mutate(payload, {
       onSuccess: (message) => {
         closeTurn(turnId, message.response);
+        setFollowUps(message.recommendedQuestions);
         updateSessionVersion(message.version);
       },
       onError: () => closeTurn(turnId, fallbackResponse),
@@ -1146,6 +1160,23 @@ function InterrogationPanel() {
       { npcId, choiceId },
       turnId,
       selectedChoice?.response ?? "지금은 답변할 수 없습니다.",
+    );
+  };
+
+  /**
+   * 서버가 제안한 후속 질문을 그대로 묻는다.
+   *
+   * 정적 질문과 달리 사건마다 내용이 달라서 프런트엔드에 대응하는 응답문이 없다. 질문 문구를
+   * 그대로 자유 질문으로 보내고, 실패하면 자유 질문과 같은 안전 응답으로 대체한다.
+   */
+  const askRecommended = (question: RecommendedQuestion) => {
+    setActiveChoice(`topic-${question.topicId}`);
+    setShowEvidence(false);
+    const turnId = openTurn("choice", question.label);
+    send(
+      { npcId, query: question.label },
+      turnId,
+      "그 부분은 지금 확인해 드릴 수 없습니다. 보안 기록을 직접 대조해 주십시오.",
     );
   };
 
@@ -1181,6 +1212,9 @@ function InterrogationPanel() {
   const askedLabels = new Set(
     turns.filter((turn) => turn.kind === "choice").map((turn) => turn.question),
   );
+  // 첫 질문은 정적 목록에서 고르고, 한 번 오간 뒤부터는 서버가 제안한 후속 질문을 보여준다.
+  // 서버가 제안을 주지 않은 턴에서는 다시 정적 목록으로 돌아가 선택지가 비지 않게 한다.
+  const showFollowUps = turns.length > 0 && followUps.length > 0;
 
   return (
     <section className="interrogation-shell" aria-label={`${target.title} 심문`}>
@@ -1267,27 +1301,49 @@ function InterrogationPanel() {
               <span className="question-label">
                 {turns.length > 0 ? "이어서 질문" : "질문 선택"}
               </span>
-              {dialogue.choices.map((choice, index) => {
-                const asked = askedLabels.has(choice.label);
-                return (
-                  <button
-                    key={choice.id}
-                    type="button"
-                    className={[
-                      activeChoice === choice.id ? "is-active" : "",
-                      asked ? "is-asked" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    disabled={interrogation.isPending || sendMessage.isPending}
-                    onClick={() => ask(choice.id)}
-                  >
-                    <em>{String(index + 1).padStart(2, "0")}</em>
-                    <span>{choice.label}</span>
-                    <i>{asked ? "✓" : "→"}</i>
-                  </button>
-                );
-              })}
+              {showFollowUps
+                ? followUps.map((question, index) => {
+                    const asked = askedLabels.has(question.label);
+                    return (
+                      <button
+                        key={question.topicId}
+                        type="button"
+                        className={[
+                          activeChoice === `topic-${question.topicId}` ? "is-active" : "",
+                          asked ? "is-asked" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        disabled={interrogation.isPending || sendMessage.isPending}
+                        onClick={() => askRecommended(question)}
+                      >
+                        <em>{String(index + 1).padStart(2, "0")}</em>
+                        <span>{question.label}</span>
+                        <i>{asked ? "✓" : "→"}</i>
+                      </button>
+                    );
+                  })
+                : dialogue.choices.map((choice, index) => {
+                    const asked = askedLabels.has(choice.label);
+                    return (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        className={[
+                          activeChoice === choice.id ? "is-active" : "",
+                          asked ? "is-asked" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        disabled={interrogation.isPending || sendMessage.isPending}
+                        onClick={() => ask(choice.id)}
+                      >
+                        <em>{String(index + 1).padStart(2, "0")}</em>
+                        <span>{choice.label}</span>
+                        <i>{asked ? "✓" : "→"}</i>
+                      </button>
+                    );
+                  })}
               <form className="free-question-form" onSubmit={askFreeQuestion}>
                 <label htmlFor="free-interrogation-question">
                   <span>FREE QUESTION</span>

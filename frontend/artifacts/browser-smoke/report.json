@@ -14,7 +14,7 @@
       "transform": "none",
       "cameraPosition": "0.00,1.51,6.00",
       "cameraDirection": "0.00,-0.27,-0.96",
-      "renderStats": "{\"calls\":377,\"triangles\":63756,\"sceneChildren\":32}"
+      "renderStats": "{\"calls\":198,\"triangles\":27188,\"sceneChildren\":32}"
     },
     "children": [
       {
@@ -25,7 +25,7 @@
       },
       {
         "tag": "DIV",
-        "className": "scene-grade scene-grade--high ",
+        "className": "scene-grade scene-grade--low ",
         "position": "absolute",
         "zIndex": "1"
       },
@@ -56,20 +56,32 @@
   "webglRenderer": "three.js r185",
   "movement": {
     "before": "0.00,1.51,6.00",
-    "after": "0.00,1.51,2.89",
+    "after": "-0.00,1.51,2.89",
     "distance": 3.11
   },
   "interrogation": {
     "suggestedQuestionCount": 4,
     "freeQuestionResponse": "“사망 추정 시각에 어디에 있었습니까?”에 대한 제 답은 같습니다. 추측이 아니라 당시 보안 기록과 제 동선으로 판단해 주십시오.",
-    "transcriptTurnCount": 2
+    "transcriptTurnCount": 2,
+    "followUpLabels": [
+      "그 시간에 어느 구역에 있었습니까?",
+      "사령관실 접근 권한은 누구에게 있었습니까?",
+      "사령관과 마지막으로 나눈 대화는 무엇이었습니까?"
+    ],
+    "transcriptOverflow": {
+      "turns": 7,
+      "clippedAboveBy": -45,
+      "clippedBelowBy": -439,
+      "logScrollable": true,
+      "questionsVisible": true
+    }
   },
   "guideTour": {
     "stepCount": 8,
     "firstStep": "1 / 8",
     "thirdStep": "3 / 8"
   },
-  "stableCameraPosition": "-4.50,1.51,-8.46",
+  "stableCameraPosition": "-4.56,1.51,-8.46",
   "consoleErrors": [],
   "pageErrors": [],
   "persistedResultRecovered": true,
@@ -80,6 +92,11 @@
       "height": 844
     },
     "controlsVisible": true,
-    "horizontalOverflow": false
+    "horizontalOverflow": false,
+    "interrogation": {
+      "questionCount": 4,
+      "freeQuestionReachable": true,
+      "horizontalOverflow": false
+    }
   }
 }

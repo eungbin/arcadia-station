@@ -2668,24 +2668,51 @@ html[data-reduced-motion="true"] *::after {
   font-size: 11px;
 }
 
+/*
+ * 대화 기록 위쪽이 잘려 보이던 문제.
+ *
+ * 예전에는 이 격자가 `align-content: center`로 내용을 세로 가운데에 놓고 자기 자신이
+ * 스크롤했다. 문답이 쌓여 내용이 화면보다 길어지면 가운데 정렬이 내용을 위쪽 경계 **밖으로**
+ * 밀어내는데, scrollTop은 음수가 될 수 없어서 그 위쪽은 스크롤로도 닿을 수 없었다.
+ *
+ * 이제 대화 영역과 질문 영역을 두 줄로 나눈다. 질문 영역은 항상 아래에 붙고, 대화 영역은
+ * 남은 높이를 넘지 않는 선에서 자기 안에서 스크롤한다. 격자 밖으로 넘치는 내용이 없으므로
+ * 잘리는 자리도 없다.
+ */
 .interrogation-main {
   display: grid;
-  align-content: center;
-  gap: 38px;
+  /* 두 줄 모두 최소 0. 아래 줄이 길어지면(증거가 많을 때) 자기 안에서 스크롤한다. */
+  grid-template-rows: minmax(0, 1fr) minmax(0, auto);
+  gap: clamp(18px, 3vh, 38px);
   min-width: 0;
-  padding: clamp(40px, 7vh, 80px) clamp(40px, 6vw, 100px);
-  overflow-y: auto;
+  min-height: 0;
+  padding: clamp(24px, 5vh, 64px) clamp(40px, 6vw, 100px);
+  overflow: hidden;
 }
 
 .dialogue-transcript {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  /* 짧은 대화는 예전처럼 가운데에 놓이고, 길어지면 줄 높이까지만 차지한다. */
+  align-self: center;
   max-width: 880px;
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
   padding: 18px 22px 20px;
   border: 1px solid rgba(190, 211, 204, 0.14);
   background:
     linear-gradient(135deg, rgba(140, 224, 200, 0.045), transparent 44%),
     rgba(7, 12, 13, 0.54);
   box-shadow: 0 20px 70px rgba(0, 0, 0, 0.24);
+}
+
+/* 첫 진술과 화자 표시는 줄어들지 않는다. 높이를 양보하는 쪽은 문답 기록이다. */
+.dialogue-transcript > .speaker-line,
+.dialogue-transcript > blockquote,
+.dialogue-transcript > .inline-api-error {
+  flex-shrink: 0;
 }
 
 .dialogue-transcript::before,
@@ -2780,15 +2807,22 @@ html[data-reduced-motion="true"] *::after {
   line-height: 1.8;
 }
 
-/* 주고받은 문답 기록. 답변 후에도 지우지 않고 아래로 이어 붙인다. */
+/*
+ * 주고받은 문답 기록. 답변 후에도 지우지 않고 아래로 이어 붙인다.
+ *
+ * 고정 상한(42vh) 대신 남은 높이를 그대로 쓰고, 부모가 한계에 닿으면 이 영역만 줄어들며
+ * 안에서 스크롤한다. 화면이 큰 사람은 더 많은 문답을 한눈에 본다.
+ */
 .dialogue-log {
   display: grid;
+  flex: 0 1 auto;
   gap: 16px;
-  max-height: min(42vh, 380px);
+  min-height: 0;
   margin-top: 16px;
   padding: 14px 10px 2px 0;
   border-top: 1px solid var(--line);
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
 }
 
@@ -2816,8 +2850,13 @@ html[data-reduced-motion="true"] *::after {
 
 .question-list {
   display: grid;
+  align-content: start;
   max-width: 880px;
+  min-height: 0;
   gap: 7px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .question-label {
@@ -3012,11 +3051,15 @@ html[data-reduced-motion="true"] *::after {
 }
 
 .interrogation-evidence {
+  display: flex;
+  flex-direction: column;
   max-width: 880px;
+  min-height: 0;
 }
 
 .interrogation-evidence > header {
   display: flex;
+  flex-shrink: 0;
   align-items: flex-end;
   justify-content: space-between;
   margin-bottom: 15px;
@@ -3045,8 +3088,13 @@ html[data-reduced-motion="true"] *::after {
 
 .interrogation-evidence > div {
   display: grid;
+  align-content: start;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
+  min-height: 0;
   gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .interrogation-evidence > div button {
@@ -4400,9 +4448,30 @@ html[data-reduced-motion="true"] *::after {
     min-height: 220px;
   }
 
+  /*
+   * 좁은 화면에서는 초상과 대화가 세로로 쌓이고 레이아웃 전체가 스크롤한다. 데스크톱처럼
+   * 대화 영역을 남은 높이에 가두면 질문 목록이 잘리므로, 두 줄 모두 내용 높이를 쓰게 하고
+   * 기록에만 상한을 둔다.
+   */
   .interrogation-main {
+    grid-template-rows: auto auto;
     min-height: 420px;
     padding: 22px 16px;
+    overflow: visible;
+  }
+
+  .dialogue-transcript {
+    align-self: stretch;
+    max-height: none;
+  }
+
+  .dialogue-log {
+    max-height: 46vh;
+  }
+
+  .question-list,
+  .interrogation-evidence > div {
+    overflow-y: visible;
   }
 
   .day-review-shell,

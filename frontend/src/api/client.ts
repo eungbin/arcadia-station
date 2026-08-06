@@ -43,6 +43,13 @@ const mockDiscoveredEvidence = new Map<string, DiscoveredEvidence[]>();
  */
 const MOCK_CLUE_PREFIX = "MOCK-";
 
+/** mock 심문이 돌려주는 후속 질문. 실제 백엔드의 `recommendedQuestions`와 같은 모양이다. */
+const MOCK_RECOMMENDED_QUESTIONS = [
+  { topicId: "TOPIC-WHEREABOUTS", label: "그 시간에 어느 구역에 있었습니까?" },
+  { topicId: "TOPIC-ACCESS", label: "사령관실 접근 권한은 누구에게 있었습니까?" },
+  { topicId: "TOPIC-LAST-CONTACT", label: "사령관과 마지막으로 나눈 대화는 무엇이었습니까?" },
+];
+
 function mockEvidenceFor(objectId: string): DiscoveredEvidence | null {
   const object = INVESTIGATION_OBJECTS[objectId];
   if (!object || object.kind === "PERSON") return null;
@@ -179,6 +186,9 @@ const mockApi: ArcadiaApi = {
           ? `그 기록은 확인했습니다. 하지만 ${evidenceTitle}만으로 제 행동과 사망을 직접 연결할 수는 없습니다.`
           : freeQuestionResponse ?? "답변할 수 없습니다."),
       revealedEvidenceIds: [],
+      // 실제 백엔드는 방금 답변에 이어지는 질문을 돌려준다. mock도 같은 자리를 채워
+      // 이어서 질문 목록이 정적 질문에서 서버 제안으로 바뀌는 흐름을 그대로 재현한다.
+      recommendedQuestions: MOCK_RECOMMENDED_QUESTIONS,
       version: 3,
     };
   },

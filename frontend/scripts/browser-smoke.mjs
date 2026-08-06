@@ -253,9 +253,19 @@ try {
     .locator(".dialogue-log .transcript-turn:last-child blockquote")
     .innerText();
 
+  // 한 번 오간 뒤의 선택지는 정적 질문이 아니라 서버가 준 recommendedQuestions여야 한다.
+  await page.locator(".question-list > button").first().waitFor({ state: "visible" });
+  const followUpLabels = await page
+    .locator(".question-list > button:not(.present-evidence) span")
+    .allInnerTexts();
+  if (!followUpLabels.includes("그 시간에 어느 구역에 있었습니까?")) {
+    throw new Error(
+      `Follow-up questions did not come from the server response: ${followUpLabels.join(" | ")}`,
+    );
+  }
+
   // 답변을 받은 뒤에도 질문 목록이 그대로 있어야 한다. 별도의 "다른 질문 선택" 없이
   // 이어서 물을 수 있고, 앞선 문답은 기록에 남아야 한다.
-  await page.locator(".question-list > button").first().waitFor({ state: "visible" });
   await page.locator(".question-list > button").first().click();
   await page.waitForFunction(
     () => document.querySelectorAll(".dialogue-log .transcript-turn").length === 2,
@@ -272,6 +282,51 @@ try {
   }
   await page.screenshot({
     path: path.join(outputDir, "05-interrogation-free-question.png"),
+    fullPage: true,
+  });
+
+  // 문답이 쌓여도 대화 기록의 위아래가 잘리면 안 된다. 예전에는 대화 영역이 세로 가운데
+  // 정렬이라 내용이 길어지면 위쪽이 화면 밖으로 밀려나고 스크롤로도 닿을 수 없었다.
+  stage("checking the transcript does not clip as turns pile up");
+  for (let index = 0; index < 5; index += 1) {
+    const expectedTurns = 3 + index;
+    await page.locator(".question-list > button").first().click();
+    await page.waitForFunction(
+      (count) =>
+        document.querySelectorAll(".dialogue-log .transcript-turn").length === count &&
+        !document.querySelector(".dialogue-log .transcript-turn.is-pending"),
+      expectedTurns,
+      { timeout: 5_000 },
+    );
+  }
+  const transcriptOverflow = await page.evaluate(() => {
+    const main = document.querySelector(".interrogation-main");
+    const transcript = document.querySelector(".dialogue-transcript");
+    const log = document.querySelector(".dialogue-log");
+    const questions = document.querySelector(".question-list");
+    if (!main || !transcript || !log || !questions) return null;
+    const mainRect = main.getBoundingClientRect();
+    return {
+      turns: document.querySelectorAll(".dialogue-log .transcript-turn").length,
+      // 대화 영역이 컨테이너 위/아래로 삐져나가면 그만큼이 영구히 가려진다.
+      clippedAboveBy: Math.round(mainRect.top - transcript.getBoundingClientRect().top),
+      clippedBelowBy: Math.round(transcript.getBoundingClientRect().bottom - mainRect.bottom),
+      // 기록 자체는 안에서 스크롤해 첫 문답까지 닿을 수 있어야 한다.
+      logScrollable: log.scrollHeight > log.clientHeight,
+      questionsVisible: questions.getBoundingClientRect().bottom <= mainRect.bottom + 1,
+    };
+  });
+  if (!transcriptOverflow) throw new Error("Interrogation transcript nodes were not found.");
+  if (transcriptOverflow.clippedAboveBy > 1 || transcriptOverflow.clippedBelowBy > 1) {
+    throw new Error(
+      `Interrogation transcript is clipped: ${JSON.stringify(transcriptOverflow)}`,
+    );
+  }
+  if (!transcriptOverflow.questionsVisible) {
+    throw new Error("Question list was pushed out of the interrogation panel.");
+  }
+  await page.screenshot({
+    path: path.join(outputDir, "05-interrogation-long-transcript.png"),
     fullPage: true,
   });
 
@@ -372,6 +427,8 @@ try {
       suggestedQuestionCount,
       freeQuestionResponse,
       transcriptTurnCount,
+      followUpLabels,
+      transcriptOverflow,
     },
     guideTour: {
       stepCount: tourStepCount,
@@ -444,6 +501,35 @@ try {
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
     ),
   };
+
+  // 좁은 화면의 심문은 세로로 쌓여 레이아웃 전체가 스크롤한다. 질문 목록과 직접 질문 입력이
+  // 잘리지 않고 실제로 닿을 수 있어야 한다.
+  stage("checking mobile interrogation layout");
+  await mobilePage.evaluate(() => window.__ARCADIA_QA__?.showScreen("interrogation"));
+  await mobilePage.locator(".question-list > button").first().waitFor({ state: "visible" });
+  await mobilePage.locator(".free-question-form input").scrollIntoViewIfNeeded();
+  report.mobile.interrogation = await mobilePage.evaluate(() => {
+    const input = document.querySelector(".free-question-form input");
+    const rect = input?.getBoundingClientRect();
+    return {
+      questionCount: document.querySelectorAll(".question-list > button").length,
+      freeQuestionReachable: Boolean(
+        rect && rect.top >= 0 && rect.bottom <= window.innerHeight + 1,
+      ),
+      horizontalOverflow:
+        document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    };
+  });
+  await mobilePage.screenshot({
+    path: path.join(outputDir, "15-mobile-interrogation.png"),
+    fullPage: true,
+  });
+  if (!report.mobile.interrogation.freeQuestionReachable) {
+    throw new Error("Mobile interrogation clipped the free question input.");
+  }
+  if (report.mobile.interrogation.horizontalOverflow) {
+    throw new Error("Mobile interrogation overflowed horizontally.");
+  }
   await mobilePage.close();
 
   await writeFile(
