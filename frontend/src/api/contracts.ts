@@ -10,6 +10,18 @@ export type SessionDto = {
   pollAfterMs?: number;
 };
 
+/**
+ * 사건 생성 진행 단계.
+ *
+ * AI가 사건을 만드는 데 수십 초에서 2분까지 걸린다. 그 동안 진입 화면이 아무것도 말해 주지
+ * 않으면 멈춘 것처럼 보이므로, 백엔드 세션 상태를 그대로 단계로 옮겨 로딩 화면 문구의 근거로
+ * 삼는다. 지어낸 진행률이 아니라 실제 서버 상태다.
+ */
+export type SessionPrepStage = "CREATING" | "VALIDATING" | "READY";
+
+/** 사건 생성 단계가 바뀔 때마다 호출된다. */
+export type SessionPrepProgress = (stage: SessionPrepStage) => void;
+
 /** 서버가 판정에 사용하는 단서 종류. */
 export type EvidenceType = "PHYSICAL" | "DIGITAL" | "MOTIVE" | "OPPORTUNITY";
 

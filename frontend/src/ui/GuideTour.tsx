@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { useSettingsStore } from "../store/settingsStore";
 
 type Placement = "top" | "bottom" | "left" | "right" | "center";
 
-type TourStep = {
+export type TourStep = {
   title: string;
   body: string;
-  /** 짚어 줄 HUD 요소. 없으면 화면 가운데에 설명만 띄운다. */
+  /** 짚어 줄 화면 요소. 없으면 화면 가운데에 설명만 띄운다. */
   target?: string;
   placement?: Placement;
 };
@@ -17,7 +16,7 @@ type TourStep = {
  * 각 단계는 `data-tour` 속성으로 HUD 요소를 찾는다. 클래스명 대신 전용 속성을 쓰는 이유는
  * 스타일을 바꿔도 안내가 따라 깨지지 않게 하려는 것이다.
  */
-const TOUR_STEPS: TourStep[] = [
+export const PLAY_TOUR_STEPS: TourStep[] = [
   {
     title: "목표 패널 — 지금 할 일은 여기에",
     body:
@@ -70,6 +69,57 @@ const TOUR_STEPS: TourStep[] = [
       "이 안내는 ? 키나 안내 버튼으로 언제든 다시 볼 수 있습니다. ESC를 누르면 설정이 열립니다.",
     target: '[data-tour="system"]',
     placement: "left",
+  },
+];
+
+/**
+ * 수첩을 처음 열었을 때 탭 다섯 개의 쓰임을 한 번만 짚어 주는 안내.
+ *
+ * 플레이 안내(`PLAY_TOUR_STEPS`)는 수첩을 "TAB으로 연다"까지만 알려 준다. 정작 수첩 안에서
+ * 무엇을 어디서 하는지는 탭 이름만으로 알기 어려워서, 실제로 열었을 때 한 번 더 짚어 준다.
+ */
+export const NOTEBOOK_TOUR_STEPS: TourStep[] = [
+  {
+    title: "증거 — 확보한 기록이 모이는 곳",
+    body:
+      "조사와 기록 검색으로 얻은 증거가 카드로 쌓입니다. 각 카드에는 어느 구역의 무엇에서 나왔는지가 함께 적혀 있습니다.",
+    target: '[data-tour="notebook-tab-evidence"]',
+    placement: "right",
+  },
+  {
+    title: "타임라인 — 사건 당일의 흐름",
+    body:
+      "사망 전후에 무슨 일이 있었는지 시간순으로 봅니다. 증거의 시각과 여기 적힌 시각을 맞춰 보면 모순이 드러납니다.",
+    target: '[data-tour="notebook-tab-timeline"]',
+    placement: "right",
+  },
+  {
+    title: "용의자 — 누구를 심문했는지",
+    body:
+      "승무원 명단과 진술 확보 여부를 확인합니다. 아직 심문하지 않은 사람이 누구인지 여기서 알 수 있습니다.",
+    target: '[data-tour="notebook-tab-suspects"]',
+    placement: "right",
+  },
+  {
+    title: "수사 보조 — 기록을 검색한다",
+    body:
+      "현장에서 직접 찾을 수 없는 기록은 여기서 질문해 찾습니다. 검색으로만 열리는 증거가 있으니 막히면 들러 보세요.",
+    target: '[data-tour="notebook-tab-assistant"]',
+    placement: "right",
+  },
+  {
+    title: "사건 재구성 — 마지막에 여는 탭",
+    body:
+      "2일차 조사까지 마치면 열립니다. 범인을 지목하고 준비·실행·기회·동기를 각각 다른 증거로 연결한 뒤 재판을 시작합니다.",
+    target: '[data-tour="notebook-tab-theory"]',
+    placement: "right",
+  },
+  {
+    title: "진행도 — 1일차에 필요한 만큼 모았는지",
+    body:
+      "1일차를 넘기려면 필수 기록을 모두 확보하고 승무원 3명 이상을 심문해야 합니다. 남은 양이 여기에 표시됩니다.",
+    target: '[data-tour="notebook-progress"]',
+    placement: "bottom",
   },
 ];
 
@@ -130,13 +180,20 @@ function cardPosition(rect: DOMRect | null, placement: Placement): CardPosition 
   }
 }
 
-export function GuideTour() {
-  const closeGuide = useSettingsStore((state) => state.closeGuide);
+export function GuideTour({
+  steps,
+  onClose,
+  label = "플레이 안내",
+}: {
+  steps: TourStep[];
+  onClose: () => void;
+  label?: string;
+}) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
-  const step = TOUR_STEPS[index];
-  const isLast = index === TOUR_STEPS.length - 1;
+  const step = steps[index];
+  const isLast = index === steps.length - 1;
 
   const measure = useCallback(() => {
     if (!step.target) {
@@ -156,18 +213,18 @@ export function GuideTour() {
 
   const goNext = useCallback(() => {
     if (isLast) {
-      closeGuide();
+      onClose();
       return;
     }
     setIndex((current) => current + 1);
-  }, [closeGuide, isLast]);
+  }, [onClose, isLast]);
 
   const goBack = useCallback(() => setIndex((current) => Math.max(0, current - 1)), []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === "Escape") {
-        closeGuide();
+        onClose();
         return;
       }
       if (event.code === "ArrowRight" || event.code === "Enter" || event.code === "Space") {
@@ -182,7 +239,7 @@ export function GuideTour() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeGuide, goBack, goNext]);
+  }, [onClose, goBack, goNext]);
 
   const position = cardPosition(rect, step.placement ?? "center");
   // 대상만 남기고 주변을 덮는다. 사각형 네 장이라 잘라내기 없이도 강조가 된다.
@@ -212,7 +269,7 @@ export function GuideTour() {
       className="tour-layer"
       role="dialog"
       aria-modal="true"
-      aria-label="플레이 안내"
+      aria-label={label}
       data-tour-step={index + 1}
     >
       {scrims.map((scrim) => (
@@ -243,10 +300,10 @@ export function GuideTour() {
       <article className="tour-card" style={position}>
         <header>
           <span className="tour-count">
-            {index + 1} / {TOUR_STEPS.length}
+            {index + 1} / {steps.length}
           </span>
           <div className="tour-dots">
-            {TOUR_STEPS.map((tourStep, dotIndex) => (
+            {steps.map((tourStep, dotIndex) => (
               <i
                 key={tourStep.title}
                 className={dotIndex === index ? "is-current" : dotIndex < index ? "is-done" : ""}
@@ -260,7 +317,7 @@ export function GuideTour() {
         </h2>
         <p>{step.body}</p>
         <footer>
-          <button className="tour-skip" type="button" onClick={closeGuide}>
+          <button className="tour-skip" type="button" onClick={onClose}>
             건너뛰기
           </button>
           <div className="tour-nav">

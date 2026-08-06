@@ -47,7 +47,7 @@ export default function App() {
       const settings = useSettingsStore.getState();
 
       // 안내가 열려 있으면 게임 조작을 받지 않는다. 단계 이동과 ESC는 GuideTour가 처리한다.
-      if (settings.guideOpen) {
+      if (settings.guideOpen || settings.notebookGuideOpen) {
         if (event.code === "Tab") event.preventDefault();
         return;
       }

@@ -98,6 +98,14 @@ try {
     fullPage: true,
   });
   await page.locator(".primary-action").click();
+  // 사건 생성 대기 화면. mock 모드에서도 단계 문구가 흐르는지 여기서 확인한다.
+  stage("capturing the case preparation screen");
+  await page.locator(".case-prep").waitFor({ state: "visible" });
+  await page.locator(".case-prep-log li").first().waitFor({ state: "visible" });
+  await page.screenshot({
+    path: path.join(outputDir, "01-case-prep.png"),
+    fullPage: true,
+  });
   await page.locator(".hud-layer").waitFor({ state: "visible" });
   stage("waiting for the 3D station");
   await page.waitForFunction(
@@ -197,6 +205,12 @@ try {
   await page.keyboard.press("Tab");
   stage("checking notebook and settings overlays");
   await page.locator(".notebook-shell").waitFor({ state: "visible" });
+  // 수첩을 처음 열면 탭 다섯 개를 짚어 주는 안내가 한 번 뜬다. 안내가 조작을 막으므로 닫는다.
+  await page.screenshot({
+    path: path.join(outputDir, "03-notebook-guide.png"),
+    fullPage: true,
+  });
+  await dismissTour(page);
   await page.screenshot({
     path: path.join(outputDir, "03-notebook.png"),
     fullPage: true,

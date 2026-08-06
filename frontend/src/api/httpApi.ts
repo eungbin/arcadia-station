@@ -23,6 +23,8 @@ import type {
   InterrogationSession,
   SaveTheoryRequest,
   SessionDto,
+  SessionPrepProgress,
+  SessionPrepStage,
   SessionStatus,
   TrialVerdictResponse,
 } from "./contracts";
@@ -261,6 +263,13 @@ function assertNotFailed(state: BackendSessionState): void {
   }
 }
 
+/** 백엔드 세션 상태를 사건 생성 로딩 화면의 단계로 옮긴다. */
+function toPrepStage(state: BackendSessionState): SessionPrepStage {
+  if (state === "CREATING") return "CREATING";
+  if (state === "VALIDATING") return "VALIDATING";
+  return "READY";
+}
+
 function toSessionStatus(state: BackendSessionState): SessionStatus {
   switch (state) {
     case "CREATING":
@@ -428,7 +437,7 @@ function toTrialResult(accusedId: string, result: BackendDeductionResult): Trial
 // ---------------------------------------------------------------------------
 
 export const httpApi: ArcadiaApi = {
-  async createSession(): Promise<SessionDto> {
+  async createSession(onProgress?: SessionPrepProgress): Promise<SessionDto> {
     const created = await requestBackend<BackendSessionSummary>(
       "/sessions",
       { method: "POST", body: JSON.stringify({ seed: null }) },
@@ -439,6 +448,7 @@ export const httpApi: ArcadiaApi = {
     persistLedger();
 
     let state = created.status;
+    onProgress?.(toPrepStage(state));
     const deadline = Date.now() + SESSION_POLL_BUDGET_MS;
     while (state === "CREATING" || state === "VALIDATING") {
       if (Date.now() >= deadline) {
@@ -455,6 +465,7 @@ export const httpApi: ArcadiaApi = {
         FAST_TIMEOUT_MS,
       );
       state = polled.status;
+      onProgress?.(toPrepStage(state));
     }
     assertNotFailed(state);
 

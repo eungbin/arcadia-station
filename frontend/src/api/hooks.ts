@@ -1,14 +1,24 @@
 import { useMutation } from "@tanstack/react-query";
 import { arcadiaApi } from "./client";
 import { useQuery } from "@tanstack/react-query";
-import type { InterrogationInput, SaveTheoryRequest } from "./contracts";
+import type {
+  InterrogationInput,
+  SaveTheoryRequest,
+  SessionPrepProgress,
+} from "./contracts";
 import { useGameStore, type TheoryDraft } from "../store/gameStore";
 
-export function useCreateSession() {
+/**
+ * 사건 세션을 만든다.
+ *
+ * `onProgress`는 AI 사건 생성 단계가 바뀔 때마다 호출된다. 진입 화면의 대기 연출이 실제
+ * 서버 상태를 따라가도록 쓰는 통로다.
+ */
+export function useCreateSession(onProgress?: SessionPrepProgress) {
   return useMutation({
     mutationKey: ["session", "create"],
     mutationFn: async () => {
-      const created = await arcadiaApi.createSession();
+      const created = await arcadiaApi.createSession(onProgress);
       const session = await arcadiaApi.completeOpening(created.sessionId);
       // 서버가 생성한 사건 개요를 오프닝에서 바로 보여줄 수 있도록 함께 받아 온다.
       const caseState = await arcadiaApi.fetchCaseState(session.sessionId);

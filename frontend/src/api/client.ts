@@ -9,6 +9,7 @@ import type {
   InterrogationSession,
   SaveTheoryRequest,
   SessionDto,
+  SessionPrepProgress,
   TrialVerdictResponse,
 } from "./contracts";
 import { INVESTIGATION_OBJECTS, NPC_DIALOGUE, SUSPECTS } from "../data/investigation";
@@ -55,7 +56,8 @@ function mockEvidenceFor(objectId: string): DiscoveredEvidence | null {
 }
 
 export type ArcadiaApi = {
-  createSession: () => Promise<SessionDto>;
+  /** `onProgress`는 사건 생성 단계가 바뀔 때마다 호출된다. 로딩 화면 문구의 근거다. */
+  createSession: (onProgress?: SessionPrepProgress) => Promise<SessionDto>;
   completeOpening: (sessionId: string) => Promise<SessionDto>;
   /** 사건 개요와 지금까지 확보한 단서 전체. 새로고침 복구와 진행 중 동기화에 쓴다. */
   fetchCaseState: (sessionId: string) => Promise<CaseStateResponse>;
@@ -76,11 +78,18 @@ export type ArcadiaApi = {
 };
 
 const mockApi: ArcadiaApi = {
-  async createSession(): Promise<SessionDto> {
-    await mockDelay();
+  async createSession(onProgress): Promise<SessionDto> {
+    // 실제 AI 사건 생성은 수십 초가 걸린다. mock은 빨라야 개발이 편하지만 그러면 생성 대기
+    // 화면을 볼 수가 없어서, `?mockSlowCase=1`로 실제에 가까운 길이를 재현할 수 있게 둔다.
+    const stageMs = new URLSearchParams(location.search).has("mockSlowCase") ? 6_000 : 420;
+    onProgress?.("CREATING");
+    await mockDelay(stageMs);
     if (shouldFail("session")) {
       throw new ArcadiaApiError("격리 서버와 보안 채널을 열지 못했습니다.", "MOCK_OFFLINE", true);
     }
+    onProgress?.("VALIDATING");
+    await mockDelay(stageMs);
+    onProgress?.("READY");
     const sessionId = `LOCAL-${crypto.randomUUID()}`;
     mockDiscoveredEvidence.set(sessionId, []);
     return {
@@ -104,7 +113,7 @@ const mockApi: ArcadiaApi = {
     return {
       title: "아르카디아 스테이션 사건",
       briefing:
-        "태양풍 격리 중 사령관 다니엘 로스가 사망했다. 구조선 도착까지 남은 시간은 72시간이다.",
+        "태양풍 격리 중 사령관 다니엘 로스가 사망했다. 외부 통신은 두절됐고 정거장에 남은 인원은 여섯 명이다.",
       suspectIds: SUSPECTS.map((suspect) => suspect.id),
       evidence: mockDiscoveredEvidence.get(sessionId) ?? [],
     };

@@ -11,7 +11,11 @@ import {
   useGameStore,
   type NotebookTab,
 } from "../store/gameStore";
-import { useSettingsStore } from "../store/settingsStore";
+import {
+  recommendedQuality,
+  useSettingsStore,
+  type GraphicsQuality,
+} from "../store/settingsStore";
 import {
   useCompleteDay,
   useCreateSession,
@@ -24,8 +28,12 @@ import {
   useSubmitVerdict,
 } from "../api/hooks";
 import { validateTheory } from "../domain/theoryValidation";
-import { GuideTour } from "./GuideTour";
-import type { DiscoveredEvidence, EvidenceType } from "../api/contracts";
+import { GuideTour, NOTEBOOK_TOUR_STEPS, PLAY_TOUR_STEPS } from "./GuideTour";
+import type {
+  DiscoveredEvidence,
+  EvidenceType,
+  SessionPrepStage,
+} from "../api/contracts";
 
 /** 3D 소품의 종류. 물리 계층 표시에만 쓴다. */
 const KIND_LABELS: Record<TargetKind, string> = {
@@ -43,6 +51,54 @@ const EVIDENCE_TYPE_LABELS: Record<EvidenceType, string> = {
   MOTIVE: "동기 자료",
   OPPORTUNITY: "기회와 권한",
 };
+
+/**
+ * 플레이 진행 단계.
+ *
+ * 이 게임에는 제한 시간 규칙이 없다. 예전 HUD가 보여주던 구조선 도착 카운트다운은 어떤 규칙과도
+ * 연결되지 않은 장식이라, 압박만 주고 정작 "지금 어디쯤인지"는 알려주지 못했다. 실제 진행 축인
+ * 1일차 조사 → 2일차 조사 → 최종 추리를 대신 표시한다.
+ */
+const STAGES = [
+  { id: "DAY1", short: "1일차", label: "1일차 조사" },
+  { id: "DAY2", short: "2일차", label: "2일차 조사" },
+  { id: "DEDUCTION", short: "추리", label: "최종 추리" },
+] as const;
+
+type StageId = (typeof STAGES)[number]["id"];
+
+/** 지금 단계. 재판과 결과 화면은 일차와 무관하게 추리 단계로 본다. */
+function useStage(): StageId {
+  const phase = useGameStore((state) => state.phase);
+  const layer = useGameStore((state) => state.layer);
+  if (layer === "trial" || layer === "result") return "DEDUCTION";
+  return phase === "DAY2" ? "DAY2" : "DAY1";
+}
+
+/** 카운트다운이 있던 자리를 대신하는 진행 단계 표시기. */
+function StageIndicator({ current }: { current: StageId }) {
+  const currentIndex = STAGES.findIndex((stage) => stage.id === current);
+  return (
+    <div
+      className="stage-indicator"
+      aria-label={`진행 단계 · ${STAGES[currentIndex].label}`}
+    >
+      <span>진행 단계</span>
+      <div>
+        {STAGES.map((stage, index) => (
+          <i
+            key={stage.id}
+            className={
+              index === currentIndex ? "is-current" : index < currentIndex ? "is-done" : ""
+            }
+          >
+            {stage.short}
+          </i>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** 서버 용의자 ID를 화면 표시용 정보로 옮긴다. 정적 로스터에 없으면 ID를 그대로 쓴다. */
 function suspectProfile(id: string) {
@@ -65,13 +121,80 @@ function useSuspects() {
   );
 }
 
+const QUALITY_CHOICES: Array<{
+  id: GraphicsQuality;
+  label: string;
+  detail: string;
+}> = [
+  {
+    id: "LOW",
+    label: "성능 우선",
+    detail: "그림자를 끄고 해상도를 낮춥니다. 내장 그래픽 노트북과 모바일에 권장합니다.",
+  },
+  {
+    id: "MEDIUM",
+    label: "균형",
+    detail: "그림자를 유지하면서 해상도를 조금 낮춥니다.",
+  },
+  {
+    id: "HIGH",
+    label: "시네마틱",
+    detail: "그림자와 고해상도를 모두 켭니다. 외장 그래픽에 권장합니다.",
+  },
+];
+
+/**
+ * 진입 전 그래픽 품질 선택.
+ *
+ * 설정 창은 정거장에 들어간 뒤에만 열 수 있어서, 저사양 기기는 이미 프레임이 무너진 화면을
+ * 본 다음에야 품질을 내릴 수 있었다. 처음 만나는 화면에서 미리 고르게 한다.
+ */
+function QualityPicker() {
+  const graphicsQuality = useSettingsStore((state) => state.graphicsQuality);
+  const setGraphicsQuality = useSettingsStore((state) => state.setGraphicsQuality);
+  const chosen = useSettingsStore((state) => state.graphicsQualityChosen);
+  const recommended = useMemo(() => recommendedQuality(), []);
+  const selected = QUALITY_CHOICES.find((choice) => choice.id === graphicsQuality);
+
+  return (
+    <div className="opening-quality" role="group" aria-label="그래픽 품질">
+      <header>
+        <span>GRAPHICS</span>
+        <p>진입 후 <kbd>ESC</kbd> 설정에서 언제든 바꿀 수 있습니다.</p>
+      </header>
+      <div className="segmented-control">
+        {QUALITY_CHOICES.map((choice) => (
+          <button
+            key={choice.id}
+            type="button"
+            className={graphicsQuality === choice.id ? "is-active" : ""}
+            onClick={() => setGraphicsQuality(choice.id)}
+          >
+            <span>{choice.label}</span>
+            <small>{choice.id === recommended ? "권장" : choice.id}</small>
+          </button>
+        ))}
+      </div>
+      <small>
+        {chosen
+          ? selected?.detail
+          : `이 기기에는 ${
+              QUALITY_CHOICES.find((choice) => choice.id === recommended)?.label
+            }을 권장합니다. ${selected?.detail ?? ""}`}
+      </small>
+    </div>
+  );
+}
+
 function OpeningOverlay() {
   const beginInvestigation = useGameStore((state) => state.beginInvestigation);
   const syncCaseState = useGameStore((state) => state.syncCaseState);
   const caseBriefing = useGameStore((state) => state.caseBriefing);
-  const createSession = useCreateSession();
+  const [prepStage, setPrepStage] = useState<SessionPrepStage>("CREATING");
+  const createSession = useCreateSession(setPrepStage);
 
   const enterStation = () => {
+    setPrepStage("CREATING");
     createSession.mutate(undefined, {
       onSuccess: ({ session, caseState }) => {
         syncCaseState(caseState);
@@ -79,6 +202,10 @@ function OpeningOverlay() {
       },
     });
   };
+
+  // 사건 생성은 AI가 처음부터 만드는 작업이라 수십 초에서 2분까지 걸린다. 그 동안 진입 화면을
+  // 그대로 두면 멈춘 것처럼 보이므로 전용 대기 화면으로 덮는다.
+  if (createSession.isPending) return <CasePreparingOverlay stage={prepStage} />;
 
   return (
     <section className="opening-overlay" aria-label="사건 브리핑">
@@ -101,7 +228,7 @@ function OpeningOverlay() {
             <>
               사령관 다니엘 로스가 사망했다.
               <br />
-              구조선 도착까지 남은 시간은 72시간.
+              외부 통신은 두절됐고, 정거장에는 여섯 명이 남았다.
             </>
           )}
         </p>
@@ -125,17 +252,15 @@ function OpeningOverlay() {
           </div>
         </dl>
 
-        <button
-          className="primary-action"
-          type="button"
-          disabled={createSession.isPending}
-          onClick={enterStation}
-        >
-          <span>{createSession.isPending ? "격리 채널 동기화 중" : "보안 권한으로 현장 진입"}</span>
-          <kbd>{createSession.isPending ? "..." : "ENTER"}</kbd>
+        <QualityPicker />
+
+        <button className="primary-action" type="button" onClick={enterStation}>
+          <span>보안 권한으로 현장 진입</span>
+          <kbd>ENTER</kbd>
         </button>
         <p className="opening-guide-note">
-          현장에 진입하면 화면 요소를 하나씩 짚어 주는 안내가 시작됩니다.
+          사건은 진입할 때마다 새로 생성됩니다. 현장에 들어가면 화면 요소를 하나씩 짚어 주는
+          안내가 시작됩니다.
         </p>
         {createSession.isError && (
           <div className="opening-error" role="alert">
@@ -163,6 +288,189 @@ function OpeningOverlay() {
   );
 }
 
+/**
+ * 사건 생성 단계별 진행 문구.
+ *
+ * 문구는 실제 백엔드 세션 상태(`CREATING` → `VALIDATING` → `READY`)에 붙어 있다. 가짜 진행률
+ * 막대가 아니라 서버가 지금 실제로 하고 있는 일을 정거장 말투로 옮긴 것이다.
+ */
+const PREP_STORY: Record<SessionPrepStage, { caption: string; lines: string[] }> = {
+  CREATING: {
+    caption: "사건 파일 생성",
+    lines: [
+      "정거장 로그 복호화 중",
+      "D-0 출입 이벤트 재정렬 중",
+      "승무원 인사 기록 대조 중",
+      "사망 추정 시각 구간 계산 중",
+      "현장 물리 흔적 목록화 중",
+    ],
+  },
+  VALIDATING: {
+    caption: "사건 정합성 검증",
+    lines: [
+      "승무원 진술 패턴 분석 중",
+      "알리바이 상호 대조 중",
+      "단서 연결 그래프 점검 중",
+      "단일 범인 성립 여부 확인 중",
+    ],
+  },
+  READY: {
+    caption: "브리핑 준비",
+    lines: ["보안 채널 확보", "사건 파일 봉인 완료"],
+  },
+};
+
+const PREP_TIPS = [
+  "조준점을 오브젝트에 맞추고 E를 누르면 조사합니다.",
+  "무엇을 조사할지 모르겠으면 Q로 주변을 스캔하세요.",
+  "TAB으로 사건 수첩을 열어 확보한 증거를 확인합니다.",
+  "사건마다 단서 배치가 달라서, 아무것도 나오지 않는 오브젝트도 있습니다.",
+  "승무원에게 확보한 증거를 제시하면 진술이 달라집니다.",
+  "현장에서 못 찾는 기록은 수첩의 수사 보조에서 검색할 수 있습니다.",
+];
+
+const PREP_LOG_INTERVAL_MS = 2_400;
+const PREP_TIP_INTERVAL_MS = 6_000;
+/** 이 시간을 넘기면 오래 걸린다는 사실을 먼저 알려 준다. */
+const PREP_LONG_WAIT_SECONDS = 45;
+
+/** 사건이 만들어지는 동안 보여 주는 대기 화면. */
+function CasePreparingOverlay({ stage }: { stage: SessionPrepStage }) {
+  const [log, setLog] = useState<string[]>([]);
+  const [tipIndex, setTipIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const stageIndex = Object.keys(PREP_STORY).indexOf(stage);
+
+  // 단계가 바뀌면 그 단계의 문구를 순서대로 흘린다. 지나간 기록은 지우지 않고 이어 붙인다.
+  useEffect(() => {
+    const { lines } = PREP_STORY[stage];
+    const append = (line: string) =>
+      setLog((current) =>
+        current[current.length - 1] === line ? current : [...current, line],
+      );
+
+    append(lines[0]);
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index += 1;
+      if (index >= lines.length) return;
+      append(lines[index]);
+    }, PREP_LOG_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [stage]);
+
+  useEffect(() => {
+    const tipTimer = window.setInterval(
+      () => setTipIndex((current) => (current + 1) % PREP_TIPS.length),
+      PREP_TIP_INTERVAL_MS,
+    );
+    const clockTimer = window.setInterval(() => setElapsed((current) => current + 1), 1_000);
+    return () => {
+      window.clearInterval(tipTimer);
+      window.clearInterval(clockTimer);
+    };
+  }, []);
+
+  const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
+  const seconds = String(elapsed % 60).padStart(2, "0");
+
+  return (
+    <section className="case-prep" role="status" aria-live="polite" aria-label="사건 생성 중">
+      <div className="case-prep-sweep" />
+      <div className="case-prep-body">
+        <span className="case-prep-kicker">
+          CASE SYNTHESIS // {PREP_STORY[stage].caption}
+        </span>
+        <h2>사건 파일을 만들고 있습니다</h2>
+        <p>
+          아르카디아의 사건은 매번 새로 생성됩니다. 범인도, 단서 배치도, 승무원이 감추는 것도
+          지난번과 같지 않습니다.
+        </p>
+
+        <div className="case-prep-steps">
+          {Object.entries(PREP_STORY).map(([key, value], index) => (
+            <div
+              key={key}
+              className={
+                index === stageIndex ? "is-current" : index < stageIndex ? "is-done" : ""
+              }
+            >
+              <i />
+              <span>{value.caption}</span>
+            </div>
+          ))}
+        </div>
+
+        <ol className="case-prep-log">
+          {log.slice(-5).map((line, index, visible) => (
+            <li key={`${line}-${index}`} className={index === visible.length - 1 ? "is-active" : ""}>
+              {line}
+            </li>
+          ))}
+        </ol>
+
+        <div className="case-prep-tip">
+          <span>TIP</span>
+          <p>{PREP_TIPS[tipIndex]}</p>
+        </div>
+
+        <small className="case-prep-clock">
+          경과 {minutes}:{seconds}
+          {elapsed >= PREP_LONG_WAIT_SECONDS && " · 사건 생성에는 최대 2분까지 걸릴 수 있습니다"}
+        </small>
+      </div>
+    </section>
+  );
+}
+
+/** 1일차를 넘기는 데 필요한 최소 심문 인원. `openDayReview`의 게이트와 같이 유지한다. */
+const REQUIRED_INTERVIEWS = 3;
+
+/**
+ * 지금 무엇을 해야 하는지 한 문장으로 알려 준다.
+ *
+ * 예전 문구는 "사령관실 현장 보존"처럼 임무 이름이라 상황 설명으로 읽혔다. 처음 하는 사람이
+ * 읽고 바로 손을 움직일 수 있도록 필요한 조작과 조건을 그대로 적는다.
+ */
+function describeObjective(context: {
+  stage: StageId;
+  recordsComplete: boolean;
+  interviewCount: number;
+  readyForReview: boolean;
+}): { title: string; body: string } {
+  if (context.stage === "DEDUCTION") {
+    return {
+      title: "모은 증거로 범인을 지목하세요",
+      body:
+        "준비·실행·기회·동기를 각각 다른 증거로 연결하고, 나머지 승무원을 배제할 근거까지 제시합니다.",
+    };
+  }
+  if (context.stage === "DAY2") {
+    return {
+      title: "기록을 교차 검증하세요",
+      body:
+        "새로 열린 구역을 조사하고 1일차 진술과 대조해 모순을 찾습니다. 정리되면 TAB을 눌러 사건 재구성에서 범인을 지목하세요.",
+    };
+  }
+  if (context.readyForReview) {
+    return {
+      title: "1일차 조사를 마감하세요",
+      body: "필요한 기록과 진술을 모두 확보했습니다. 아래 버튼으로 2일차 심층 조사에 들어갑니다.",
+    };
+  }
+  if (context.recordsComplete) {
+    return {
+      title: "승무원을 심문하세요",
+      body: `각 구역의 승무원을 조준하고 E로 말을 겁니다. 1일차에는 ${REQUIRED_INTERVIEWS}명 이상 심문해야 합니다.`,
+    };
+  }
+  return {
+    title: "정거장을 탐색해 증거를 찾으세요",
+    body:
+      "조준점을 오브젝트에 맞추고 E로 조사합니다. 무엇을 조사할지 모르겠으면 Q로 주변을 스캔하세요.",
+  };
+}
+
 function MissionHud() {
   const openSettings = useSettingsStore((state) => state.setOpen);
   const openGuide = useSettingsStore((state) => state.setGuideOpen);
@@ -170,12 +478,19 @@ function MissionHud() {
   const discoveredIds = useGameStore((state) => state.discoveredIds);
   const hasMoved = useGameStore((state) => state.hasMoved);
   const interviewedIds = useGameStore((state) => state.interviewedIds);
-  const phase = useGameStore((state) => state.phase);
   const activateScan = useGameStore((state) => state.activateScan);
   const toggleNotebook = useGameStore((state) => state.toggleNotebook);
   const openDayReview = useGameStore((state) => state.openDayReview);
+  const stage = useStage();
   const progress = getRequiredProgress(discoveredIds);
-  const readyForReview = progress.complete && interviewedIds.length >= 3;
+  const interviewCount = Math.min(interviewedIds.length, REQUIRED_INTERVIEWS);
+  const readyForReview = progress.complete && interviewedIds.length >= REQUIRED_INTERVIEWS;
+  const objective = describeObjective({
+    stage,
+    recordsComplete: progress.complete,
+    interviewCount: interviewedIds.length,
+    readyForReview,
+  });
   const focused = focusedId ? INVESTIGATION_OBJECTS[focusedId] : null;
 
   return (
@@ -188,44 +503,39 @@ function MissionHud() {
             <strong>INCIDENT // 072</strong>
           </div>
         </div>
-        <div className="hud-time">
-          <span>구조선 도착 예상</span>
-          <strong>71 : 42 : 18</strong>
-        </div>
+        <StageIndicator current={stage} />
       </div>
 
       <aside className="objective-panel" data-tour="objective">
         <header>
-          <span>PRIMARY OBJECTIVE</span>
-          <em>{phase}</em>
+          <span>지금 할 일</span>
+          <em>{STAGES.find((item) => item.id === stage)?.label}</em>
         </header>
-        <h2>
-          {phase === "DAY2"
-            ? "기록 교차 검증"
-            : readyForReview
-              ? "D1 조사 요건 충족"
-              : progress.complete
-                ? "용의자 1차 진술 확보"
-                : "사령관실 현장 보존"}
-        </h2>
-        <p>
-          {phase === "DAY2"
-            ? "현장 단서와 각 시스템 원본을 비교해 모순을 찾으십시오."
-            : readyForReview
-              ? "확보한 자료를 정리하고 심층 조사로 전환할 수 있습니다."
-              : progress.complete
-                ? `용의자 진술 ${interviewedIds.length} / 3 · 담당 구역에서 직접 심문하십시오.`
-                : "피해자와 현장 시스템에서 필수 기록을 확보하십시오."}
-        </p>
-        <div className="objective-progress">
-          <span style={{ width: `${(progress.found / progress.total) * 100}%` }} />
-        </div>
-        <small>
-          필수 기록 {String(progress.found).padStart(2, "0")} / {String(progress.total).padStart(2, "0")}
-        </small>
-        {phase === "DAY1" && readyForReview && (
+        <h2>{objective.title}</h2>
+        <p>{objective.body}</p>
+        {stage !== "DEDUCTION" && (
+          <>
+            <div className="objective-progress">
+              <span style={{ width: `${(progress.found / progress.total) * 100}%` }} />
+            </div>
+            <small>
+              증거 기록 {String(progress.found).padStart(2, "0")} /{" "}
+              {String(progress.total).padStart(2, "0")}
+            </small>
+            <div className="objective-progress">
+              <span
+                style={{ width: `${(interviewCount / REQUIRED_INTERVIEWS) * 100}%` }}
+              />
+            </div>
+            <small>
+              승무원 심문 {String(interviewCount).padStart(2, "0")} /{" "}
+              {String(REQUIRED_INTERVIEWS).padStart(2, "0")}
+            </small>
+          </>
+        )}
+        {stage === "DAY1" && readyForReview && (
           <button className="day-review-action" type="button" onClick={openDayReview}>
-            D1 조사 정리
+            1일차 조사 마감
           </button>
         )}
       </aside>
@@ -1068,9 +1378,17 @@ function Notebook() {
   const setTab = useGameStore((state) => state.setNotebookTab);
   const discoveredIds = useGameStore((state) => state.discoveredIds);
   const evidence = useGameStore((state) => state.evidence);
+  const setNotebookGuideOpen = useSettingsStore((state) => state.setNotebookGuideOpen);
   const progress = getRequiredProgress(discoveredIds);
   // 수첩을 열 때마다 서버 공개 상태로 맞춘다. 배경에서 열린 단서가 여기서 반영된다.
   useCaseState(sessionId);
+
+  // 탭 이름만으로는 어디서 무엇을 하는지 알기 어려워, 수첩을 처음 연 순간에 한 번만 짚어 준다.
+  // 수첩이 닫히면 안내도 반드시 함께 내린다. 안내가 열린 상태로 남으면 게임 조작이 계속 막힌다.
+  useEffect(() => {
+    if (!useSettingsStore.getState().notebookGuideSeen) setNotebookGuideOpen(true);
+    return () => setNotebookGuideOpen(false);
+  }, [setNotebookGuideOpen]);
 
   return (
     <section className="notebook-shell" aria-label="사건 수첩">
@@ -1094,6 +1412,7 @@ function Notebook() {
             <button
               key={item.id}
               type="button"
+              data-tour={`notebook-tab-${item.id}`}
               className={tab === item.id ? "is-active" : ""}
               onClick={() => setTab(item.id)}
             >
@@ -1109,8 +1428,8 @@ function Notebook() {
               <p>INVESTIGATION DATABASE</p>
               <h2>{NOTEBOOK_TABS.find((item) => item.id === tab)?.label}</h2>
             </div>
-            <div className="notebook-progress">
-              <span>D1 필수 기록</span>
+            <div className="notebook-progress" data-tour="notebook-progress">
+              <span>1일차 증거 기록</span>
               <strong>{progress.found} / {progress.total}</strong>
               <i><b style={{ width: `${(progress.found / progress.total) * 100}%` }} /></i>
             </div>
@@ -1192,8 +1511,11 @@ function DayReview() {
             <span>02</span>
             <div>
               <small>TESTIMONIES</small>
-              <strong>{interviewedIds.length} / 5</strong>
-              <p>용의자 1차 진술 확보</p>
+              {/* 1일차 통과 조건과 같은 분모를 쓴다. 목표 패널이 말한 기준과 어긋나면 안 된다. */}
+              <strong>
+                {Math.min(interviewedIds.length, REQUIRED_INTERVIEWS)} / {REQUIRED_INTERVIEWS}
+              </strong>
+              <p>승무원 진술 확보</p>
             </div>
           </article>
           <article>
@@ -1227,8 +1549,7 @@ function DayReview() {
       </main>
 
       <footer>
-        <span>구조선 도착 예상</span>
-        <strong>47 : 20 : 00</strong>
+        <StageIndicator current="DAY1" />
       </footer>
     </section>
   );
@@ -1338,10 +1659,7 @@ function TrialScreen() {
             </i>
           ))}
         </div>
-        <div className="trial-clock">
-          <span>구조선 도착 예상</span>
-          <strong>00 : 38 : 12</strong>
-        </div>
+        <StageIndicator current="DEDUCTION" />
       </header>
 
       <div className="trial-jury">
@@ -1519,7 +1837,7 @@ function ResultScreen() {
       </div>
       <footer>
         <span>ARCADIA STATION // INCIDENT 72</span>
-        <strong>구조선 도킹까지 00 : 12 : 40</strong>
+        <strong>사건 종결</strong>
       </footer>
     </section>
   );
@@ -1529,6 +1847,9 @@ export function GameUI() {
   const layer = useGameStore((state) => state.layer);
   const selectedId = useGameStore((state) => state.selectedId);
   const guideOpen = useSettingsStore((state) => state.guideOpen);
+  const closeGuide = useSettingsStore((state) => state.closeGuide);
+  const notebookGuideOpen = useSettingsStore((state) => state.notebookGuideOpen);
+  const closeNotebookGuide = useSettingsStore((state) => state.closeNotebookGuide);
   const title = useMemo(
     () => (selectedId ? INVESTIGATION_OBJECTS[selectedId]?.title : null),
     [selectedId],
@@ -1554,7 +1875,17 @@ export function GameUI() {
           {layer === "result" && <ResultScreen />}
         </>
       )}
-      {guideOpen && layer !== "opening" && <GuideTour />}
+      {guideOpen && layer !== "opening" && (
+        <GuideTour steps={PLAY_TOUR_STEPS} onClose={closeGuide} label="플레이 안내" />
+      )}
+      {/* 수첩 안내는 수첩이 실제로 열려 있을 때만 뜬다. 탭 위치를 짚어야 하기 때문이다. */}
+      {notebookGuideOpen && layer === "notebook" && !guideOpen && (
+        <GuideTour
+          steps={NOTEBOOK_TOUR_STEPS}
+          onClose={closeNotebookGuide}
+          label="사건 수첩 안내"
+        />
+      )}
     </>
   );
 }

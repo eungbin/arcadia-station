@@ -350,6 +350,233 @@ kbd {
   font-size: 11.5px;
 }
 
+/*
+ * 진입 전 그래픽 품질 선택.
+ *
+ * 설정 창은 정거장 안에서만 열리기 때문에, 저사양 기기는 프레임이 무너진 화면을 본 뒤에야
+ * 품질을 내릴 수 있었다. 첫 화면에서 미리 고르게 한다.
+ */
+.opening-quality {
+  width: min(560px, 100%);
+  margin: 24px 0 18px;
+}
+
+.opening-quality header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.opening-quality header span {
+  color: var(--mint);
+  font: 600 9px/1 "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
+}
+
+.opening-quality header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.opening-quality > small {
+  display: block;
+  margin-top: 10px;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* 격자 칸이 글자 길이만큼 벌어져 화면 밖으로 밀려나지 않게 한다. */
+.opening-quality .segmented-control button {
+  gap: 8px;
+  min-width: 0;
+}
+
+.opening-quality .segmented-control button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * 사건 생성 대기 화면.
+ *
+ * AI가 사건을 처음부터 만드는 데 수십 초에서 2분까지 걸린다. 진행 문구는 지어낸 것이 아니라
+ * 백엔드 세션 상태(CREATING / VALIDATING / READY)를 그대로 따라간다.
+ */
+.case-prep {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(18, 30, 29, 0.92), rgba(6, 9, 10, 0.99)),
+    #06090a;
+}
+
+.case-prep-sweep {
+  position: absolute;
+  inset: -30% -10%;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(140, 224, 200, 0.055) 0 1px,
+    transparent 1px 5px
+  );
+  animation: casePrepDrift 3.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes casePrepDrift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(5px);
+  }
+}
+
+.case-prep-body {
+  position: relative;
+  width: min(600px, 100%);
+}
+
+.case-prep-kicker {
+  display: block;
+  color: var(--mint);
+  font: 600 9px/1 "IBM Plex Mono", monospace;
+  letter-spacing: 0.16em;
+}
+
+.case-prep-body h2 {
+  margin: 16px 0 10px;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.case-prep-body > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+
+.case-prep-steps {
+  display: flex;
+  gap: 10px;
+  margin: 26px 0 20px;
+}
+
+.case-prep-steps > div {
+  flex: 1;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font: 500 10px/1 "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+}
+
+.case-prep-steps > div i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin-bottom: 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+}
+
+.case-prep-steps > div.is-done {
+  border-top-color: rgba(140, 224, 200, 0.34);
+  color: rgba(140, 224, 200, 0.66);
+}
+
+.case-prep-steps > div.is-done i {
+  border-color: var(--mint);
+  background: rgba(140, 224, 200, 0.55);
+}
+
+.case-prep-steps > div.is-current {
+  border-top-color: var(--mint);
+  color: var(--ink);
+}
+
+.case-prep-steps > div.is-current i {
+  border-color: var(--mint);
+  background: var(--mint);
+  box-shadow: 0 0 12px rgba(140, 224, 200, 0.65);
+  animation: casePrepPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes casePrepPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.case-prep-log {
+  min-height: 118px;
+  margin: 0;
+  padding: 15px 17px;
+  border-left: 2px solid rgba(140, 224, 200, 0.4);
+  list-style: none;
+  background: rgba(9, 14, 15, 0.72);
+}
+
+.case-prep-log li {
+  color: var(--dim);
+  font: 400 11.5px/1.9 "IBM Plex Mono", monospace;
+  letter-spacing: 0.02em;
+}
+
+.case-prep-log li::before {
+  content: "› ";
+  opacity: 0.6;
+}
+
+.case-prep-log li.is-active {
+  color: var(--mint);
+}
+
+.case-prep-tip {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+}
+
+.case-prep-tip span {
+  color: var(--amber);
+  font: 600 9px/1 "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
+}
+
+.case-prep-tip p {
+  flex: 1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.case-prep-clock {
+  display: block;
+  margin-top: 14px;
+  color: var(--dim);
+  font: 400 10px/1.6 "IBM Plex Mono", monospace;
+  letter-spacing: 0.05em;
+}
+
 .opening-footnote {
   color: #56615f;
   font: 400 10px/1.6 "IBM Plex Mono", monospace;
@@ -865,9 +1092,7 @@ html[data-reduced-motion="true"] *::after {
 }
 
 .hud-brand span,
-.hud-brand strong,
-.hud-time span,
-.hud-time strong {
+.hud-brand strong {
   display: block;
   font-family: "IBM Plex Mono", monospace;
 }
@@ -885,24 +1110,62 @@ html[data-reduced-motion="true"] *::after {
   letter-spacing: 0.11em;
 }
 
-.hud-time {
+/*
+ * 진행 단계 표시기.
+ *
+ * 구조선 카운트다운이 있던 자리를 대신한다. 남은 시간이라는 규칙이 없는 게임이라 숫자가 줄어드는
+ * 표시는 압박만 주고 위치는 알려주지 못했다. 여기서는 1일차 → 2일차 → 추리 중 어디인지만 말한다.
+ */
+.stage-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
   padding: 10px 13px;
-  border-right: 2px solid var(--alert);
-  text-align: right;
+  border-right: 2px solid var(--mint);
   background: linear-gradient(90deg, transparent, rgba(8, 12, 13, 0.68));
 }
 
-.hud-time span {
+.stage-indicator > span {
   color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.1em;
+  font: 500 9px/1 "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
 }
 
-.hud-time strong {
-  margin-top: 5px;
-  color: #e9b0a4;
-  font-size: 15px;
-  letter-spacing: 0.12em;
+.stage-indicator > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stage-indicator i {
+  padding: 5px 9px;
+  border: 1px solid var(--line-strong);
+  color: var(--dim);
+  font: 500 10px/1 "IBM Plex Mono", monospace;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.stage-indicator i.is-done {
+  border-color: rgba(140, 224, 200, 0.32);
+  color: rgba(140, 224, 200, 0.7);
+}
+
+.stage-indicator i.is-current {
+  border-color: var(--mint);
+  color: #0b1513;
+  background: var(--mint);
+  box-shadow: 0 0 14px rgba(140, 224, 200, 0.28);
+}
+
+/* 전체 화면 연출 안에서는 배경 없이 표시기만 놓는다. */
+.day-review-shell > footer .stage-indicator,
+.trial-topbar .stage-indicator {
+  padding: 0;
+  border-right: 0;
+  background: none;
 }
 
 .objective-panel {
@@ -1390,10 +1653,16 @@ html[data-reduced-motion="true"] *::after {
   cursor: default;
 }
 
+/*
+ * 수첩은 화면을 완전히 덮는다.
+ *
+ * 예전에는 배경이 98% 불투명이라 뒤쪽 HUD의 밝은 글자가 비쳐 탭 이름과 겹쳐 보였다. 완전히
+ * 덮으면 그 겹침이 사라지고, 아무것도 비치지 않는 판에 걸던 backdrop blur도 필요 없어진다.
+ * 전면 블러는 저사양 기기에서 특히 비싼 작업이라 함께 걷어낸다.
+ */
 .notebook-shell {
   color: var(--ink);
-  background: rgba(7, 11, 12, 0.98);
-  backdrop-filter: blur(10px);
+  background: #070b0c;
   animation: notebookIn 220ms ease both;
 }
 
@@ -3028,17 +3297,6 @@ html[data-reduced-motion="true"] *::after {
   font-family: "IBM Plex Mono", monospace;
 }
 
-.day-review-shell > footer span {
-  color: var(--dim);
-  font-size: 8px;
-  letter-spacing: 0.12em;
-}
-
-.day-review-shell > footer strong {
-  color: #e5aaa0;
-  font-size: 13px;
-  letter-spacing: 0.12em;
-}
 
 .trial-shell {
   position: absolute;
@@ -3115,27 +3373,8 @@ html[data-reduced-motion="true"] *::after {
   box-shadow: 0 0 12px rgba(222, 105, 82, 0.12);
 }
 
-.trial-clock {
+.trial-topbar .stage-indicator {
   justify-self: end;
-  text-align: right;
-}
-
-.trial-clock span,
-.trial-clock strong {
-  display: block;
-  font-family: "IBM Plex Mono", monospace;
-}
-
-.trial-clock span {
-  color: var(--dim);
-  font-size: 8px;
-}
-
-.trial-clock strong {
-  margin-top: 6px;
-  color: #e9a99d;
-  font-size: 13px;
-  letter-spacing: 0.1em;
 }
 
 .trial-jury {
@@ -3765,6 +4004,15 @@ html[data-reduced-motion="true"] *::after {
     margin-left: 20px;
   }
 
+  /* 좁은 화면에서는 품질 세 칸을 가로로 늘어놓을 자리가 없다. */
+  .opening-quality .segmented-control {
+    grid-template-columns: 1fr;
+  }
+
+  .opening-quality .segmented-control button {
+    min-height: 46px;
+  }
+
   .opening-call {
     display: none;
   }
@@ -4033,7 +4281,8 @@ html[data-reduced-motion="true"] *::after {
     top: 14px;
   }
 
-  .hud-time {
+  /* 좁은 화면에서는 목표 패널 머리말이 같은 단계를 이미 알려 준다. */
+  .hud-topline .stage-indicator {
     display: none;
   }
 
@@ -4185,7 +4434,8 @@ html[data-reduced-motion="true"] *::after {
     padding: 16px;
   }
 
-  .trial-clock {
+  /* 재판 화면은 자체 단계 표시(trial-steps)가 있어 중복을 덜어낸다. */
+  .trial-topbar .stage-indicator {
     display: none;
   }
 
