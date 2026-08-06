@@ -71,7 +71,7 @@ class TemplateValidationTest {
     void fakeGatewayProducesACompleteValidCaseWithoutAnApiKey() {
         CaseBlueprint generated = openAiGateway.generateStructured(
                 AiPurpose.CASE_GENERATION,
-                "case-generator-v3",
+                "case-generator-v4",
                 new StructuredPrompt(
                         "test",
                         "{\"sessionId\":\"fake-session\",\"seed\":\"fake-seed\"}"

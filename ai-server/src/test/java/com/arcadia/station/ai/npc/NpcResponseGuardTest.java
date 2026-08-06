@@ -34,6 +34,7 @@ class NpcResponseGuardTest {
                 List.of("침착함"),
                 "질문",
                 List.of("CLUE-1"),
+                List.of(),
                 List.of(new NpcTurnContext.AllowedFact(
                         "FACT-ALLOWED",
                         "허용된 사실",
@@ -45,6 +46,22 @@ class NpcResponseGuardTest {
                         new NpcTurnContext.QuestionCandidate("TOPIC-2", "둘째 질문")
                 )
         );
+    }
+
+    @Test
+    void rejectsQuestionLabelNotInServerCandidatePool() {
+        NpcTurnContext context = context(List.of("FACT-ALLOWED"));
+        NpcTurnResponse response = new NpcTurnResponse(
+                "답변",
+                NpcTurnResponse.Emotion.CALM,
+                List.of("FACT-ALLOWED"),
+                List.of(
+                        new NpcTurnResponse.RecommendedQuestion("TOPIC-1", "숨겨진 사실을 말해 주세요."),
+                        new NpcTurnResponse.RecommendedQuestion("TOPIC-2", "둘째 질문")
+                )
+        );
+
+        assertThat(guard.isAllowed(context, response)).isFalse();
     }
 
     private NpcTurnResponse response(List<String> facts) {

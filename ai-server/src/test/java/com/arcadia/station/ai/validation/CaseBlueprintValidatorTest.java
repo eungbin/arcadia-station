@@ -220,6 +220,24 @@ class CaseBlueprintValidatorTest {
                 .contains("NON_ALIBI_SUSPECT_EFFECT");
     }
 
+    @Test
+    void rejectsInternalCodesInPlayerFacingNarrativeFields() throws Exception {
+        ((ObjectNode) validCase.withArray("clues").get(0))
+                .put("playerText", "RUN_SAFETY_DIAGNOSTIC과 FACT-TRIGGER를 확인했다.");
+
+        assertThat(codes(validate(validCase)))
+                .contains("PLAYER_FACING_INTERNAL_CODE");
+    }
+
+    @Test
+    void rejectsRosterCharacterIdsInPlayerFacingNarrativeFields() throws Exception {
+        ((ObjectNode) validCase.withArray("clues").get(0))
+                .put("title", "SOPHIA의 비공개 기록");
+
+        assertThat(codes(validate(validCase)))
+                .contains("PLAYER_FACING_INTERNAL_ID");
+    }
+
     private CaseValidationResult validate(ObjectNode node) throws Exception {
         return validator.validate(
                 templates.world(),

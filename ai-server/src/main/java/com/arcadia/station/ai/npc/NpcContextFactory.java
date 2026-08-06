@@ -4,7 +4,6 @@ import com.arcadia.station.ai.casegen.CaseBlueprint;
 import com.arcadia.station.ai.template.TemplateRepository;
 import com.arcadia.station.ai.template.WorldTemplate;
 import com.arcadia.station.game.application.GameSessionService;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -18,20 +17,24 @@ public class NpcContextFactory {
 
     private final GameSessionService sessions;
     private final TemplateRepository templates;
+    private final NpcQuestionPlanner questionPlanner;
 
     public NpcContextFactory(
             GameSessionService sessions,
-            TemplateRepository templates
+            TemplateRepository templates,
+            NpcQuestionPlanner questionPlanner
     ) {
         this.sessions = sessions;
         this.templates = templates;
+        this.questionPlanner = questionPlanner;
     }
 
     public NpcTurnContext create(
             String sessionId,
             String characterId,
             String question,
-            List<String> presentedClueIds
+            List<String> presentedClueIds,
+            List<NpcConversationMemory.Turn> history
     ) {
         CaseBlueprint blueprint = sessions.requireFrozenCase(sessionId).blueprint();
         WorldTemplate.CharacterDefinition character = templates.world().characters().stream()
@@ -78,13 +81,20 @@ public class NpcContextFactory {
                         fact.truthValue()
                 ))
                 .toList();
-        List<NpcTurnContext.QuestionCandidate> candidates = new ArrayList<>();
-        for (int index = 0; index < knowledge.recommendedQuestionTopics().size(); index++) {
-            candidates.add(new NpcTurnContext.QuestionCandidate(
-                    "TOPIC-" + (index + 1),
-                    knowledge.recommendedQuestionTopics().get(index)
-            ));
-        }
+        List<NpcTurnContext.ConversationTurn> conversationHistory = history.stream()
+                .map(turn -> new NpcTurnContext.ConversationTurn(
+                        turn.question(),
+                        turn.dialogue(),
+                        turn.emotion(),
+                        turn.presentedClueIds(),
+                        turn.revealedFactIds()
+                ))
+                .toList();
+        List<NpcTurnContext.QuestionCandidate> candidates = questionPlanner.plan(
+                knowledge.recommendedQuestionTopics(),
+                history,
+                presentedClueIds
+        );
         return new NpcTurnContext(
                 sessionId,
                 character.id(),
@@ -93,6 +103,7 @@ public class NpcContextFactory {
                 character.personalityTraits(),
                 question,
                 List.copyOf(presentedClueIds),
+                conversationHistory,
                 allowedFacts,
                 List.copyOf(revealable),
                 List.copyOf(candidates)

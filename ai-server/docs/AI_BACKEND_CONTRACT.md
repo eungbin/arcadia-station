@@ -113,7 +113,7 @@ X-Internal-AI-Key: <AI_INTERNAL_API_KEY>
     "generationAttemptCount": 1,
     "generationSource": "AI",
     "model": "환경 변수로 선택된 모델",
-    "promptVersion": "case-generator-v3",
+    "promptVersion": "case-generator-v4",
     "createdAt": "2026-07-28T00:00:00Z",
     "frozenAt": "2026-07-28T00:00:08Z",
     "caseBlueprint": {

@@ -15,6 +15,7 @@ import com.arcadia.station.game.domain.SessionState;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -164,10 +165,10 @@ public class SessionController {
 
     public record ExploreRequest(@NotBlank String locationId, String objectHint) {}
 
-    public record AssistantQueryRequest(@NotBlank String question) {}
+    public record AssistantQueryRequest(@NotBlank @Size(max = 240) String question) {}
 
     public record InterrogationRequest(
-            @NotBlank String question,
+            @NotBlank @Size(max = 240) String question,
             @NotNull List<String> presentedClueIds
     ) {}
 }

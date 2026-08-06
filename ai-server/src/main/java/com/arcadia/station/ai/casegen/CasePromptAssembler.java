@@ -49,6 +49,18 @@ public class CasePromptAssembler {
             locationId와 같아야 한다. clueRequired=false인 object에도 추가 단서를 만들 수
             있지만 등록되지 않은 sourceId를 새로 만들지 말라.
             현실에서 재현 가능한 유해 절차, 수치, 실행 가능한 코드나 명령을 쓰지 말라.
+            플레이어가 읽는 title, briefing, truthSummary, method.fictionalSummary/victimCondition,
+            timeline.summary, facts.statement,
+            alibis의 진술, clues.title/playerText, evidenceRecords.title/body,
+            npcKnowledge.recommendedQuestionTopics, redHerrings.presentation,
+            solution.nonCulpritExclusions.reason은 자연스러운 한국어 서술만 사용하라.
+            그 문장에는 characterId, locationId, systemId, recordId, factId, 영문 enum,
+            대문자_밑줄 형식의 내부 명령 코드, metadata 값을 넣지 마라. 내부 식별자는
+            구조화 필드와 metadata에서만 사용하고, 화면용 문장에는 사람·장소·행동의 한국어
+            표시명으로 풀어 써라.
+            이번 seed에서 핵심 단서의 관찰 문구·알리바이 충돌·동기와 오인 단서를 서로 다른
+            조합으로 설계해, 고정 오브젝트를 조사하더라도 매 사건의 추리 흐름이 같아 보이지
+            않게 하라.
             사실·단서·기록·이벤트 ID는 사건 안에서 유일해야 한다.
             previousValidationIssues가 비어 있지 않으면 이전 시도의 code, path, message를 모두
             수정한 새 사건을 작성하라. 이전 응답을 그대로 반복하지 말라.

@@ -12,11 +12,11 @@
       "id" : "ARCADIA_MYSTERY_RULES",
       "version" : "1.1.0"
     },
-    "blueprintSha256" : "304ef513aa671f52a0764781cb9c628a55030d1b33ed229939504581de16eea5",
+    "blueprintSha256" : "d68234ab97bc0dc605738ad1e3269261e5ff0920044ebd34139e636508c3edc6",
     "generationAttemptCount" : 0,
     "generationSource" : "FALLBACK",
     "model" : "gpt-5.6-terra",
-    "promptVersion" : "case-generator-v3",
+    "promptVersion" : "case-generator-v4",
     "createdAt" : "2026-07-27T17:22:19.159085600Z",
     "frozenAt" : "2026-07-27T17:22:19.225110700Z",
     "caseBlueprint" : {
@@ -433,7 +433,7 @@
         "recordType" : "COMMAND_LOG",
         "timestamp" : "02:05",
         "title" : "의료 안전 진단 실행 기록",
-        "body" : "02:05 생명 유지 시스템에서 의료 안전 진단이 실행됐다. 인증 주체는 소피아이며 작업 종류는 RUN_SAFETY_DIAGNOSTIC이다.",
+        "body" : "02:05 생명 유지 시스템에서 의료 안전 진단이 실행됐다. 인증 주체는 소피아이며 작업 종류는 안전 진단이다.",
         "metadata" : {
           "actorId" : "SOPHIA",
           "systemId" : "LIFE_SUPPORT",

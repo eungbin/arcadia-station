@@ -99,11 +99,21 @@ class GameFlowIntegrationTest {
                 .andExpect(jsonPath("$.citedRecordIds").isArray())
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
+                .getContentAsString(StandardCharsets.UTF_8);
         assertThat(ragJson)
                 .contains("CLUE-TRIGGER-LOG")
                 .contains("CLUE-ACCESS-HISTORY")
                 .contains("CLUE-MOTIVE-AUDIT");
+        assertThat(objectMapper.readTree(ragJson).path("answer").asText())
+                .contains("핵심 정리:")
+                .doesNotContain(
+                        "RUN_SAFETY_DIAGNOSTIC",
+                        "SOPHIA",
+                        "CENTRAL_HUB",
+                        "FACT-",
+                        "CLUE-",
+                        "RECORD-"
+                );
 
         mockMvc.perform(post(
                                 "/api/v1/sessions/{id}/interrogations/SOPHIA/turns",
@@ -142,6 +152,55 @@ class GameFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.culpritId").value("SOPHIA"))
                 .andExpect(jsonPath("$.truthSummary").isString());
+    }
+
+    @Test
+    void changesRecommendedQuestionsAfterAnInterrogationTurn() throws Exception {
+        String sessionId = "npc-follow-up-contract-001";
+        mockMvc.perform(post("/internal/v1/cases")
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "sessionId": "npc-follow-up-contract-001",
+                                  "seed": "npc-follow-up-contract"
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+        awaitState(sessionId, SessionState.READY);
+
+        mockMvc.perform(post(
+                                "/api/v1/sessions/{id}/interrogations/SOPHIA/turns",
+                                sessionId
+                        )
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "question": "사건 당시 어디에 있었습니까?",
+                                  "presentedClueIds": []
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recommendedQuestions[0].topicId").value("TOPIC-1"));
+
+        mockMvc.perform(post(
+                                "/api/v1/sessions/{id}/interrogations/SOPHIA/turns",
+                                sessionId
+                        )
+                        .header("X-Internal-AI-Key", INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "question": "이 기록을 설명해 주세요.",
+                                  "presentedClueIds": ["CLUE-SETUP-PANEL"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recommendedQuestions[0].topicId")
+                        .value("FOLLOW_UP_EVIDENCE"))
+                .andExpect(jsonPath("$.recommendedQuestions[1].topicId")
+                        .value("FOLLOW_UP_TIMELINE"));
     }
 
     @Test

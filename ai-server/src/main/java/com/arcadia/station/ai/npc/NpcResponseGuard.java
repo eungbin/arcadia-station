@@ -1,6 +1,7 @@
 package com.arcadia.station.ai.npc;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
@@ -13,15 +14,22 @@ public class NpcResponseGuard {
         if (!revealable.containsAll(response.revealedFactIds())) {
             return false;
         }
-        Set<String> topicIds = context.questionCandidates().stream()
-                .map(NpcTurnContext.QuestionCandidate::topicId)
-                .collect(Collectors.toSet());
+        Map<String, String> labelsByTopicId = context.questionCandidates().stream()
+                .collect(Collectors.toMap(
+                        NpcTurnContext.QuestionCandidate::topicId,
+                        NpcTurnContext.QuestionCandidate::label,
+                        (first, ignored) -> first
+                ));
         if (response.recommendedQuestions().size() != 2) {
             return false;
         }
         return response.recommendedQuestions().stream()
-                .map(NpcTurnResponse.RecommendedQuestion::topicId)
-                .allMatch(topicIds::contains);
+                .allMatch(question -> question.label() != null
+                        && question.label().equals(labelsByTopicId.get(question.topicId())))
+                && response.recommendedQuestions().stream()
+                        .map(NpcTurnResponse.RecommendedQuestion::topicId)
+                        .collect(Collectors.toSet())
+                        .size() == 2;
     }
 
     public NpcTurnResponse safeFallback(NpcTurnContext context) {

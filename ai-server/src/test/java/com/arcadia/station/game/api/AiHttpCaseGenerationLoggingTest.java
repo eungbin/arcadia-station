@@ -52,7 +52,7 @@ import org.springframework.http.ResponseEntity;
 class AiHttpCaseGenerationLoggingTest {
 
     private static final String SESSION_ID = "http-ai-log-test-01";
-    private static final String SEED = "HTTP_AI_SEED_DO_NOT_LOG";
+    private static final String SEED = "sensitive-seed-do-not-log";
     private static final String INTERNAL_KEY = "HTTP_AI_INTERNAL_KEY_DO_NOT_LOG";
 
     @LocalServerPort
@@ -86,7 +86,7 @@ class AiHttpCaseGenerationLoggingTest {
                     firstClue.put(
                             "title",
                             "seed=" + request.seed()
-                                    + " \" sourceId=FORGED\u001b[31m\nFORGED_LINE"
+                                    + " \" note=forged\u001b[31m\nforged line"
                     );
                     return objectMapper.treeToValue(
                             generatedNode,
@@ -140,10 +140,10 @@ class AiHttpCaseGenerationLoggingTest {
                         + SESSION_ID + " mode=API generationSource=AI")
                 .contains("[REDACTED_SEED]")
                 .contains("title=\"seed=[REDACTED_SEED] \\\" "
-                        + "sourceId=FORGED_[31m_FORGED_LINE\" clueType=")
+                        + "note=forged_[31m_forged line\" clueType=")
                 .doesNotContain(SEED)
                 .doesNotContain("\u001b")
-                .doesNotContain("\nFORGED_LINE")
+                .doesNotContain("\nforged line")
                 .doesNotContain("HTTP_AI_API_KEY_DO_NOT_LOG")
                 .doesNotContain(INTERNAL_KEY);
         List<String> clueLogLines = logs.lines()
