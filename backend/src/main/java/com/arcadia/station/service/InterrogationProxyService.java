@@ -139,7 +139,9 @@ public class InterrogationProxyService {
         if (session.getCaseBlueprintJson() == null) {
             throw new BusinessException(ErrorCode.SESSION_NOT_READY);
         }
-        if (session.getState() == SessionState.COMPLETED || session.getState() == SessionState.FAILED) {
+        if (session.getState() == SessionState.COMPLETED
+                || session.getState() == SessionState.INCORRECT
+                || session.getState() == SessionState.FAILED) {
             throw new BusinessException(ErrorCode.INVALID_SESSION_STATE);
         }
     }

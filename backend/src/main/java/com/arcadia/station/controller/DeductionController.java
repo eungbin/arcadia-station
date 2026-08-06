@@ -25,7 +25,8 @@ public class DeductionController {
     @PostMapping("/deductions")
     public ApiResponse<DeductionResult> submit(
             @PathVariable("id") String sessionId, @RequestBody DeductionRequest request) {
-        return ApiResponse.success(deductionService.submit(sessionId, request.culpritId(), request.evidenceByRole()));
+        return ApiResponse.success(deductionService.submit(
+                sessionId, request.culpritId(), request.evidenceByRole(), request.exclusionsByCharacter()));
     }
 
     @GetMapping("/result")

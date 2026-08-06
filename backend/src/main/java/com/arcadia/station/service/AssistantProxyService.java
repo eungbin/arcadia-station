@@ -5,6 +5,7 @@ import com.arcadia.station.client.AiTurnFailedException;
 import com.arcadia.station.client.AssistantClient;
 import com.arcadia.station.client.dto.AssistantQueryResult;
 import com.arcadia.station.client.dto.RagDiscoveredClueRef;
+import com.arcadia.station.domain.EvidenceInventory;
 import com.arcadia.station.domain.GameSession;
 import com.arcadia.station.domain.SessionState;
 import com.arcadia.station.domain.caseblueprint.CaseBlueprint;
@@ -14,6 +15,7 @@ import com.arcadia.station.dto.response.AssistantQueryResponse;
 import com.arcadia.station.dto.response.PlayerClueView;
 import com.arcadia.station.exception.BusinessException;
 import com.arcadia.station.exception.ErrorCode;
+import com.arcadia.station.repository.EvidenceInventoryRepository;
 import com.arcadia.station.repository.GameSessionRepository;
 import java.util.List;
 import java.util.Set;
@@ -34,16 +36,19 @@ public class AssistantProxyService {
     private static final Logger log = LoggerFactory.getLogger(AssistantProxyService.class);
 
     private final GameSessionRepository gameSessionRepository;
+    private final EvidenceInventoryRepository evidenceInventoryRepository;
     private final AssistantClient assistantClient;
     private final ClueUnlockService clueUnlockService;
     private final ObjectMapper objectMapper;
 
     public AssistantProxyService(
             GameSessionRepository gameSessionRepository,
+            EvidenceInventoryRepository evidenceInventoryRepository,
             AssistantClient assistantClient,
             ClueUnlockService clueUnlockService,
             ObjectMapper objectMapper) {
         this.gameSessionRepository = gameSessionRepository;
+        this.evidenceInventoryRepository = evidenceInventoryRepository;
         this.assistantClient = assistantClient;
         this.clueUnlockService = clueUnlockService;
         this.objectMapper = objectMapper;
@@ -86,8 +91,12 @@ public class AssistantProxyService {
                 .map(RagDiscoveredClueRef::clueId)
                 .toList();
         List<Clue> unlocked = clueUnlockService.unlockRagClues(sessionId, candidateClueIds);
+
+        // unlockRagClues()가 이미 EvidenceInventory를 저장한 뒤라, 문맥 필드 계산을 위해 최신 상태를 다시 읽는다.
+        EvidenceInventory inventory = evidenceInventoryRepository.findById(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
         List<PlayerClueView> newlyDiscoveredClues = unlocked.stream()
-                .map(clue -> new PlayerClueView(clue.clueId(), clue.title(), clue.clueType(), clue.playerText()))
+                .map(clue -> PlayerClueViewFactory.toView(clue, blueprint, inventory.getDiscoveredClueIds()))
                 .toList();
 
         return new AssistantQueryResponse(result.answer(), citedRecordIds, result.suggestedQueries(), newlyDiscoveredClues);
@@ -111,7 +120,9 @@ public class AssistantProxyService {
         if (session.getCaseBlueprintJson() == null) {
             throw new BusinessException(ErrorCode.SESSION_NOT_READY);
         }
-        if (session.getState() == SessionState.COMPLETED || session.getState() == SessionState.FAILED) {
+        if (session.getState() == SessionState.COMPLETED
+                || session.getState() == SessionState.INCORRECT
+                || session.getState() == SessionState.FAILED) {
             throw new BusinessException(ErrorCode.INVALID_SESSION_STATE);
         }
     }

@@ -98,7 +98,7 @@ public class GameSessionService {
         CaseBlueprint blueprint = objectMapper.readValue(session.getCaseBlueprintJson(), CaseBlueprint.class);
         List<PlayerClueView> discoveredClues = blueprint.clues().stream()
                 .filter(clue -> inventory.getDiscoveredClueIds().contains(clue.clueId()))
-                .map(clue -> new PlayerClueView(clue.clueId(), clue.title(), clue.clueType(), clue.playerText()))
+                .map(clue -> PlayerClueViewFactory.toView(clue, blueprint, inventory.getDiscoveredClueIds()))
                 .toList();
         // 심문 UI에 노출할 용의자 전원 목록. alibis는 사건에 등장하는 모든 용의자(범인 포함)를
         // 빠짐없이 담고 있어 npcKnowledge(일부만 생성될 수 있음)보다 완전한 소스다.

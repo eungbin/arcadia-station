@@ -52,7 +52,7 @@ class DeductionControllerIntegrationTest {
         ResponseEntity<ApiResponse<DeductionResult>> deductionResponse = restTemplate.exchange(
                 "/api/v1/sessions/{id}/deductions",
                 HttpMethod.POST,
-                new HttpEntity<>(new DeductionRequest("SOPHIA", evidence)),
+                new HttpEntity<>(new DeductionRequest("SOPHIA", evidence, null)),
                 new ParameterizedTypeReference<ApiResponse<DeductionResult>>() {},
                 sessionId);
         assertThat(deductionResponse.getBody().data().verdict()).isEqualTo("CORRECT");

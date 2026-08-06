@@ -4,6 +4,17 @@
 > Base URL: 로컬 개발 `http://localhost:8080`, 배포 URL은 별도 공유
 > 전체 게임 흐름은 [`docs/gameplay-flow.md`](./gameplay-flow.md) 참고
 
+## 변경 이력
+
+### 2026-08-06 — 단서 문맥·배제 판정·오답 종료 확장
+
+`docs/FRONTEND_BACKEND_CLUE_CONTEXT_REQUEST_2026-08-06.md` 요청 A/B/C를 순서대로 반영했습니다. 기존 필드는 전부 유지되는 순수 추가 변경이라 하위 호환됩니다.
+
+- **요청 A (0.3절 표, 3·4·5번 API):** 단서 응답(`discoveredClues`/탐사 응답/RAG `newlyDiscoveredClues`)에 `isCore`, `revealedFacts[]`, `linkedClueIds`, `suspectEffects[]`, `hasPendingConnection` 5개 필드 추가. `revealedFacts`엔 정답에 해당하는 `truthValue`를 담지 않고, `linkedClueIds`엔 미발견 단서 ID가 섞이지 않으며, `hasPendingConnection`은 대상 단서 ID 없이 boolean만 내려가는 등 스포일러 경계를 유지합니다. 최종 판정에 쓰이는 `solutionRoles`는 여전히 노출하지 않습니다.
+- **요청 B (7번 API):** 추리 제출 요청에 `exclusionsByCharacter`(범인이 아닌 용의자에 대한 배제 근거) 추가, 응답에 `exclusionResults`와 구조화된 `missingLogic[]` 추가. 생략 시 기존과 동일하게 동작합니다.
+- **요청 C (0.3절 표, 7·8번 API):** 세션 상태에 `INCORRECT`(오답 소진 종료) 신설. 오답 제출이 최대 횟수(기본 3회)에 도달하면 세션이 자동으로 `INCORRECT`로 전이되고, `GET /result`가 `COMPLETED`뿐 아니라 `INCORRECT`에서도 200을 반환하도록 완화했습니다. 이에 따라 7번 API의 409 사유가 "오답 횟수 초과"에서 "이미 종료된 세션에 제출 시도"로 바뀌었고, 내부적으로만 쓰이던 `DEDUCTION_LIMIT_EXCEEDED` 에러 코드는 제거됐습니다(원래 API 응답 바디에 노출되던 코드가 아니라 프론트 영향 없음).
+- 심문 응답(NPC 턴) 확장은 이번 변경에 포함되지 않았습니다 — 요청 문서 6절에 따라 별도 설계 합의 후 진행 예정입니다.
+
 ## 0. 공통 사항 (모든 API 공통, 읽고 시작하세요)
 
 ### 0.1 응답 공통 포맷
@@ -40,7 +51,7 @@
 | --- | --- | --- |
 | 400 | 요청이 올바르지 않음(빈 질문, 미발견 단서 제시, 존재하지 않는 인물 등) | 심문, RAG 검색, 추리 제출 |
 | 404 | 세션을 찾을 수 없음(잘못된 sessionId) | 전체 API 공통 |
-| 409 | 지금은 처리할 수 없는 세션 상태(사건 아직 생성 중, 이미 종료됨, 오답 횟수 초과 등) | 심문, RAG 검색, 추리 제출, 결과 조회 |
+| 409 | 지금은 처리할 수 없는 세션 상태(사건 아직 생성 중, 정답/오답으로 이미 종료됨 등) | 심문, RAG 검색, 추리 제출, 결과 조회 |
 
 ### 0.3 세션 상태값(`status`)
 
@@ -54,7 +65,8 @@
 | BRIEFING | 브리핑 노출 가능 | 브리핑 화면 |
 | INVESTIGATION | 탐사/심문/검색 진행 중 | 조사 화면 |
 | DEDUCTION | 최종 추리 제출 단계 | 추리 제출 화면 |
-| COMPLETED | 판정 완료 | 결과 화면 |
+| COMPLETED | 정답으로 판정 완료 | 결과 화면 |
+| INCORRECT | 오답을 최대 횟수(기본 3회)만큼 소진해 종료됨 | 결과 화면(오답 엔딩) |
 | FAILED | 사건 생성 자체가 실패함 | 에러 화면(재시도 유도) |
 
 ### 0.4 sessionId는 어디서 얻나요
@@ -197,6 +209,13 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
 | data.discoveredClues[].title | 단서 제목 | String | N | "의료 안전 점검 예약 기록" |
 | data.discoveredClues[].clueType | 단서 종류 (`PHYSICAL`/`DIGITAL`/`MOTIVE`/`OPPORTUNITY`) | String | N | "DIGITAL" |
 | data.discoveredClues[].playerText | 단서 발견 시 노출 문구 | String | N | "의료 베이 단말기에 소피아 명의로..." |
+| data.discoveredClues[].isCore | 핵심 단서 여부 | boolean | N | true |
+| data.discoveredClues[].revealedFacts[].factId | 이 단서가 드러내는 사실 ID | String | N | "FACT-SETUP" |
+| data.discoveredClues[].revealedFacts[].statement | 사실 내용(참/거짓 여부는 내려주지 않음) | String | N | "소피아가 의료 안전 점검을 예약했다." |
+| data.discoveredClues[].linkedClueIds | 같은 사실을 공유하는 **이미 발견한** 다른 단서 ID 목록(미발견 단서는 절대 섞이지 않음) | String[] | N (빈 배열 가능) | ["CLUE-ACCESS-HISTORY"] |
+| data.discoveredClues[].suspectEffects[].characterId | 이 단서가 영향을 주는 인물 | String | N | "SOPHIA" |
+| data.discoveredClues[].suspectEffects[].effect | 그 인물에 대한 효과 (`SUPPORTS`/`EXCLUDES`/`NEUTRAL`) | String | N | "SUPPORTS" |
+| data.discoveredClues[].hasPendingConnection | 아직 발견하지 못한 CONNECT형 단서 중 이 단서가 재료가 되는 게 있는지(대상 ID는 노출하지 않음) | boolean | N | true |
 | data.suspectCharacterIds | 이 사건에 등장하는 용의자 전원의 ID 목록(단서 발견 여부와 무관하게 처음부터 전부 노출). 6번 API(NPC 심문)의 `{characterId}` 경로 값은 **이 배열 안에서만** 골라 써야 함 | String[] | N | ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"] |
 | data.exploreLocationIds | 탐사 가능한 장소 ID 목록(단서 발견 여부와 무관하게 처음부터 전부 노출). 4번 API(장소 탐사)의 `locationId`는 **이 배열 안에서만** 골라 써야 함. `ARCADIA_WORLD:1.1.0` 정식 로스터 8개로 고정이며 모든 사건에서 동일함(그래도 프론트는 이 배열을 통해 받아 쓰고 하드코딩은 하지 않는 걸 권장) | String[] | N | ["COMMANDER_OFFICE", "DEPUTY_COMMANDER_OFFICE", "CENTRAL_HUB", "MEDICAL_BAY", "ENGINEERING_BAY", "COMMUNICATIONS_CENTER", "CARGO_BAY", "COMMON_AREA"] |
 
@@ -216,7 +235,16 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
         "clueId": "CLUE-SETUP-LOG",
         "title": "의료 안전 점검 예약 기록",
         "clueType": "DIGITAL",
-        "playerText": "의료 베이 단말기에 소피아 명의로 안전 점검 예약 기록이 남아있다."
+        "playerText": "의료 베이 단말기에 소피아 명의로 안전 점검 예약 기록이 남아있다.",
+        "isCore": true,
+        "revealedFacts": [
+          { "factId": "FACT-SETUP", "statement": "소피아가 의료 안전 점검을 예약했다." }
+        ],
+        "linkedClueIds": [],
+        "suspectEffects": [
+          { "characterId": "SOPHIA", "effect": "SUPPORTS" }
+        ],
+        "hasPendingConnection": true
       }
     ],
     "suspectCharacterIds": ["SOPHIA", "MAYA", "JUNHO", "KASIM", "YUNA"],
@@ -226,6 +254,8 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f
 ```
 
 > **보안 참고:** 이 응답에는 범인(`culpritId`), 진실 요약, 아직 발견하지 않은 단서, NPC의 숨긴 사실 같은 스포일러 필드가 **절대 포함되지 않습니다.** `suspectCharacterIds`/`exploreLocationIds`는 ID만 나열할 뿐 누가 범인인지, 어디에 무슨 단서가 있는지는 알려주지 않으므로 안전합니다. 프론트는 이 응답을 그대로 화면에 렌더링해도 안전합니다.
+>
+> `revealedFacts`에는 `truthValue`(참/거짓 여부)가 없고, `linkedClueIds`는 이미 발견한 단서로만 채워지며, `hasPendingConnection`은 대상 단서 ID 없이 boolean만 내려가 미발견 단서의 존재를 유출하지 않습니다. `suspectEffects`는 의도적으로 노출하는 필드입니다(`playerText`를 읽어도 어차피 드러나는 수준이라 스포일러 아님). 반대로 최종 판정에 쓰이는 `solutionRoles`(SETUP/TRIGGER/OPPORTUNITY/MOTIVE 태그)는 정답을 그대로 드러내므로 **의도적으로 내려주지 않습니다** — "이 증거를 어느 역할에 쓸지"는 프론트가 UI로 플레이어에게 직접 태깅하게 하세요.
 >
 > **⚠️ 알려진 제약:** 현재 6번 API(NPC 심문) 백엔드 검증은 AI 서버가 생성한 `npcKnowledge`에 있는 인물만 허용합니다. 사건에 따라 `npcKnowledge`가 `suspectCharacterIds`의 일부만 커버할 수 있어(예: 범인만), 그 경우 목록에 없는 인물을 심문 시도하면 400이 날 수 있습니다. 전 용의자 심문을 100% 보장하려면 AI 서버 쪽에서 전 용의자분 `npcKnowledge` 생성이 필요하며, 별도로 진행 중입니다.
 
@@ -278,6 +308,13 @@ Content-Type: application/json
 | data[].title | 단서 제목 | String | N | "의료 안전 점검 예약 기록" |
 | data[].clueType | 단서 종류 | String | N | "DIGITAL" |
 | data[].playerText | 발견 시 노출 문구 | String | N | "의료 베이 단말기에 소피아 명의로..." |
+| data[].isCore | 핵심 단서 여부 | boolean | N | true |
+| data[].revealedFacts[].factId | 이 단서가 드러내는 사실 ID | String | N | "FACT-SETUP" |
+| data[].revealedFacts[].statement | 사실 내용 | String | N | "소피아가 의료 안전 점검을 예약했다." |
+| data[].linkedClueIds | 같은 사실을 공유하는 이미 발견한 단서 ID 목록(3번 API와 동일 규칙) | String[] | N (빈 배열 가능) | [] |
+| data[].suspectEffects[].characterId | 영향받는 인물 | String | N | "SOPHIA" |
+| data[].suspectEffects[].effect | 효과 (`SUPPORTS`/`EXCLUDES`/`NEUTRAL`) | String | N | "SUPPORTS" |
+| data[].hasPendingConnection | 아직 발견하지 못한 CONNECT형 단서의 재료인지(3번 API와 동일 규칙) | boolean | N | true |
 
 **Example (단서를 찾은 경우)**
 
@@ -290,7 +327,16 @@ Content-Type: application/json
       "clueId": "CLUE-SETUP-LOG",
       "title": "의료 안전 점검 예약 기록",
       "clueType": "DIGITAL",
-      "playerText": "의료 베이 단말기에 소피아 명의로 안전 점검 예약 기록이 남아있다."
+      "playerText": "의료 베이 단말기에 소피아 명의로 안전 점검 예약 기록이 남아있다.",
+      "isCore": true,
+      "revealedFacts": [
+        { "factId": "FACT-SETUP", "statement": "소피아가 의료 안전 점검을 예약했다." }
+      ],
+      "linkedClueIds": [],
+      "suspectEffects": [
+        { "characterId": "SOPHIA", "effect": "SUPPORTS" }
+      ],
+      "hasPendingConnection": true
     }
   ]
 }
@@ -354,6 +400,13 @@ Content-Type: application/json
 | data.newlyDiscoveredClues[].title | 단서 제목 | String | N | "02:05 안전 진단 감사 로그" |
 | data.newlyDiscoveredClues[].clueType | 단서 종류 | String | N | "DIGITAL" |
 | data.newlyDiscoveredClues[].playerText | 발견 시 노출 문구 | String | N | "02:05에 소피아의 인증으로..." |
+| data.newlyDiscoveredClues[].isCore | 핵심 단서 여부 | boolean | N | true |
+| data.newlyDiscoveredClues[].revealedFacts[].factId | 이 단서가 드러내는 사실 ID | String | N | "FACT-TRIGGER" |
+| data.newlyDiscoveredClues[].revealedFacts[].statement | 사실 내용 | String | N | "02:05 소피아 인증으로 안전 진단이 실행됐다." |
+| data.newlyDiscoveredClues[].linkedClueIds | 같은 사실을 공유하는 이미 발견한 단서 ID 목록(3번 API와 동일 규칙) | String[] | N (빈 배열 가능) | [] |
+| data.newlyDiscoveredClues[].suspectEffects[].characterId | 영향받는 인물 | String | N | "SOPHIA" |
+| data.newlyDiscoveredClues[].suspectEffects[].effect | 효과 (`SUPPORTS`/`EXCLUDES`/`NEUTRAL`) | String | N | "SUPPORTS" |
+| data.newlyDiscoveredClues[].hasPendingConnection | 아직 발견하지 못한 CONNECT형 단서의 재료인지(3번 API와 동일 규칙) | boolean | N | false |
 
 **Example**
 
@@ -370,7 +423,16 @@ Content-Type: application/json
         "clueId": "CLUE-TRIGGER-LOG",
         "title": "02:05 안전 진단 감사 로그",
         "clueType": "DIGITAL",
-        "playerText": "02:05에 소피아의 인증으로 의료 안전 진단 작업이 실행됐다."
+        "playerText": "02:05에 소피아의 인증으로 의료 안전 진단 작업이 실행됐다.",
+        "isCore": true,
+        "revealedFacts": [
+          { "factId": "FACT-TRIGGER", "statement": "02:05 소피아 인증으로 안전 진단이 실행됐다." }
+        ],
+        "linkedClueIds": [],
+        "suspectEffects": [
+          { "characterId": "SOPHIA", "effect": "SUPPORTS" }
+        ],
+        "hasPendingConnection": false
       }
     ]
   }
@@ -491,6 +553,7 @@ Content-Type: application/json
 | evidenceByRole.TRIGGER | 실행 트리거 증거 단서 ID | String | Y | "CLUE-TRIGGER-LOG" |
 | evidenceByRole.OPPORTUNITY | 기회/권한 증거 단서 ID | String | Y | "CLUE-ACCESS-HISTORY" |
 | evidenceByRole.MOTIVE | 동기 증거 단서 ID | String | Y | "CLUE-MOTIVE-MESSAGE" |
+| exclusionsByCharacter.{characterId} | 범인으로 지목하지 않은 용의자를 배제하는 근거 단서 ID. 범인으로 지목한 사람은 키로 보낼 수 없음(400) | String | N (생략 시 하위 호환으로 기존과 동일 동작) | {"MARCUS": "CLUE-ACCESS-HISTORY"} |
 
 **Request Example**
 
@@ -507,11 +570,14 @@ Content-Type: application/json
     "TRIGGER": "CLUE-TRIGGER-LOG",
     "OPPORTUNITY": "CLUE-ACCESS-HISTORY",
     "MOTIVE": "CLUE-MOTIVE-MESSAGE"
+  },
+  "exclusionsByCharacter": {
+    "MARCUS": "CLUE-ACCESS-HISTORY"
   }
 }
 ```
 
-> **주의:** 4개 역할(SETUP/TRIGGER/OPPORTUNITY/MOTIVE)을 **전부** 채워야 합니다. 하나라도 빠지면 400입니다.
+> **주의:** 4개 역할(SETUP/TRIGGER/OPPORTUNITY/MOTIVE)을 **전부** 채워야 합니다. 하나라도 빠지면 400입니다. `exclusionsByCharacter`의 단서도 `evidenceByRole`과 동일하게 **이미 발견한 단서만** 허용되고(그 외 400), 같은 단서를 여러 명의 배제에 재사용할 수 있습니다.
 
 ### Response
 
@@ -525,6 +591,11 @@ Content-Type: application/json
 | data.roleResults.MOTIVE | MOTIVE 증거 정오 | String | N | "CORRECT" |
 | data.remainingAttempts | 남은 제출 가능 횟수(기본 3회에서 오답/부분정답마다 차감, 정답이면 안 깎임) | int | N | 2 |
 | data.feedback | 결과 안내 문구(정답 단서 ID 등 스포일러는 절대 없음) | String | N | "범인은 맞지만 기회와 권한 증거를 다시 확인해야 합니다." |
+| data.exclusionResults.{characterId} | 요청에 보낸 배제 근거의 정오 (`CORRECT`/`INSUFFICIENT`). `exclusionsByCharacter`를 안 보냈으면 빈 객체 | Object&lt;String, String&gt; | N | {"MARCUS": "CORRECT"} |
+| data.missingLogic[].code | 부족한 논리 종류 (`WRONG_CULPRIT`/`WEAK_ROLE_EVIDENCE`/`WEAK_EXCLUSION`) | String | N | "WEAK_EXCLUSION" |
+| data.missingLogic[].role | `WEAK_ROLE_EVIDENCE`일 때만 채워지는 역할명 | String | Y | "OPPORTUNITY" |
+| data.missingLogic[].characterId | `WEAK_EXCLUSION`일 때만 채워지는 인물 ID | String | Y | "MARCUS" |
+| data.missingLogic[].message | 안내 문구(정답 단서 ID·정답 인물은 절대 포함 안 함) | String | N | "마커스를 배제할 근거가 부족합니다." |
 
 **Example (완전 정답 — 게임 종료)**
 
@@ -537,12 +608,14 @@ Content-Type: application/json
     "culpritCorrect": true,
     "roleResults": { "SETUP": "CORRECT", "TRIGGER": "CORRECT", "OPPORTUNITY": "CORRECT", "MOTIVE": "CORRECT" },
     "remainingAttempts": 3,
-    "feedback": "정확한 추리입니다. 사건의 전모가 드러났습니다."
+    "feedback": "정확한 추리입니다. 사건의 전모가 드러났습니다.",
+    "exclusionResults": { "MARCUS": "CORRECT" },
+    "missingLogic": []
   }
 }
 ```
 
-**Example (부분 정답 — 계속 진행 가능)**
+**Example (부분 정답 — 계속 진행 가능, 배제 근거도 부족한 경우)**
 
 ```jsx
 {
@@ -553,7 +626,12 @@ Content-Type: application/json
     "culpritCorrect": true,
     "roleResults": { "SETUP": "CORRECT", "TRIGGER": "CORRECT", "OPPORTUNITY": "INCORRECT", "MOTIVE": "CORRECT" },
     "remainingAttempts": 2,
-    "feedback": "범인은 맞지만 기회와 권한 증거를 다시 확인해야 합니다."
+    "feedback": "범인은 맞지만 기회와 권한 증거를 다시 확인해야 합니다.",
+    "exclusionResults": { "MARCUS": "INSUFFICIENT" },
+    "missingLogic": [
+      { "code": "WEAK_ROLE_EVIDENCE", "role": "OPPORTUNITY", "characterId": null, "message": "기회와 권한 증거가 부족합니다." },
+      { "code": "WEAK_EXCLUSION", "role": null, "characterId": "MARCUS", "message": "MARCUS를 배제할 근거가 부족합니다." }
+    ]
   }
 }
 ```
@@ -562,18 +640,18 @@ Content-Type: application/json
 
 | status | response content |
 | --- | --- |
-| 200 | 판정 완료(정답/오답 모두 200, `verdict` 값으로 구분) |
-| 400 | 4개 역할 중 누락, 아직 발견하지 않은 단서 제출 |
+| 200 | 판정 완료(정답/오답/부분정답 모두 200, `verdict` 값으로 구분) |
+| 400 | 4개 역할 중 누락, 아직 발견하지 않은 단서 제출, 범인 본인을 `exclusionsByCharacter`에 포함 |
 | 404 | 존재하지 않는 sessionId |
-| 409 | 오답 횟수(기본 3회) 초과 — 더 이상 제출 불가 |
+| 409 | 이미 종료된 세션(오답 소진으로 `INCORRECT` 전이됨, 또는 이미 `COMPLETED`)에 제출 시도 |
 
-**프론트 구현 팁:** `verdict === "CORRECT"`이면 세션 상태가 자동으로 `COMPLETED`로 바뀌므로, 이때 바로 8번 API(`GET /result`)를 호출해서 결과 화면으로 넘어가세요. `remainingAttempts`가 0이 되면 제출 버튼을 비활성화하는 게 좋습니다(그래도 시도하면 409).
+**프론트 구현 팁:** `verdict === "CORRECT"`이면 세션 상태가 자동으로 `COMPLETED`로, 오답을 3회(기본값) 소진하면 자동으로 `INCORRECT`로 바뀝니다. 두 경우 모두 바로 8번 API(`GET /result`)를 호출해서 결과 화면으로 넘어가세요. `remainingAttempts`가 0이 되면 세션이 이미 `INCORRECT`로 종료된 상태이니 제출 버튼을 비활성화하세요(그래도 시도하면 409).
 
 ---
 
 ## 8. 최종 사건 재구성 조회
 
-정답을 맞힌 뒤(`COMPLETED` 상태) 사건의 전체 진실을 공개합니다. 엔딩/크레딧 화면에서 사용하세요.
+정답을 맞혔거나(`COMPLETED`) 오답을 최대 횟수만큼 소진해 종료됐을 때(`INCORRECT`) 사건의 전체 진실을 공개합니다. 엔딩/크레딧 화면에서 사용하세요. 오답으로 끝났어도 해설을 볼 수 있습니다.
 
 ### Request
 
@@ -701,6 +779,6 @@ GET /api/v1/sessions/game_ec3c9086655e4179842cc9e851673a7f/result
 | --- | --- |
 | 200 | 조회 성공 |
 | 404 | 존재하지 않는 sessionId |
-| 409 | 아직 `COMPLETED` 상태가 아님(정답을 맞히기 전) |
+| 409 | 아직 `COMPLETED`도 `INCORRECT`도 아님(게임이 아직 진행 중) |
 
 **프론트 구현 팁:** 이 API는 게임 끝나고 딱 한 번 호출하면 되는 "전체 재구성" 데이터라 필드가 많습니다. 엔딩 화면을 여러 섹션(수법/타임라인/알리바이/최종 근거)으로 나눠서 순서대로 보여주는 걸 추천합니다.

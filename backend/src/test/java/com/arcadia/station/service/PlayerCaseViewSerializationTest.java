@@ -24,7 +24,10 @@ import tools.jackson.databind.ObjectMapper;
  * 10장 보안 경계 회귀 테스트: PlayerCaseView(및 그 안의 단서 목록)를 직렬화한 JSON에
  * 스포일러 필드(culpritId, truthSummary, method, solution, actualWhereabouts,
  * concealedFactIds, allowedLieFactIds, resolutionFactIds)와 단서 내부 판정 필드
- * (revealsFactIds, suspectEffects)가 절대 나타나지 않는지 고정한다.
+ * (revealsFactIds, solutionRoles, truthValue)가 절대 나타나지 않는지 고정한다.
+ *
+ * suspectEffects는 요청 A(FRONTEND_BACKEND_CLUE_CONTEXT_REQUEST_2026-08-06.md 3.2절)에 따라
+ * 의도적으로 노출하는 필드라 금지 목록에서 제외했다 — playerText로도 어차피 드러나는 수준이라 스포일러가 아니다.
  */
 @SpringBootTest
 class PlayerCaseViewSerializationTest {
@@ -39,7 +42,8 @@ class PlayerCaseViewSerializationTest {
             "\"allowedLieFactIds\"",
             "\"resolutionFactIds\"",
             "\"revealsFactIds\"",
-            "\"suspectEffects\"",
+            "\"solutionRoles\"",
+            "\"truthValue\"",
             "\"npcKnowledge\"",
             "\"redHerrings\"",
             "\"alibis\"",

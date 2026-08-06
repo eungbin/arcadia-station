@@ -137,7 +137,8 @@ class AssistantProxyServiceTest {
     }
 
     private AssistantProxyService newService(AssistantClient client) {
-        return new AssistantProxyService(gameSessionRepository, client, clueUnlockService, objectMapper);
+        return new AssistantProxyService(
+                gameSessionRepository, evidenceInventoryRepository, client, clueUnlockService, objectMapper);
     }
 
     private String seedSession() throws IOException {

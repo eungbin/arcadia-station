@@ -1,5 +1,6 @@
 package com.arcadia.station.dto.response;
 
+import java.util.List;
 import java.util.Map;
 
 public record DeductionResult(
@@ -7,5 +8,7 @@ public record DeductionResult(
     boolean culpritCorrect,
     Map<String, String> roleResults,
     int remainingAttempts,
-    String feedback
+    String feedback,
+    Map<String, String> exclusionResults,
+    List<MissingLogicItem> missingLogic
 ) {}
