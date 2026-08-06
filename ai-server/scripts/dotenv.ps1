@@ -1,4 +1,4 @@
-function Import-ArcadiaDotEnv {
+﻿function Import-ArcadiaDotEnv {
     param(
         [Parameter(Mandatory)]
         [string]$Path,
