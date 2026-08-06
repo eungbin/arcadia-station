@@ -318,6 +318,16 @@ export type DialogueChoice = {
   response: string;
 };
 
+/**
+ * NPC 심문의 정적 UI 문구.
+ *
+ * `opening`은 사건 내용이 아니라 인물의 성격만 담는다. 첫 인사는 API를 거치지 않고 바로
+ * 띄우는데, 여기에 사건 사실을 적어 두면 매번 새로 생성되는 사건과 어긋나고 아직 조사하지도
+ * 않은 결론을 NPC가 먼저 말해 버린다. 사건에 대한 답변은 전부 서버가 만든다.
+ *
+ * `choices`는 첫 질문에만 쓰인다. 한 번 오간 뒤의 선택지는 서버가 준 `recommendedQuestions`로
+ * 바뀐다(`GameUI.tsx`의 `InterrogationPanel`).
+ */
 export const NPC_DIALOGUE: Record<
   string,
   {
@@ -330,7 +340,7 @@ export const NPC_DIALOGUE: Record<
   NPC_MAYA: {
     callSign: "XO / MAYA HENDRICKS",
     opening:
-      "정기 보고 시간이었습니다. 중앙 출입문은 닫혀 있었지만 잠금 상태는 아니었어요. 들어가자마자 로스 사령관을 발견했고, 아무것도 만지지 않은 채 당신을 호출했습니다.",
+      "왔군요. 혼란스러운 건 알지만, 확인이 필요한 게 있으면 순서대로 물어보세요.",
     posture: "협조적 · 답변 통제",
     choices: [
       {
@@ -355,8 +365,7 @@ export const NPC_DIALOGUE: Record<
   },
   NPC_JUNHO: {
     callSign: "ENG / BAEK JUNHO",
-    opening:
-      "환경 계통이라고 다 같은 계통은 아닙니다. 사령관실 로컬 제어는 주 생명유지망과 분리돼 있어요. 원시 로그를 보기 전에는 고장인지 조작인지 말할 수 없습니다.",
+    opening: "정비 기록은 정리해 두었습니다. 필요한 부분부터 말씀하세요.",
     posture: "방어적 · 기술 용어 증가",
     choices: [
       {
@@ -382,7 +391,7 @@ export const NPC_DIALOGUE: Record<
   NPC_SOPHIA: {
     callSign: "MED / SOFIA ALVAREZ",
     opening:
-      "육안 소견만으로 사인을 단정하지 않겠습니다. 현장 스캐너 원본을 의무실 분석기와 비교해야 합니다. 제 해석도 원시 데이터와 함께 검증하세요.",
+      "안녕하세요. 지금은 모두 예민한 상황이군요. 제가 아는 범위에서 차분히 답하겠습니다.",
     posture: "침착 · 정보 선택",
     choices: [
       {
@@ -407,8 +416,7 @@ export const NPC_DIALOGUE: Record<
   },
   NPC_KASIM: {
     callSign: "COMMS / KASIM NAYYERI",
-    opening:
-      "태양풍 피크 이후 외부 링크는 완전히 끊겼습니다. 내부 로그망은 살아 있지만 동기화 오류가 있었어요. 수정 이력이 보인다면 복구 과정의 일부일 수 있습니다.",
+    opening: "통신 채널은 안정적입니다. 질문이 있다면 사실대로 답하겠습니다.",
     posture: "빠른 답변 · 과잉 설명",
     choices: [
       {
@@ -433,8 +441,7 @@ export const NPC_DIALOGUE: Record<
   },
   NPC_YUNA: {
     callSign: "CARGO / JO YUNA",
-    opening:
-      "화물칸 기록이 지저분한 건 인정해요. 하지만 에어록과 하역기는 로컬 안전 로그를 남깁니다. 누군가 사용했다면 제가 아니라도 흔적이 있어야 해요.",
+    opening: "화물 관련 기록도 확인 중이에요. 궁금한 점이 있으면 물어보세요.",
     posture: "감정적 · 단계적 인정",
     choices: [
       {
