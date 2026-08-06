@@ -6,7 +6,11 @@ import {
   SUSPECTS,
 } from "../data/investigation";
 import { validateTheory } from "../domain/theoryValidation";
-import type { CaseStateResponse, DiscoveredEvidence } from "../api/contracts";
+import type {
+  CaseStateResponse,
+  DiscoveredEvidence,
+  VerdictJudgement,
+} from "../api/contracts";
 
 export type UiLayer =
   | "opening"
@@ -21,6 +25,8 @@ export type NotebookTab = "evidence" | "timeline" | "suspects" | "assistant" | "
 export type InvestigationPhase = "DAY1" | "DAY2";
 /** 백엔드 판정 4역할과 1:1로 대응하는 이론 축. */
 export type TheoryEvidenceField = "setup" | "trigger" | "opportunity" | "motive";
+/** 플레이어가 증거에 직접 붙이는 후보 역할. 백엔드 판정 역할과 이름을 맞춘다. */
+export type EvidenceTag = "SETUP" | "TRIGGER" | "OPPORTUNITY" | "MOTIVE" | "EXCLUSION";
 export type TrialEnding =
   | "CULPRIT_EXPELLED"
   | "CULPRIT_SURVIVED"
@@ -94,8 +100,30 @@ type GameState = {
   /** 서버가 알려준 이 사건의 용의자 명단. 비어 있으면 정적 로스터로 대체한다. */
   suspectIds: string[];
   interviewedIds: string[];
+  /**
+   * 플레이어가 증거에 붙인 후보 역할.
+   *
+   * 서버는 어느 증거가 어느 역할의 정답인지 알려주지 않는다. 그건 곧 정답이기 때문이다.
+   * 대신 조사하면서 스스로 판단한 것을 여기 남기고, 사건 재구성에서 그 판단으로 목록을 좁힌다.
+   */
+  evidenceTags: Record<string, EvidenceTag[]>;
   theory: TheoryDraft;
   trialResult: TrialResult | null;
+  /**
+   * 마지막 최종 추리 판정.
+   *
+   * 오답이어도 기회가 남아 있으면 엔딩으로 가지 않고 이 판정을 보여준 뒤 다시 고치게 한다.
+   * 사건 재구성 화면도 이걸 읽어 어느 축이 틀렸는지 표시한다.
+   */
+  verdictJudgement: VerdictJudgement | null;
+  /**
+   * 방금 받은 판정을 아직 검토하지 않았는지.
+   *
+   * 판정 자체는 사건 재구성 화면에서 계속 참고하므로 지우지 않는다. 대신 이 깃발로 "지금
+   * 재판을 멈추고 검토 화면을 띄워야 하는지"만 구분한다. 다시 재판에 들어왔을 때 지난 판정이
+   * 그대로 떠 있으면 안 되기 때문이다.
+   */
+  judgementPending: boolean;
   scanUntil: number;
   hasMoved: boolean;
   beginInvestigation: (sessionId?: string, version?: number) => void;
@@ -109,12 +137,15 @@ type GameState = {
   recordEvidence: (found: DiscoveredEvidence[]) => void;
   syncCaseState: (state: CaseStateResponse) => void;
   markInterviewed: (id: string) => void;
+  toggleEvidenceTag: (clueId: string, tag: EvidenceTag) => void;
   openDayReview: () => void;
   beginDayTwo: () => void;
   setTheorySuspect: (id: string) => void;
   setTheoryEvidence: (field: TheoryEvidenceField, evidenceId: string) => void;
   setTheoryExclusion: (suspectId: string, evidenceId: string) => void;
   startTrial: () => void;
+  recordJudgement: (judgement: VerdictJudgement) => void;
+  reviseTheory: () => void;
   completeTrial: (result: TrialResult) => void;
   resetSession: () => void;
   activateScan: () => void;
@@ -136,8 +167,11 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
   caseBriefing: null,
   suspectIds: [],
   interviewedIds: [],
+  evidenceTags: {},
   theory: EMPTY_THEORY,
   trialResult: null,
+  verdictJudgement: null,
+  judgementPending: false,
   scanUntil: 0,
   hasMoved: false,
   beginInvestigation: (sessionId, sessionVersion = 1) =>
@@ -208,6 +242,18 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
       set((state) => ({ interviewedIds: [...state.interviewedIds, id] }));
     }
   },
+  toggleEvidenceTag: (clueId, tag) =>
+    set((state) => {
+      const current = state.evidenceTags[clueId] ?? [];
+      const next = current.includes(tag)
+        ? current.filter((item) => item !== tag)
+        : [...current, tag];
+      const evidenceTags = { ...state.evidenceTags };
+      // 태그를 다 떼면 항목 자체를 지운다. 빈 배열이 쌓이면 저장 데이터만 커진다.
+      if (next.length === 0) delete evidenceTags[clueId];
+      else evidenceTags[clueId] = next;
+      return { evidenceTags };
+    }),
   openDayReview: () => {
     const progress = getRequiredProgress(get().discoveredIds);
     if (progress.complete && get().interviewedIds.length >= 3) {
@@ -241,7 +287,17 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
       set({ layer: "trial" });
     }
   },
-  completeTrial: (trialResult) => set({ trialResult, layer: "result" }),
+  recordJudgement: (verdictJudgement) => set({ verdictJudgement, judgementPending: true }),
+  // 오답 판정을 받은 뒤 사건 재구성으로 돌아간다. 판정은 남겨 둬야 어디를 고칠지 볼 수 있다.
+  reviseTheory: () =>
+    set({
+      layer: "notebook",
+      notebookTab: "theory",
+      notebookReturnLayer: "playing",
+      judgementPending: false,
+    }),
+  completeTrial: (trialResult) =>
+    set({ trialResult, layer: "result", judgementPending: false }),
   resetSession: () =>
     set({
       sessionId: null,
@@ -258,8 +314,11 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
       caseBriefing: null,
       suspectIds: [],
       interviewedIds: [],
+      evidenceTags: {},
       theory: EMPTY_THEORY,
       trialResult: null,
+      verdictJudgement: null,
+      judgementPending: false,
       scanUntil: 0,
       hasMoved: false,
     }),
@@ -290,8 +349,11 @@ export const useGameStore = create<GameState>()(persist((set, get) => ({
     caseBriefing: state.caseBriefing,
     suspectIds: state.suspectIds,
     interviewedIds: state.interviewedIds,
+    evidenceTags: state.evidenceTags,
     theory: state.theory,
     trialResult: state.trialResult,
+    verdictJudgement: state.verdictJudgement,
+    judgementPending: false,
     scanUntil: 0,
     hasMoved: state.hasMoved,
   }),

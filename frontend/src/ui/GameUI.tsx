@@ -9,6 +9,7 @@ import {
 import {
   getRequiredProgress,
   useGameStore,
+  type EvidenceTag,
   type NotebookTab,
 } from "../store/gameStore";
 import {
@@ -22,6 +23,7 @@ import {
   useCreateSession,
   useAskAssistant,
   useCaseState,
+  useFinalReveal,
   useInspectObject,
   useInterrogationSession,
   useSaveTheory,
@@ -29,12 +31,14 @@ import {
   useSubmitVerdict,
 } from "../api/hooks";
 import { validateTheory } from "../domain/theoryValidation";
+import { ROLE_SOURCE_FIELD } from "../api/backendContract";
 import { GuideTour, NOTEBOOK_TOUR_STEPS, PLAY_TOUR_STEPS } from "./GuideTour";
 import type {
   DiscoveredEvidence,
   EvidenceType,
   RecommendedQuestion,
   SessionPrepStage,
+  VerdictJudgement,
 } from "../api/contracts";
 
 /** 3D 소품의 종류. 물리 계층 표시에만 쓴다. */
@@ -102,6 +106,25 @@ function StageIndicator({ current }: { current: StageId }) {
   );
 }
 
+/**
+ * 한글 조사를 골라 붙인다.
+ *
+ * 인물 이름과 단서 제목이 사건마다 달라서, 문장에 "이(가)" 같은 병기 표기를 그대로 두면
+ * 화면에 그 괄호가 남는다. 마지막 글자의 종성 유무로 조사를 정한다. 한글 음절이 아니면
+ * 판단할 수 없으므로 병기 표기로 물러난다.
+ */
+function particleFor(word: string, afterJongseong: string, afterVowel: string): string {
+  const code = word.charCodeAt(word.length - 1);
+  if (Number.isNaN(code) || code < 0xac00 || code > 0xd7a3) {
+    return `${afterJongseong}(${afterVowel})`;
+  }
+  return (code - 0xac00) % 28 === 0 ? afterVowel : afterJongseong;
+}
+
+function withParticle(word: string, afterJongseong: string, afterVowel: string): string {
+  return `${word}${particleFor(word, afterJongseong, afterVowel)}`;
+}
+
 /** 서버 용의자 ID를 화면 표시용 정보로 옮긴다. 정적 로스터에 없으면 ID를 그대로 쓴다. */
 function suspectProfile(id: string) {
   return (
@@ -113,6 +136,14 @@ function suspectProfile(id: string) {
     }
   );
 }
+
+/** 최종 추리 4축과 이론 초안 필드의 대응. 백엔드 판정 역할 이름을 그대로 쓴다. */
+const THEORY_ROLE_FIELDS = [
+  ["SETUP", "setup"],
+  ["TRIGGER", "trigger"],
+  ["OPPORTUNITY", "opportunity"],
+  ["MOTIVE", "motive"],
+] as const;
 
 /** 이 사건의 용의자 목록. 서버가 알려준 명단을 우선한다. */
 function useSuspects() {
@@ -676,6 +707,8 @@ function InspectionPanel() {
             <div className="inspection-detail" key={record.clueId}>
               <span>{EVIDENCE_TYPE_LABELS[record.clueType]} · {record.title}</span>
               <p>{record.playerText}</p>
+              {/* 이 기록을 무엇과 맞춰 봐야 하는지 여기서 바로 알려 준다. 정답은 알려주지 않는다. */}
+              <EvidenceContext record={record} evidence={evidence} />
             </div>
           ))}
         </div>
@@ -723,7 +756,116 @@ const NOTEBOOK_TABS: Array<{ id: NotebookTab; label: string; index: string }> = 
   { id: "theory", label: "사건 재구성", index: "05" },
 ];
 
+/**
+ * 플레이어가 증거에 붙이는 후보 역할.
+ *
+ * 서버는 어느 증거가 어느 역할의 정답인지 내려주지 않는다. 그 값이 곧 판정 기준이라 그대로
+ * 보여주면 최종 추리가 사라진다. 대신 플레이어가 직접 표시하고, 그 표시로 사건 재구성의
+ * 긴 목록을 좁힌다. 실제 사건은 증거가 열네 장 넘게 쌓인다.
+ */
+const EVIDENCE_TAG_LABELS: Record<EvidenceTag, string> = {
+  SETUP: "준비",
+  TRIGGER: "실행",
+  OPPORTUNITY: "기회",
+  MOTIVE: "동기",
+  EXCLUSION: "배제",
+};
+
+const EVIDENCE_TAGS = Object.keys(EVIDENCE_TAG_LABELS) as EvidenceTag[];
+
+const SUSPECT_EFFECT_LABELS: Record<string, string> = {
+  SUPPORTS: "혐의를 뒷받침",
+  EXCLUDES: "혐의에서 배제",
+  NEUTRAL: "판단 보류",
+};
+
+/**
+ * 증거 한 장이 사건 안에서 갖는 위치.
+ *
+ * 서버가 알려주는 것은 세 가지다. 이 기록이 말해 주는 사실, 같은 사실을 가리키는 다른 기록,
+ * 그리고 아직 맞물리지 않은 데가 남았는지. 어느 역할의 정답인지는 알려주지 않는다.
+ */
+function EvidenceContext({
+  record,
+  evidence,
+  onSelect,
+}: {
+  record: DiscoveredEvidence;
+  evidence: DiscoveredEvidence[];
+  onSelect?: (clueId: string) => void;
+}) {
+  const links = record.linkedClueIds
+    .map((clueId) => evidence.find((item) => item.clueId === clueId))
+    .filter((item): item is DiscoveredEvidence => Boolean(item));
+
+  if (
+    links.length === 0 &&
+    record.revealedFacts.length === 0 &&
+    record.suspectEffects.length === 0 &&
+    !record.hasPendingConnection
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="evidence-context">
+      {record.revealedFacts.length > 0 && (
+        <div className="evidence-facts">
+          <span>이 기록이 말해 주는 것</span>
+          <ul>
+            {record.revealedFacts.map((fact) => (
+              <li key={fact.factId}>{fact.statement}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {record.suspectEffects.length > 0 && (
+        <div className="evidence-effects">
+          {record.suspectEffects.map((effect) => (
+            <em
+              key={`${effect.characterId}-${effect.effect}`}
+              className={`is-${effect.effect.toLowerCase()}`}
+            >
+              {suspectProfile(effect.characterId).name} · {SUSPECT_EFFECT_LABELS[effect.effect]}
+            </em>
+          ))}
+        </div>
+      )}
+
+      {links.length > 0 && (
+        <div className="evidence-links">
+          <span>같은 사실을 가리키는 기록</span>
+          <div>
+            {links.map((link) => (
+              <button
+                key={link.clueId}
+                type="button"
+                disabled={!onSelect}
+                onClick={() => onSelect?.(link.clueId)}
+              >
+                {link.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {record.hasPendingConnection && (
+        <p className="evidence-pending">
+          이 기록은 아직 다른 기록과 맞물리지 않았습니다. 짝이 되는 자료를 더 찾으면 새로운 사실이
+          드러납니다.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function EvidenceTab({ evidence }: { evidence: DiscoveredEvidence[] }) {
+  const [focusedClueId, setFocusedClueId] = useState<string | null>(null);
+  const evidenceTags = useGameStore((state) => state.evidenceTags);
+  const toggleEvidenceTag = useGameStore((state) => state.toggleEvidenceTag);
+
   if (evidence.length === 0) {
     return (
       <div className="notebook-empty">
@@ -734,28 +876,85 @@ function EvidenceTab({ evidence }: { evidence: DiscoveredEvidence[] }) {
     );
   }
 
+  const focused = evidence.find((record) => record.clueId === focusedClueId) ?? null;
+  const relatedIds = new Set(focused?.linkedClueIds ?? []);
+  const untagged = evidence.filter(
+    (record) => (evidenceTags[record.clueId] ?? []).length === 0,
+  ).length;
+
   return (
+    <>
+    <div className="evidence-toolbar">
+      <p>
+        이 기록을 어디에 쓸지 직접 표시해 두면, 사건 재구성에서 그 표시로 목록이 좁혀집니다.
+      </p>
+      <strong className={untagged === 0 ? "is-clear" : ""}>미분류 {untagged}건</strong>
+    </div>
     <div className="evidence-grid">
       {evidence.map((record, index) => {
         const source = record.sourceObjectId
           ? INVESTIGATION_OBJECTS[record.sourceObjectId]
           : null;
         const kindClass = record.clueType.toLowerCase();
+        const isFocused = record.clueId === focusedClueId;
         return (
-          <article className="evidence-card" key={record.clueId}>
+          <article
+            className={[
+              "evidence-card",
+              isFocused ? "is-focused" : "",
+              // 고른 기록과 같은 사실을 가리키는 카드를 함께 밝힌다.
+              focused && relatedIds.has(record.clueId) ? "is-linked" : "",
+              focused && !isFocused && !relatedIds.has(record.clueId) ? "is-dimmed" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            key={record.clueId}
+          >
             <header>
               <span>{String(index + 1).padStart(2, "0")}</span>
               <em>{EVIDENCE_TYPE_LABELS[record.clueType]}</em>
+              {record.isCore && <b className="evidence-core">핵심</b>}
             </header>
             <div className={`evidence-card__mark evidence-card__mark--${kindClass}`} />
             <small>{source ? `${source.zone} · ${source.title}` : "사건 기록 검색"}</small>
             <h3>{record.title}</h3>
             <p>{record.playerText}</p>
-            <footer>{record.clueId}</footer>
+            <EvidenceContext
+              record={record}
+              evidence={evidence}
+              onSelect={(clueId) => setFocusedClueId(clueId)}
+            />
+            <div className="evidence-tags" role="group" aria-label={`${record.title} 후보 역할`}>
+              {EVIDENCE_TAGS.map((tag) => {
+                const on = (evidenceTags[record.clueId] ?? []).includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={on ? "is-on" : ""}
+                    aria-pressed={on}
+                    onClick={() => toggleEvidenceTag(record.clueId, tag)}
+                  >
+                    {EVIDENCE_TAG_LABELS[tag]}
+                  </button>
+                );
+              })}
+            </div>
+            <footer>
+              <button
+                type="button"
+                className="evidence-focus-toggle"
+                onClick={() => setFocusedClueId(isFocused ? null : record.clueId)}
+              >
+                {isFocused ? "연결 표시 끄기" : "연결 보기"}
+              </button>
+              <span>{record.clueId}</span>
+            </footer>
           </article>
         );
       })}
     </div>
+    </>
   );
 }
 
@@ -908,21 +1107,132 @@ function AssistantTab() {
   );
 }
 
+/** 각 축이 세우는 주장. 증거가 무엇을 받쳐야 하는지 문장으로 못박는다. */
+const ROLE_CLAIMS: Record<string, string> = {
+  SETUP: "범인이 이 죽음을 미리 준비했다.",
+  TRIGGER: "이 시점에 범행이 실행됐다.",
+  OPPORTUNITY: "범인에게 그럴 기회와 권한이 있었다.",
+  MOTIVE: "범인에게 죽여야 할 이유가 있었다.",
+};
+
+/** 논증 한 줄의 판정 상태. 연결선 색과 꼬리표가 여기서 갈린다. */
+type BoardMark = "EMPTY" | "LINKED" | "CORRECT" | "INSUFFICIENT";
+
+/**
+ * 논증 보드 한 줄.
+ *
+ * 왼쪽에 주장, 오른쪽에 그 주장을 받치는 기록, 사이에 연결선을 둔다. 예전 화면은 드롭다운만
+ * 나열해서 무엇을 골랐는지도, 그게 어떤 주장을 받치는지도 보이지 않았다.
+ *
+ * 연결선은 SVG 오버레이가 아니라 격자 가운데 칸이다. 위치를 재지 않으므로 스크롤·창 크기
+ * 변화에 어긋나지 않고, 좁은 화면에서는 같은 구조가 세로로 떨어진다.
+ */
+function BoardRow({
+  code,
+  claim,
+  statement,
+  picker,
+  evidence,
+  mark,
+  accent,
+}: {
+  code: string;
+  claim: string;
+  statement: string;
+  picker: React.ReactNode;
+  evidence: DiscoveredEvidence | undefined;
+  mark: BoardMark;
+  accent?: string;
+}) {
+  const source = evidence?.sourceObjectId
+    ? INVESTIGATION_OBJECTS[evidence.sourceObjectId]
+    : null;
+
+  return (
+    <div
+      className={`board-row is-${mark.toLowerCase()}`}
+      style={accent ? ({ "--suspect": accent } as React.CSSProperties) : undefined}
+    >
+      <div className="board-claim">
+        <span>{code}</span>
+        <strong>{claim}</strong>
+        <p>{statement}</p>
+        {picker}
+      </div>
+
+      <div className="board-link" aria-hidden="true">
+        <i />
+        {mark === "INSUFFICIENT" && <em>부족</em>}
+        {mark === "CORRECT" && <em>성립</em>}
+      </div>
+
+      <div className="board-evidence">
+        {evidence ? (
+          <>
+            <header>
+              <span>{EVIDENCE_TYPE_LABELS[evidence.clueType]}</span>
+              <small>{source ? `${source.zone} · ${source.title}` : "사건 기록 검색"}</small>
+            </header>
+            <h4>{evidence.title}</h4>
+            {evidence.revealedFacts.length > 0 ? (
+              <ul>
+                {evidence.revealedFacts.map((fact) => (
+                  <li key={fact.factId}>{fact.statement}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>{evidence.playerText}</p>
+            )}
+          </>
+        ) : (
+          <div className="board-empty">
+            <i />
+            받쳐 줄 기록이 없습니다.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TheoryTab() {
   const sessionId = useGameStore((state) => state.sessionId);
   const sessionVersion = useGameStore((state) => state.sessionVersion);
   const phase = useGameStore((state) => state.phase);
   const theory = useGameStore((state) => state.theory);
   const evidence = useGameStore((state) => state.evidence);
+  const evidenceTags = useGameStore((state) => state.evidenceTags);
   const suspects = useSuspects();
   const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
   const setTheorySuspect = useGameStore((state) => state.setTheorySuspect);
   const setTheoryEvidence = useGameStore((state) => state.setTheoryEvidence);
   const setTheoryExclusion = useGameStore((state) => state.setTheoryExclusion);
   const startTrial = useGameStore((state) => state.startTrial);
+  const judgement = useGameStore((state) => state.verdictJudgement);
   const saveTheory = useSaveTheory(sessionId);
 
   const otherSuspects = suspects.filter((suspect) => suspect.id !== theory.suspectId);
+  const accused = suspects.find((suspect) => suspect.id === theory.suspectId) ?? null;
+  const findEvidence = (clueId: string | null | undefined) =>
+    clueId ? evidence.find((record) => record.clueId === clueId) : undefined;
+
+  // 직전 판정이 남아 있고 아직 정답이 아니면 그 결과를 선 위에 그대로 보여준다. 어느 기록이
+  // 정답인지는 여전히 알려주지 않고, 내가 세운 연결이 성립했는지만 표시한다.
+  const showMarks = Boolean(judgement) && judgement?.verdict !== "CORRECT";
+  const roleMark = (role: string): BoardMark => {
+    const clueId = theory[ROLE_SOURCE_FIELD[role as keyof typeof ROLE_SOURCE_FIELD]];
+    if (!clueId) return "EMPTY";
+    if (!showMarks) return "LINKED";
+    return judgement?.roleResults[role] === "INCORRECT" ? "INSUFFICIENT" : "CORRECT";
+  };
+  const exclusionMark = (characterId: string): BoardMark => {
+    if (!theory.exclusions[characterId]) return "EMPTY";
+    if (!showMarks) return "LINKED";
+    const mark = judgement?.exclusionResults[characterId];
+    if (!mark) return "LINKED";
+    return mark === "INSUFFICIENT" ? "INSUFFICIENT" : "CORRECT";
+  };
+
   const validation = validateTheory(
     theory,
     evidence.map((record) => record.clueId),
@@ -953,19 +1263,69 @@ function TheoryTab() {
     );
   }
 
-  const evidenceOptions = (value: string | null, onChange: (id: string) => void) => (
-    <select value={value ?? ""} onChange={(event) => onChange(event.target.value)}>
-      <option value="" disabled>기록 선택</option>
-      {evidence.map((record) => (
-        <option key={record.clueId} value={record.clueId}>
-          [{EVIDENCE_TYPE_LABELS[record.clueType]}] {record.title}
-        </option>
-      ))}
-    </select>
-  );
+  /**
+   * 역할별 기록 선택기.
+   *
+   * 실제 사건은 증거가 열네 장 넘게 쌓여서, 여덟 개 칸마다 전체 목록을 훑는 건 사실상 불가능하다.
+   * 증거 탭에서 플레이어가 그 역할 후보로 표시해 둔 기록이 있으면 그것만 보여주고, 표시가
+   * 하나도 없으면 전체를 그대로 보여준다. 표시는 판정에 아무 영향도 주지 않는다.
+   */
+  const evidenceOptions = (
+    value: string | null,
+    onChange: (id: string) => void,
+    tag?: EvidenceTag,
+  ) => {
+    const tagged = tag
+      ? evidence.filter((record) => (evidenceTags[record.clueId] ?? []).includes(tag))
+      : [];
+    const selected = evidence.find((record) => record.clueId === value);
+    const options =
+      tagged.length === 0
+        ? evidence
+        : selected && !tagged.some((record) => record.clueId === selected.clueId)
+          ? [...tagged, selected]
+          : tagged;
+
+    return (
+      <>
+        <select value={value ?? ""} onChange={(event) => onChange(event.target.value)}>
+          <option value="" disabled>기록 선택</option>
+          {options.map((record) => (
+            <option key={record.clueId} value={record.clueId}>
+              [{EVIDENCE_TYPE_LABELS[record.clueType]}] {record.title}
+            </option>
+          ))}
+        </select>
+        {tagged.length > 0 && (
+          <small className="theory-filter-note">
+            내가 {withParticle(EVIDENCE_TAG_LABELS[tag!], "으로", "로")} 표시한 {tagged.length}건만 보는 중
+          </small>
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="theory-builder">
+      {/* 재판에서 부족하다고 판정받은 축을 여기서 다시 짚어 준다. 어느 기록이 정답인지는 없다. */}
+      {judgement && judgement.verdict !== "CORRECT" && judgement.remainingAttempts > 0 && (
+        <section className="theory-verdict-note" role="status">
+          <header>
+            <span>LAST RULING · 남은 기회 {judgement.remainingAttempts}회</span>
+            <strong>{judgement.feedback}</strong>
+          </header>
+          <ul>
+            {judgement.missingLogic.map((item, index) => (
+              <li key={`${item.code}-${item.role ?? item.characterId ?? index}`}>
+                {item.characterId
+                  ? `${withParticle(suspectProfile(item.characterId).name, "을", "를")} 배제할 근거가 부족합니다.`
+                  : item.message}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="theory-accused">
         <header>
           <span>01 // ACCUSED</span>
@@ -989,57 +1349,66 @@ function TheoryTab() {
         </div>
       </section>
 
-      <section className="theory-core">
+      <section className="theory-board">
         <header>
-          <span>02 // CORE PROOF</span>
-          <h3>핵심 입증</h3>
-          <p>준비·실행·기회·동기를 서로 다른 기록으로 구성합니다.</p>
+          <span>02 // ARGUMENT BOARD</span>
+          <h3>논증 구성</h3>
+          <p>
+            각 주장이 어느 기록에 기대고 있는지 선으로 잇습니다. 끊긴 선은 아직 받쳐 줄 기록이
+            없다는 뜻입니다.
+          </p>
         </header>
-        <div>
-          <label>
-            <span>SETUP</span>
-            <strong>범행 준비</strong>
-            {evidenceOptions(theory.setup, (id) => setTheoryEvidence("setup", id))}
-          </label>
-          <label>
-            <span>TRIGGER</span>
-            <strong>실행 트리거</strong>
-            {evidenceOptions(theory.trigger, (id) => setTheoryEvidence("trigger", id))}
-          </label>
-          <label>
-            <span>OPPORTUNITY</span>
-            <strong>기회와 권한</strong>
-            {evidenceOptions(theory.opportunity, (id) => setTheoryEvidence("opportunity", id))}
-          </label>
-          <label>
-            <span>MOTIVE</span>
-            <strong>범행 동기</strong>
-            {evidenceOptions(theory.motive, (id) => setTheoryEvidence("motive", id))}
-          </label>
-        </div>
-      </section>
 
-      <section className="theory-exclusions">
-        <header>
-          <span>03 // EXCLUSION</span>
-          <h3>다른 용의자 배제</h3>
-          <p>권한 부재가 아닌 알리바이·전문성·물리 흔적으로 배제합니다.</p>
-        </header>
+        {accused && (
+          <div className="board-conclusion">
+            <span>CONCLUSION</span>
+            <strong>{withParticle(accused.name, "이", "가")} 로스 사령관을 살해했다.</strong>
+            <small>아래 주장이 모두 기록으로 받쳐져야 재판을 열 수 있습니다.</small>
+          </div>
+        )}
+
+        <div className="board-rows">
+          {THEORY_ROLE_FIELDS.map(([role, field]) => (
+            <BoardRow
+              key={role}
+              code={role}
+              claim={ROLE_LABELS[role]}
+              statement={ROLE_CLAIMS[role]}
+              evidence={findEvidence(theory[field])}
+              mark={roleMark(role)}
+              picker={evidenceOptions(
+                theory[field],
+                (id) => setTheoryEvidence(field, id),
+                role,
+              )}
+            />
+          ))}
+        </div>
+
+        <div className="board-divider">
+          <span>다른 용의자 배제</span>
+          <small>권한 부재가 아닌 알리바이·전문성·물리 흔적으로 배제합니다.</small>
+        </div>
+
         {!theory.suspectId ? (
           <div className="theory-placeholder">범인을 먼저 지목하십시오.</div>
         ) : (
-          <div>
+          <div className="board-rows">
             {otherSuspects.map((suspect) => (
-              <label key={suspect.id}>
-                <i style={{ "--suspect": suspect.color } as React.CSSProperties}>
-                  {suspect.name.slice(0, 1)}
-                </i>
-                <span>{suspect.name}</span>
-                {evidenceOptions(
+              <BoardRow
+                key={suspect.id}
+                code="EXCLUSION"
+                claim={suspect.name}
+                statement={`${withParticle(suspect.name, "은", "는")} 이 사건에서 배제된다.`}
+                accent={suspect.color}
+                evidence={findEvidence(theory.exclusions[suspect.id] ?? null)}
+                mark={exclusionMark(suspect.id)}
+                picker={evidenceOptions(
                   theory.exclusions[suspect.id] ?? null,
                   (id) => setTheoryExclusion(suspect.id, id),
+                  "EXCLUSION",
                 )}
-              </label>
+              />
             ))}
           </div>
         )}
@@ -1611,6 +1980,100 @@ function DayReview() {
   );
 }
 
+/** 최종 추리 4축. 백엔드 판정 역할과 1:1로 대응한다. */
+const ROLE_LABELS: Record<string, string> = {
+  SETUP: "범행 준비",
+  TRIGGER: "실행 트리거",
+  OPPORTUNITY: "기회와 권한",
+  MOTIVE: "범행 동기",
+};
+
+/**
+ * 오답 판정 검토 화면.
+ *
+ * 예전에는 한 번 제출하면 맞든 틀리든 곧바로 엔딩으로 갔다. 서버는 오답을 세 번까지 허용하고
+ * 어느 축이 모자란지도 알려주는데 그 정보를 아무도 보지 못했다. 정답은 알려주지 않고 부족한
+ * 논리만 짚어 다시 세우게 한다.
+ */
+function DeductionReview({
+  judgement,
+  suspects,
+  onRevise,
+}: {
+  judgement: VerdictJudgement;
+  suspects: ReturnType<typeof useSuspects>;
+  onRevise: () => void;
+}) {
+  const nameOf = (characterId: string) =>
+    suspects.find((suspect) => suspect.id === characterId)?.name ?? characterId;
+
+  return (
+    <section className="deduction-review" aria-label="추리 판정 검토">
+      <div className="trial-atmosphere" />
+      <div className="deduction-review-body">
+        <header>
+          <span>DEDUCTION REJECTED</span>
+          <h2>{judgement.culpritCorrect ? "지목은 맞지만 입증이 모자랍니다" : "이 추리로는 결론에 이르지 못합니다"}</h2>
+          <p>{judgement.feedback}</p>
+        </header>
+
+        <div className="deduction-review-attempts">
+          <span>남은 기회</span>
+          <div>
+            {Array.from({ length: 3 }, (_, index) => (
+              <i key={index} className={index < judgement.remainingAttempts ? "is-left" : ""} />
+            ))}
+          </div>
+          <strong>{judgement.remainingAttempts}회</strong>
+        </div>
+
+        <div className="deduction-review-marks">
+          {Object.entries(ROLE_LABELS).map(([role, label]) => {
+            const mark = judgement.roleResults[role];
+            return (
+              <div key={role} className={mark === "CORRECT" ? "is-correct" : "is-wrong"}>
+                <span>{label}</span>
+                <strong>{mark === "CORRECT" ? "성립" : "부족"}</strong>
+              </div>
+            );
+          })}
+        </div>
+
+        {Object.keys(judgement.exclusionResults).length > 0 && (
+          <div className="deduction-review-marks is-exclusions">
+            {Object.entries(judgement.exclusionResults).map(([characterId, mark]) => (
+              <div key={characterId} className={mark === "CORRECT" ? "is-correct" : "is-wrong"}>
+                <span>{nameOf(characterId)} 배제</span>
+                <strong>{mark === "CORRECT" ? "성립" : "부족"}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {judgement.missingLogic.length > 0 && (
+          <ul className="deduction-review-gaps">
+            {judgement.missingLogic.map((item, index) => (
+              <li key={`${item.code}-${item.role ?? item.characterId ?? index}`}>
+                <em>{item.code === "WRONG_CULPRIT" ? "지목" : item.code === "WEAK_EXCLUSION" ? "배제" : "입증"}</em>
+                {item.characterId
+                  ? `${withParticle(nameOf(item.characterId), "을", "를")} 배제할 근거가 부족합니다.`
+                  : item.message}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <footer>
+          <p>어느 기록이 정답인지는 알려주지 않습니다. 확보한 자료를 다시 맞춰 보십시오.</p>
+          <button type="button" onClick={onRevise}>
+            사건 재구성 수정 <i>→</i>
+          </button>
+        </footer>
+      </div>
+    </section>
+  );
+}
+
 function TrialScreen() {
   const sessionId = useGameStore((state) => state.sessionId);
   const theory = useGameStore((state) => state.theory);
@@ -1618,6 +2081,10 @@ function TrialScreen() {
   const suspects = useSuspects();
   const updateSessionVersion = useGameStore((state) => state.updateSessionVersion);
   const completeTrial = useGameStore((state) => state.completeTrial);
+  const recordJudgement = useGameStore((state) => state.recordJudgement);
+  const reviseTheory = useGameStore((state) => state.reviseTheory);
+  const judgement = useGameStore((state) => state.verdictJudgement);
+  const judgementPending = useGameStore((state) => state.judgementPending);
   const submitVerdict = useSubmitVerdict(sessionId);
   const [step, setStep] = useState(0);
   const accused = suspects.find((suspect) => suspect.id === theory.suspectId);
@@ -1693,12 +2160,27 @@ function TrialScreen() {
       return;
     }
     submitVerdict.mutate(theory, {
-      onSuccess: ({ version, ...result }) => {
+      onSuccess: ({ version, judgement, ...result }) => {
         updateSessionVersion(version);
+        recordJudgement(judgement);
+        // 틀렸어도 기회가 남아 있으면 엔딩으로 넘기지 않는다. 무엇이 모자랐는지 보여주고
+        // 사건 재구성으로 돌아가 고칠 수 있게 한다.
+        if (judgement.verdict !== "CORRECT" && judgement.remainingAttempts > 0) return;
         completeTrial(result);
       },
     });
   };
+
+  // 판정을 받았고 아직 기회가 남은 상태. 재판을 끝내지 않고 부족한 논리를 보여준다.
+  const pendingRetry =
+    judgement !== null &&
+    judgementPending &&
+    judgement.verdict !== "CORRECT" &&
+    judgement.remainingAttempts > 0;
+
+  if (pendingRetry) {
+    return <DeductionReview judgement={judgement} suspects={suspects} onRevise={reviseTheory} />;
+  }
 
   return (
     <section className="trial-shell" aria-label="D3 생존자 재판">
@@ -1840,7 +2322,141 @@ const ENDING_COPY = {
   },
 };
 
+/**
+ * 사건 해설.
+ *
+ * 재판이 끝나야 서버가 열어 준다. 정답으로 끝났든 기회를 모두 소진했든 똑같이 볼 수 있다.
+ * 틀린 채로 끝난 사람도 무엇이 진실이었는지는 알아야 사건이 닫힌다.
+ */
+function CaseDebrief({ sessionId }: { sessionId: string | null }) {
+  const evidence = useGameStore((state) => state.evidence);
+  const reveal = useFinalReveal(sessionId, Boolean(sessionId));
+
+  if (reveal.isPending) {
+    return (
+      <section className="case-debrief is-loading" role="status">
+        <span>CASE FILE // DECLASSIFIED</span>
+        <p>사건 기록을 복호화하는 중입니다…</p>
+      </section>
+    );
+  }
+  // 해설을 못 불러와도 엔딩 자체는 이미 확정됐다. 결과 화면을 막지 않고 조용히 접는다.
+  if (reveal.isError || !reveal.data) return null;
+
+  const data = reveal.data;
+  const culprit = suspectProfile(data.culpritId);
+  const titleOf = (clueId: string) =>
+    evidence.find((record) => record.clueId === clueId)?.title ?? clueId;
+
+  return (
+    <section className="case-debrief" aria-label="사건 해설">
+      <header>
+        <span>CASE FILE // DECLASSIFIED</span>
+        <h2>
+          {data.resolvedByPlayer
+            ? "당신이 세운 논증이 그대로 진실이었습니다."
+            : "사건의 전모는 다음과 같았습니다."}
+        </h2>
+        <p>{data.truthSummary}</p>
+      </header>
+
+      {(data.methodSummary || data.victimCondition) && (
+        <div className="debrief-method">
+          {data.methodSummary && (
+            <div>
+              <span>수법</span>
+              <p>{data.methodSummary}</p>
+            </div>
+          )}
+          {data.victimCondition && (
+            <div>
+              <span>피해자 상태</span>
+              <p>{data.victimCondition}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="debrief-block">
+        <h3>사건 당일의 실제 순서</h3>
+        <ol className="debrief-timeline">
+          {data.timeline.map((event) => (
+            <li key={event.eventId}>
+              <time>{event.time}</time>
+              <div>
+                <span>
+                  {event.actorIds.map((id) => suspectProfile(id).name).join(", ") || "—"}
+                </span>
+                <p>{event.summary}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="debrief-block">
+        <h3>정답 논증</h3>
+        <div className="debrief-roles">
+          {THEORY_ROLE_FIELDS.map(([role]) => (
+            <div key={role}>
+              <span>{ROLE_LABELS[role]}</span>
+              <strong>
+                {(data.requiredEvidenceByRole[role] ?? []).map(titleOf).join(" · ") || "—"}
+              </strong>
+            </div>
+          ))}
+        </div>
+        {data.exclusions.length > 0 && (
+          <ul className="debrief-exclusions">
+            {data.exclusions.map((exclusion) => (
+              <li key={exclusion.characterId}>
+                <em>{suspectProfile(exclusion.characterId).name}</em>
+                {exclusion.reason}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {data.alibis.length > 0 && (
+        <div className="debrief-block">
+          <h3>진술과 실제</h3>
+          <div className="debrief-alibis">
+            {data.alibis.map((alibi) => (
+              <article
+                key={alibi.characterId}
+                className={alibi.characterId === data.culpritId ? "is-culprit" : ""}
+              >
+                <header>
+                  <strong>{suspectProfile(alibi.characterId).name}</strong>
+                  {alibi.characterId === data.culpritId && <em>범인</em>}
+                </header>
+                <p className="alibi-claim">“{alibi.initialClaim}”</p>
+                {alibi.contradictions.length > 0 ? (
+                  <ul>
+                    {alibi.contradictions.map((statement) => (
+                      <li key={statement}>{statement}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="alibi-clean">진술과 어긋나는 사실이 없었습니다.</p>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <footer className="debrief-footer">
+        진범은 <strong>{culprit.name}</strong>
+        {particleFor(culprit.name, "이었", "였")}습니다.
+      </footer>
+    </section>
+  );
+}
+
 function ResultScreen() {
+  const sessionId = useGameStore((state) => state.sessionId);
   const result = useGameStore((state) => state.trialResult);
   const toggleNotebook = useGameStore((state) => state.toggleNotebook);
   const resetSession = useGameStore((state) => state.resetSession);
@@ -1890,6 +2506,8 @@ function ResultScreen() {
           <button type="button" onClick={toggleNotebook}>사건 기록 검토</button>
           <button type="button" onClick={resetSession}>새 사건 시작</button>
         </div>
+
+        <CaseDebrief sessionId={sessionId} />
       </div>
       <footer>
         <span>ARCADIA STATION // INCIDENT 72</span>

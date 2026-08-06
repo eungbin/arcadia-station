@@ -17,6 +17,7 @@ import type {
   CaseStateResponse,
   CompleteDayResponse,
   DiscoveredEvidence,
+  FinalReveal,
   InspectObjectResponse,
   InterrogationInput,
   InterrogationMessage,
@@ -41,6 +42,7 @@ import {
   type ApiEnvelope,
   type BackendAssistantResult,
   type BackendClue,
+  type BackendFinalReveal,
   type BackendLocationId,
   type BackendDeductionResult,
   type BackendNpcTurn,
@@ -246,6 +248,12 @@ function toEvidence(sessionId: string, clue: BackendClue): DiscoveredEvidence {
     clueType: clue.clueType,
     playerText: clue.playerText,
     sourceObjectId: sourceObjectFor(sessionId, clue.clueId),
+    // 문맥 필드는 요청 A로 나중에 추가됐다. 옛 백엔드가 응답해도 화면이 깨지지 않게 채워 둔다.
+    isCore: clue.isCore ?? false,
+    revealedFacts: clue.revealedFacts ?? [],
+    linkedClueIds: clue.linkedClueIds ?? [],
+    suspectEffects: clue.suspectEffects ?? [],
+    hasPendingConnection: clue.hasPendingConnection ?? false,
   };
 }
 
@@ -278,7 +286,9 @@ function toSessionStatus(state: BackendSessionState): SessionStatus {
     case "READY":
     case "BRIEFING":
       return "READY";
+    // 오답 소진(INCORRECT)도 더 진행할 수 없는 끝난 세션이라 정답 종료와 같이 다룬다.
     case "COMPLETED":
+    case "INCORRECT":
       return "RESULT";
     default:
       return "IN_PROGRESS";
@@ -407,6 +417,59 @@ function selectEvidenceByRole(
   }
 
   return selection;
+}
+
+/**
+ * 배제 근거를 백엔드 요청 형태로 옮긴다.
+ *
+ * 백엔드는 범인으로 지목한 인물을 배제 키로 받으면 400을 돌려주고, 아직 발견하지 않은 단서도
+ * 같은 이유로 거절한다. 이론 초안이 오래돼 이미 사라진 단서를 들고 있을 수 있으므로 서버가
+ * 확인해 준 목록으로 한 번 거른다.
+ */
+function selectExclusions(
+  theory: TheoryDraft,
+  discovered: BackendClue[],
+): Record<string, string> {
+  const discoveredIds = new Set(discovered.map((clue) => clue.clueId));
+  const selection: Record<string, string> = {};
+  for (const [characterId, clueId] of Object.entries(theory.exclusions)) {
+    if (characterId === theory.suspectId || !clueId || !discoveredIds.has(clueId)) continue;
+    selection[characterId] = clueId;
+  }
+  return selection;
+}
+
+/** 백엔드 사건 재구성을 해설 화면이 그대로 그릴 수 있는 모양으로 줄인다. */
+function toFinalReveal(reveal: BackendFinalReveal, resolvedByPlayer: boolean): FinalReveal {
+  const statements = new Map(reveal.facts.map((fact) => [fact.factId, fact.statement]));
+  return {
+    culpritId: reveal.culpritId,
+    truthSummary: reveal.truthSummary,
+    methodSummary: reveal.method?.fictionalSummary ?? null,
+    victimCondition: reveal.method?.victimCondition ?? null,
+    timeline: reveal.timeline.map((event) => ({
+      eventId: event.eventId,
+      time: event.time,
+      actorIds: event.actorIds,
+      locationId: event.locationId,
+      summary: event.summary,
+    })),
+    alibis: reveal.alibis.map((alibi) => ({
+      characterId: alibi.characterId,
+      initialClaim: alibi.initialClaim,
+      actualWhereabouts: alibi.actualWhereabouts,
+      // 사실 ID만으로는 화면에 쓸 수 없다. 진술 문장으로 바꿔 둔다.
+      contradictions: alibi.contradictingFactIds
+        .map((factId) => statements.get(factId))
+        .filter((statement): statement is string => Boolean(statement)),
+    })),
+    requiredEvidenceByRole: reveal.solution.requiredEvidenceByRole,
+    exclusions: reveal.solution.nonCulpritExclusions.map((exclusion) => ({
+      characterId: exclusion.characterId,
+      reason: exclusion.reason,
+    })),
+    resolvedByPlayer,
+  };
 }
 
 /**
@@ -647,12 +710,42 @@ export const httpApi: ArcadiaApi = {
           body: JSON.stringify({
             culpritId: theory.suspectId,
             evidenceByRole: selectEvidenceByRole(theory, view.discoveredClues),
+            // 배제 근거는 범인으로 지목하지 않은 인물만 담는다. 범인 본인을 키로 보내면 400이다.
+            exclusionsByCharacter: selectExclusions(theory, view.discoveredClues),
           }),
         },
         FAST_TIMEOUT_MS,
       ),
     );
 
-    return { ...toTrialResult(theory.suspectId, result), version: nextVersion(sessionId) };
+    return {
+      ...toTrialResult(theory.suspectId, result),
+      judgement: {
+        verdict: result.verdict,
+        culpritCorrect: result.culpritCorrect,
+        roleResults: result.roleResults ?? {},
+        exclusionResults: result.exclusionResults ?? {},
+        remainingAttempts: result.remainingAttempts,
+        feedback: result.feedback,
+        missingLogic: result.missingLogic ?? [],
+      },
+      version: nextVersion(sessionId),
+    };
+  },
+
+  async fetchFinalReveal(sessionId: string): Promise<FinalReveal> {
+    const reveal = await requestBackend<BackendFinalReveal>(
+      `/sessions/${sessionId}/result`,
+      undefined,
+      FAST_TIMEOUT_MS,
+    );
+    // 세션 상태가 정답 종료인지 오답 소진인지에 따라 해설 문구가 달라진다. 서버는 결과 응답에
+    // 그 구분을 담지 않으므로 공개 상태를 한 번 더 읽어 판별한다.
+    const view = await requestBackend<BackendPlayerCaseView>(
+      `/sessions/${sessionId}`,
+      undefined,
+      FAST_TIMEOUT_MS,
+    );
+    return toFinalReveal(reveal, view.status === "COMPLETED");
   },
 };

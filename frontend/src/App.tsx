@@ -17,7 +17,14 @@ declare global {
       toggleNotebook: () => string;
       setSettingsOpen: (open: boolean) => void;
       showScreen: (
-        screen: "dayReview" | "interrogation" | "theory" | "trial" | "result"
+        screen:
+          | "dayReview"
+          | "interrogation"
+          | "evidence"
+          | "theory"
+          | "trial"
+          | "review"
+          | "result"
       ) => void;
     };
   }
@@ -121,12 +128,31 @@ export default function App() {
           "MD_MEDICAL_TERMINAL",
         ];
         // 지식 계층: 서버가 해금해 준 단서. 수첩·이론·재판이 이걸 본다.
+        // 문맥 필드도 함께 채운다. 비워 두면 QA 화면에서 연결·미해결 표시를 확인할 수 없다.
         const evidence = inspected.map((objectId, index) => ({
           clueId: `MOCK-${objectId}`,
           title: INVESTIGATION_OBJECTS[objectId]?.evidenceLabel ?? objectId,
           clueType: (["PHYSICAL", "DIGITAL", "OPPORTUNITY", "MOTIVE"] as const)[index % 4],
           playerText: INVESTIGATION_OBJECTS[objectId]?.detail ?? "",
           sourceObjectId: objectId,
+          isCore: index % 2 === 0,
+          revealedFacts: [
+            {
+              factId: `FACT-${objectId}`,
+              statement: `${INVESTIGATION_OBJECTS[objectId]?.evidenceLabel ?? objectId}에 해당하는 기록이 남아 있다.`,
+            },
+          ],
+          // 같은 종류끼리 이어 둔다. 네 종류를 돌려 쓰므로 카드마다 짝이 생긴다.
+          linkedClueIds: inspected
+            .filter((other, otherIndex) => other !== objectId && otherIndex % 4 === index % 4)
+            .map((other) => `MOCK-${other}`),
+          suspectEffects: [
+            {
+              characterId: ["MAYA", "JUNHO", "SOPHIA", "KASIM", "YUNA"][index % 5],
+              effect: (["SUPPORTS", "EXCLUDES", "NEUTRAL"] as const)[index % 3],
+            },
+          ],
+          hasPendingConnection: index % 4 === 0,
         }));
         const theory = {
           suspectId: "JUNHO",
@@ -152,6 +178,18 @@ export default function App() {
             sessionId: useGameStore.getState().sessionId ?? "LOCAL-QA",
             discoveredIds: inspected, evidence,
           });
+        } else if (screen === "evidence") {
+          useGameStore.setState({
+            layer: "notebook",
+            notebookTab: "evidence",
+            discoveredIds: inspected, evidence,
+            // 일부만 분류해 둔다. 분류된 카드와 미분류 카운터를 함께 확인하기 위해서다.
+            evidenceTags: {
+              "MOCK-CO_BODY": ["SETUP"],
+              "MOCK-CO_DOOR_LOG": ["OPPORTUNITY", "EXCLUSION"],
+              "MOCK-CO_TERMINAL": ["MOTIVE"],
+            },
+          });
         } else if (screen === "theory") {
           useGameStore.setState({
             layer: "notebook",
@@ -159,6 +197,46 @@ export default function App() {
             phase: "DAY2",
             discoveredIds: inspected, evidence,
             theory,
+          });
+        } else if (screen === "review") {
+          useGameStore.setState({
+            layer: "trial",
+            phase: "DAY2",
+            discoveredIds: inspected, evidence, theory,
+            judgementPending: true,
+            verdictJudgement: {
+              verdict: "PARTIAL",
+              culpritCorrect: true,
+              roleResults: {
+                SETUP: "CORRECT",
+                TRIGGER: "INCORRECT",
+                OPPORTUNITY: "CORRECT",
+                MOTIVE: "INCORRECT",
+              },
+              exclusionResults: { MAYA: "CORRECT", SOPHIA: "INSUFFICIENT" },
+              remainingAttempts: 2,
+              feedback: "범인은 맞지만 실행 트리거, 동기 증거를 다시 확인해야 합니다.",
+              missingLogic: [
+                {
+                  code: "WEAK_ROLE_EVIDENCE",
+                  role: "TRIGGER",
+                  characterId: null,
+                  message: "실행 트리거 증거가 부족합니다.",
+                },
+                {
+                  code: "WEAK_ROLE_EVIDENCE",
+                  role: "MOTIVE",
+                  characterId: null,
+                  message: "동기 증거가 부족합니다.",
+                },
+                {
+                  code: "WEAK_EXCLUSION",
+                  role: null,
+                  characterId: "SOPHIA",
+                  message: "SOPHIA를 배제할 근거가 부족합니다.",
+                },
+              ],
+            },
           });
         } else if (screen === "trial") {
           useGameStore.setState({ layer: "trial", phase: "DAY2", discoveredIds: inspected, evidence, theory });

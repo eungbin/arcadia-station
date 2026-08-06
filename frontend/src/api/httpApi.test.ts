@@ -114,7 +114,8 @@ describe("inspectObject", () => {
       method: "POST",
       body: { locationId: "MEDICAL_BAY", objectHint: "MD_MEDICAL_STORAGE" },
     });
-    // 수첩이 표시할 증거는 전부 서버 단서다.
+    // 수첩이 표시할 증거는 전부 서버 단서다. 문맥 필드가 빠진 응답(구형 백엔드)이 와도
+    // 화면이 깨지지 않도록 빈 값으로 채워야 한다.
     expect(result.discoveredEvidence).toEqual([
       {
         clueId: "CLUE-SETUP-LOG",
@@ -122,8 +123,44 @@ describe("inspectObject", () => {
         clueType: "DIGITAL",
         playerText: "...",
         sourceObjectId: "MD_MEDICAL_STORAGE",
+        isCore: false,
+        revealedFacts: [],
+        linkedClueIds: [],
+        suspectEffects: [],
+        hasPendingConnection: false,
       },
     ]);
+  });
+
+  it("서버가 준 단서 문맥을 그대로 수첩으로 넘긴다", async () => {
+    respond = (path) => {
+      if (path.includes("/explore") && path.includes("game_ctx")) {
+        return envelope([
+          {
+            clueId: "CLUE-SETUP-LOG",
+            title: "의료 안전 점검 예약 기록",
+            clueType: "DIGITAL",
+            playerText: "...",
+            isCore: true,
+            revealedFacts: [{ factId: "FACT-SETUP", statement: "소피아가 점검을 예약했다." }],
+            linkedClueIds: ["CLUE-ACCESS-HISTORY"],
+            suspectEffects: [{ characterId: "SOPHIA", effect: "SUPPORTS" }],
+            hasPendingConnection: true,
+          },
+        ]);
+      }
+      return envelope(null);
+    };
+
+    const result = await httpApi.inspectObject("game_ctx", "MD_MEDICAL_STORAGE");
+
+    expect(result.discoveredEvidence[0]).toMatchObject({
+      isCore: true,
+      revealedFacts: [{ factId: "FACT-SETUP", statement: "소피아가 점검을 예약했다." }],
+      linkedClueIds: ["CLUE-ACCESS-HISTORY"],
+      suspectEffects: [{ characterId: "SOPHIA", effect: "SUPPORTS" }],
+      hasPendingConnection: true,
+    });
   });
 
   it("조사는 탐사만 하고 사건기록 검색은 건드리지 않는다", async () => {

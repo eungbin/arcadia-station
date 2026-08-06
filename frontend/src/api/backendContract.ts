@@ -154,6 +154,8 @@ export type BackendSessionState =
   | "INVESTIGATION"
   | "DEDUCTION"
   | "COMPLETED"
+  /** 오답 기회를 모두 소진해 끝난 세션. 정답은 아니지만 사건 해설은 열린다. */
+  | "INCORRECT"
   | "FAILED";
 
 export type BackendClueType = "PHYSICAL" | "DIGITAL" | "MOTIVE" | "OPPORTUNITY";
@@ -163,6 +165,17 @@ export type BackendClue = {
   title: string;
   clueType: BackendClueType;
   playerText: string;
+  /**
+   * 단서 문맥 필드. 요청 A로 추가됐다.
+   *
+   * 배포 시점이 어긋나 옛 백엔드가 응답할 수 있으므로 없을 수 있는 값으로 둔다.
+   * 정답을 그대로 드러내는 `solutionRoles`는 의도적으로 내려오지 않는다.
+   */
+  isCore?: boolean;
+  revealedFacts?: { factId: string; statement: string }[];
+  linkedClueIds?: string[];
+  suspectEffects?: { characterId: string; effect: "SUPPORTS" | "EXCLUDES" | "NEUTRAL" }[];
+  hasPendingConnection?: boolean;
 };
 
 export type BackendSessionSummary = {
@@ -200,4 +213,54 @@ export type BackendDeductionResult = {
   roleResults: Record<string, "CORRECT" | "INCORRECT">;
   remainingAttempts: number;
   feedback: string;
+  /** 요청에 배제 근거를 담지 않으면 빈 객체가 온다. */
+  exclusionResults: Record<string, "CORRECT" | "INSUFFICIENT">;
+  missingLogic: {
+    code: "WRONG_CULPRIT" | "WEAK_ROLE_EVIDENCE" | "WEAK_EXCLUSION";
+    role: string | null;
+    characterId: string | null;
+    message: string;
+  }[];
+};
+
+/**
+ * 판정 완료 후에만 열리는 사건 전체 재구성.
+ *
+ * 정답으로 끝난 세션(`COMPLETED`)과 오답을 모두 소진한 세션(`INCORRECT`) 양쪽에서 조회할 수 있다.
+ */
+export type BackendFinalReveal = {
+  sessionId: string;
+  culpritId: string;
+  truthSummary: string;
+  method: {
+    fictionalSummary: string | null;
+    victimCondition: string | null;
+  } | null;
+  timeline: {
+    eventId: string;
+    time: string;
+    actorIds: string[];
+    locationId: string;
+    actionType: string;
+    summary: string;
+    factIds: string[];
+  }[];
+  facts: { factId: string; kind: string; statement: string; truthValue: boolean }[];
+  alibis: {
+    characterId: string;
+    initialClaim: string;
+    actualWhereabouts: string;
+    supportingFactIds: string[];
+    contradictingFactIds: string[];
+  }[];
+  solution: {
+    culpritId: string;
+    requiredEvidenceByRole: Record<string, string[]>;
+    acceptedAlternativesByRole: Record<string, string[]>;
+    nonCulpritExclusions: {
+      characterId: string;
+      excludedByClueIds: string[];
+      reason: string;
+    }[];
+  };
 };

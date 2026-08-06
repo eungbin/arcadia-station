@@ -113,6 +113,22 @@ export function useSaveTheory(sessionId: string | null) {
   });
 }
 
+/**
+ * 사건의 전모.
+ *
+ * 재판이 끝난 뒤에만 열린다. 정답이든 오답 소진이든 볼 수 있고, 아직 끝나지 않은 세션에서는
+ * 서버가 409를 돌려주므로 재시도하지 않는다.
+ */
+export function useFinalReveal(sessionId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ["session", sessionId, "final-reveal"],
+    queryFn: () => arcadiaApi.fetchFinalReveal(sessionId!),
+    enabled: Boolean(sessionId) && enabled,
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
 export function useSubmitVerdict(sessionId: string | null) {
   return useMutation({
     mutationKey: ["session", sessionId, "verdict"],

@@ -332,8 +332,10 @@ try {
 
   for (const [screen, selector, filename] of [
     ["dayReview", ".day-review-shell", "06-day-review.png"],
+    ["evidence", ".evidence-grid", "06-evidence-context.png"],
     ["theory", ".theory-builder", "07-theory.png"],
     ["trial", ".trial-shell", "08-trial.png"],
+    ["review", ".deduction-review", "08-deduction-review.png"],
     ["result", ".result-shell", "09-result.png"],
   ]) {
     stage(`checking ${screen} screen`);
