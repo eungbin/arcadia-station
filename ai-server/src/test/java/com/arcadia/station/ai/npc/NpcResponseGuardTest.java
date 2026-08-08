@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 class NpcResponseGuardTest {
 
-    private final NpcResponseGuard guard = new NpcResponseGuard();
+    private final NpcResponseGuard guard = new NpcResponseGuard(new NpcEmotionPolicy());
 
     @Test
     void rejectsEarlySecretDisclosure() {
@@ -26,6 +26,10 @@ class NpcResponseGuardTest {
     }
 
     private NpcTurnContext context(List<String> revealable) {
+        return context(revealable, List.of("CLUE-1"));
+    }
+
+    private NpcTurnContext context(List<String> revealable, List<String> presentedClueIds) {
         return new NpcTurnContext(
                 "session",
                 "SOPHIA",
@@ -33,7 +37,7 @@ class NpcResponseGuardTest {
                 "의무관",
                 List.of("침착함"),
                 "질문",
-                List.of("CLUE-1"),
+                presentedClueIds,
                 List.of(),
                 List.of(new NpcTurnContext.AllowedFact(
                         "FACT-ALLOWED",
@@ -49,7 +53,7 @@ class NpcResponseGuardTest {
     }
 
     @Test
-    void rejectsQuestionLabelNotInServerCandidatePool() {
+    void usesServerQuestionCandidatesInsteadOfDiscardingASafeDialogue() {
         NpcTurnContext context = context(List.of("FACT-ALLOWED"));
         NpcTurnResponse response = new NpcTurnResponse(
                 "답변",
@@ -61,7 +65,27 @@ class NpcResponseGuardTest {
                 )
         );
 
-        assertThat(guard.isAllowed(context, response)).isFalse();
+        assertThat(guard.isAllowed(context, response)).isTrue();
+        assertThat(guard.withCanonicalQuestions(context, response).recommendedQuestions())
+                .extracting(NpcTurnResponse.RecommendedQuestion::label)
+                .containsExactly("첫 질문", "둘째 질문");
+    }
+
+    @Test
+    void keepsAnAllowedRevealWhenOnlyTheEmotionNeedsToBeSoftened() {
+        NpcTurnContext context = context(List.of("FACT-ALLOWED"), List.of());
+        NpcTurnResponse defensive = new NpcTurnResponse(
+                "억울합니다.",
+                NpcTurnResponse.Emotion.DEFENSIVE,
+                List.of("FACT-ALLOWED"),
+                List.of()
+        );
+
+        NpcTurnResponse fallback = guard.safeFallback(context, defensive);
+
+        assertThat(guard.isAllowed(context, defensive)).isFalse();
+        assertThat(fallback.revealedFactIds()).containsExactly("FACT-ALLOWED");
+        assertThat(fallback.emotion()).isEqualTo(NpcTurnResponse.Emotion.CALM);
     }
 
     private NpcTurnResponse response(List<String> facts) {

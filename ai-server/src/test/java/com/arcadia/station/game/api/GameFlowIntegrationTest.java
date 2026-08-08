@@ -180,8 +180,9 @@ class GameFlowIntegrationTest {
                                   "question": "사건 당시 어디에 있었습니까?",
                                   "presentedClueIds": []
                                 }
-                                """))
+                """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.emotion").value("CALM"))
                 .andExpect(jsonPath("$.recommendedQuestions[0].topicId").value("TOPIC-1"));
 
         mockMvc.perform(post(
@@ -195,8 +196,9 @@ class GameFlowIntegrationTest {
                                   "question": "이 기록을 설명해 주세요.",
                                   "presentedClueIds": ["CLUE-SETUP-PANEL"]
                                 }
-                                """))
+                """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.emotion").value("EVASIVE"))
                 .andExpect(jsonPath("$.recommendedQuestions[0].topicId")
                         .value("FOLLOW_UP_EVIDENCE"))
                 .andExpect(jsonPath("$.recommendedQuestions[1].topicId")
